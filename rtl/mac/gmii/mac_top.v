@@ -43,35 +43,10 @@ module mac_top(
     output    [7:0]   rx_tte_fifo_dout,
     input             rx_tteptr_fifo_rd,
 	output    [15:0]  rx_tteptr_fifo_dout,
-    output            rx_tteptr_fifo_empty,
-
-    output    [6:0]   port_addr,
-    output    [15:0]  port_din,
-    output            port_req,
-    input             port_ack,
-
-    input     [31:0]  counter_ns
+    output            rx_tteptr_fifo_empty
     );
 
-parameter   PORT_RX_ADDR = 7'h10;
-parameter   PORT_TX_ADDR = 7'h11;
-parameter   PORT_ER_ADDR = 7'h12;
-parameter   INIT = 0;
-
-wire            time_rst;
-
 wire    [1:0]   speed;        
-
-wire            rx_status_fifo_rd;
-wire    [15:0]  rx_status_fifo_dout;
-wire            rx_status_fifo_empty;
-
-wire            tx_status_fifo_rd;
-wire    [15:0]  tx_status_fifo_dout;
-wire            tx_status_fifo_empty;
-
-wire    [63:0]  counter_ns_tx_delay;
-wire    [63:0]  counter_ns_gtx_delay;
 
 mac_r_gmii_tte u_mac_r_gmii(
     .clk(clk),
@@ -90,13 +65,7 @@ mac_r_gmii_tte u_mac_r_gmii(
     .tte_fifo_dout(rx_tte_fifo_dout),
     .tteptr_fifo_rd(rx_tteptr_fifo_rd),
     .tteptr_fifo_dout(rx_tteptr_fifo_dout),
-    .tteptr_fifo_empty(rx_tteptr_fifo_empty),
-    .status_fifo_rd(rx_status_fifo_rd),
-    .status_fifo_dout(rx_status_fifo_dout),
-    .status_fifo_empty(rx_status_fifo_empty),
-    .counter_ns(counter_ns),
-    .counter_ns_tx_delay(counter_ns_tx_delay),
-    .counter_ns_gtx_delay(counter_ns_gtx_delay)
+    .tteptr_fifo_empty(rx_tteptr_fifo_empty)
     );
 mac_t_gmii_tte u_mac_t_gmii(
     .clk(clk),
@@ -115,13 +84,7 @@ mac_t_gmii_tte u_mac_t_gmii(
     .tdata_fifo_din(tx_tte_fifo_dout),
     .tptr_fifo_rd(tx_tteptr_fifo_rd),
     .tptr_fifo_din(tx_tteptr_fifo_dout),
-    .tptr_fifo_empty(tx_tteptr_fifo_empty),
-    .status_fifo_rd(tx_status_fifo_rd),
-    .status_fifo_dout(tx_status_fifo_dout),
-    .status_fifo_empty(tx_status_fifo_empty),
-    .counter_ns(counter_ns),
-    .counter_ns_tx_delay(counter_ns_tx_delay),
-    .counter_ns_gtx_delay(counter_ns_gtx_delay)
+    .tptr_fifo_empty(tx_tteptr_fifo_empty)
     );
 
 smi_config  #(
@@ -139,37 +102,4 @@ smi_config_inst
 .led                    (led                    )    
 );  
 
-timer#(
-.REF_CLK                (200 ),
-.TIME                   (10  ),
-.INIT                   (INIT)
-)
-timer_port_inst
-(
-.clk                    (clk),
-.rst_n                  (rstn),
-.time_rst               (time_rst)
-);
-
-port2reg    #(
-.PORT_RX_ADDR           (PORT_RX_ADDR),
-.PORT_TX_ADDR           (PORT_TX_ADDR),
-.PORT_ER_ADDR           (PORT_ER_ADDR)    
-)
-port2reg_inst
-(
-.clk                    (clk),
-.rst_n                  (rstn),
-.time_rst               (time_rst),
-.port_addr              (port_addr),
-.port_din               (port_din),
-.port_req               (port_req),
-.port_ack               (port_ack),
-.rx_status_fifo_rd      (rx_status_fifo_rd),
-.rx_status_fifo_dout    (rx_status_fifo_dout),
-.rx_status_fifo_empty   (rx_status_fifo_empty),
-.tx_status_fifo_rd      (tx_status_fifo_rd),
-.tx_status_fifo_dout    (tx_status_fifo_dout),
-.tx_status_fifo_empty   (tx_status_fifo_empty)
-);
 endmodule

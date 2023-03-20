@@ -170,43 +170,7 @@ wire                 emac3_rx_tteptr_fifo_empty;
 
 wire                 clk;
 
-
-wire	[6:0]	port0_addr;
-wire	[15:0]	port0_din;
-wire			port0_req;
-wire			port0_ack;
-
-wire	[6:0]	port1_addr;
-wire	[15:0]	port1_din;
-wire			port1_req;
-wire			port1_ack;
-
-wire	[6:0]	port2_addr;
-wire	[15:0]	port2_din;
-wire			port2_req;
-wire			port2_ack;
-
-wire	[6:0]	port3_addr;
-wire	[15:0]	port3_din;
-wire			port3_req;
-wire			port3_ack;
-
-
-wire    [31:0]  counter_ns;
-
-counter counter_inst(
-.clk                    (clk),
-.rst_n                  (rstn),
-.counter_ns             (counter_ns)
-);
-
-mac_top#(
-.PORT_RX_ADDR	(7'h10),
-.PORT_TX_ADDR	(7'h11),
-.PORT_ER_ADDR	(7'h12),
-.INIT			(0	  )		
-)
-u_mac_top_0
+mac_top u_mac_top_0
 (
     .clk(clk),
     .rstn(rstn),
@@ -250,22 +214,10 @@ u_mac_top_0
     .tx_tte_fifo_dout(emac0_tx_tte_fifo_dout),
     .tx_tteptr_fifo_rd(emac0_tx_tteptr_fifo_rd),
     .tx_tteptr_fifo_dout(emac0_tx_tteptr_fifo_dout),
-    .tx_tteptr_fifo_empty(emac0_tx_tteptr_fifo_empty),
-
-	.port_addr(port0_addr),
-	.port_din(port0_din),
-	.port_req(port0_req),
-	.port_ack(port0_ack),
-	.counter_ns(counter_ns)
+    .tx_tteptr_fifo_empty(emac0_tx_tteptr_fifo_empty)
     );
 
-mac_top#(
-.PORT_RX_ADDR	(7'h13),
-.PORT_TX_ADDR	(7'h14),
-.PORT_ER_ADDR	(7'h15),
-.INIT			(1	  )
-)
-u_mac_top_1(
+mac_top u_mac_top_1(
     .clk(clk),
     .rstn(rstn),
 
@@ -308,22 +260,10 @@ u_mac_top_1(
     .tx_tte_fifo_dout(emac1_tx_tte_fifo_dout),
     .tx_tteptr_fifo_rd(emac1_tx_tteptr_fifo_rd),
     .tx_tteptr_fifo_dout(emac1_tx_tteptr_fifo_dout),
-    .tx_tteptr_fifo_empty(emac1_tx_tteptr_fifo_empty),
-
-	.port_addr(port1_addr),
-	.port_din(port1_din),
-	.port_req(port1_req),
-	.port_ack(port1_ack),
-	.counter_ns(counter_ns)
+    .tx_tteptr_fifo_empty(emac1_tx_tteptr_fifo_empty)
     );
     
-mac_top#(
-.PORT_RX_ADDR	(7'h16),
-.PORT_TX_ADDR	(7'h17),
-.PORT_ER_ADDR	(7'h18),
-.INIT			(2	  )
-)
-u_mac_top_2(
+mac_top u_mac_top_2(
     .clk(clk),
     .rstn(rstn),
 
@@ -366,22 +306,10 @@ u_mac_top_2(
     .tx_tte_fifo_dout(emac2_tx_tte_fifo_dout),
     .tx_tteptr_fifo_rd(emac2_tx_tteptr_fifo_rd),
     .tx_tteptr_fifo_dout(emac2_tx_tteptr_fifo_dout),
-    .tx_tteptr_fifo_empty(emac2_tx_tteptr_fifo_empty),
-
-	.port_addr(port2_addr),
-	.port_din(port2_din),
-	.port_req(port2_req),
-	.port_ack(port2_ack),
-	.counter_ns(counter_ns)
+    .tx_tteptr_fifo_empty(emac2_tx_tteptr_fifo_empty)
     );
     
-mac_top#(
-.PORT_RX_ADDR	(7'h19),
-.PORT_TX_ADDR	(7'h1a),
-.PORT_ER_ADDR	(7'h1b),
-.INIT			(3	  )
-)
-u_mac_top_3(
+mac_top u_mac_top_3(
     .clk(clk),
     .rstn(rstn),
 
@@ -424,13 +352,7 @@ u_mac_top_3(
     .tx_tte_fifo_dout(emac3_tx_tte_fifo_dout),
     .tx_tteptr_fifo_rd(emac3_tx_tteptr_fifo_rd),
     .tx_tteptr_fifo_dout(emac3_tx_tteptr_fifo_dout),
-    .tx_tteptr_fifo_empty(emac3_tx_tteptr_fifo_empty),
-
-	.port_addr(port3_addr),
-	.port_din(port3_din),
-	.port_req(port3_req),
-	.port_ack(port3_ack),
-	.counter_ns(counter_ns)
+    .tx_tteptr_fifo_empty(emac3_tx_tteptr_fifo_empty)
     );
         
 
@@ -719,25 +641,25 @@ reg_ctrl	reg_ctrl_inst(
 	.ttehash_req(ttehash_req),
 	.ttehash_ack(ttehash_ack),
 
-	.port0_req(port0_req),
-	.port0_ack(port0_ack),
-	.port0_addr(port0_addr),
-	.port0_din(port0_din),
+	.port0_req(),
+	.port0_ack(),
+	.port0_addr(),
+	.port0_din(),
 
-	.port1_req(port1_req),
-	.port1_ack(port1_ack),
-	.port1_addr(port1_addr),
-	.port1_din(port1_din),
+	.port1_req(),
+	.port1_ack(),
+	.port1_addr(),
+	.port1_din(),
 
-	.port2_req(port2_req),
-	.port2_ack(port2_ack),
-	.port2_addr(port2_addr),
-	.port2_din(port2_din),
+	.port2_req(),
+	.port2_ack(),
+	.port2_addr(),
+	.port2_din(),
 
-	.port3_req(port3_req),
-	.port3_ack(port3_ack),
-	.port3_addr(port3_addr),
-	.port3_din(port3_din),
+	.port3_req(),
+	.port3_ack(),
+	.port3_addr(),
+	.port3_din(),
 
 	.r_hash_clear(r_hash_clear),
 	.r_hash_update(r_hash_update),
