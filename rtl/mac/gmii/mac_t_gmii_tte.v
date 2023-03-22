@@ -66,9 +66,9 @@ reg             data_fifo_rd_gtx;
 
 
 wire[7:0]   	data_fifo_dout_tx;
-wire[11:0]  	data_fifo_depth_tx;
+(*MARK_DEBUG="true"*) wire[11:0]  	data_fifo_depth_tx;
 wire[7:0]   	data_fifo_dout_gtx;
-wire[11:0]  	data_fifo_depth_gtx;
+(*MARK_DEBUG="true"*) wire[11:0]  	data_fifo_depth_gtx;
 
 
 reg [15:0]  	ptr_fifo_din_1;
@@ -83,20 +83,20 @@ reg             ptr_fifo_rd_gtx;
   
 wire[15:0]  	ptr_fifo_dout_tx;
 wire       		ptr_fifo_full_tx;
-wire       		ptr_fifo_empty_tx;
+(*MARK_DEBUG="true"*) wire       		ptr_fifo_empty_tx;
 
 wire[15:0]  	ptr_fifo_dout_gtx;
 wire       		ptr_fifo_full_gtx;
-wire       		ptr_fifo_empty_gtx;
+(*MARK_DEBUG="true"*) wire       		ptr_fifo_empty_gtx;
 
 
-wire        	bp_tx;
-assign      	bp_tx=ptr_fifo_full_tx | (data_fifo_depth_tx>2566);
+(*MARK_DEBUG="true"*) wire        	bp_tx;
+assign      	bp_tx=ptr_fifo_full_tx | (data_fifo_depth_tx>2552);
 
-wire        	bp_gtx;
-assign      	bp_gtx=ptr_fifo_full_gtx | (data_fifo_depth_gtx>2566);
+(*MARK_DEBUG="true"*) wire        	bp_gtx;
+assign      	bp_gtx=ptr_fifo_full_gtx | (data_fifo_depth_gtx>2552);
 
-wire            bp;
+(*MARK_DEBUG="true"*) wire            bp;
 assign          bp = speed[1]?bp_gtx:bp_tx;
 
 reg [7:0]   	tdata_fifo_din_1;
@@ -135,13 +135,13 @@ wire       		tptr_fifo_full_gtx;
 wire       		tptr_fifo_empty_gtx;
 
 
-wire        	tbp_tx;
+(*MARK_DEBUG="true"*) wire        	tbp_tx;
 assign      	tbp_tx=tptr_fifo_full_tx | (tdata_fifo_depth_tx>2566);
 
-wire        	tbp_gtx;
+(*MARK_DEBUG="true"*) wire        	tbp_gtx;
 assign      	tbp_gtx=tptr_fifo_full_gtx | (tdata_fifo_depth_gtx>2566);
 
-wire            tbp;
+(*MARK_DEBUG="true"*) wire            tbp;
 assign          tbp = speed[1]?tbp_gtx:tbp_tx;
 
 reg [3:0]   state;

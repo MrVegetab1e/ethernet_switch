@@ -71,6 +71,11 @@ wire [3:0]		MC_ram_doutb;
 wire            FQ_act;
 
 
+(*MARK_DEBUG="true"*) wire	dbg_i_data_uf;
+(*MARK_DEBUG="true"*) wire	dbg_i_data_of;
+(*MARK_DEBUG="true"*) wire	dbg_i_ptr_uf;
+(*MARK_DEBUG="true"*) wire	dbg_i_ptr_of;
+
 //============================================  
 //队列控制器反压指示器，任意队列溢出都会使指示器置1
 //============================================  
@@ -88,7 +93,9 @@ sfifo_ft_w128_d256 u_i_cell_fifo(
   .dout(i_cell_data_fifo_dout[127:0]), 
   .full(), 
   .empty(),
-  .data_count(i_cell_data_fifo_depth[8:0])
+  .data_count(i_cell_data_fifo_depth[8:0]),
+  .underflow(dbg_i_data_uf),
+  .overflow(dbg_i_data_of)
 );
 always @(posedge clk) 
 	i_cell_bp<=#2 (i_cell_data_fifo_depth[8:0]>161) | i_cell_ptr_fifo_full;
@@ -102,7 +109,9 @@ sfifo_ft_w16_d32 u_ptr_fifo (
   .dout(i_cell_ptr_fifo_dout), 	// output [15 : 0] dout
   .full(i_cell_ptr_fifo_full), 	// output full
   .empty(i_cell_ptr_fifo_empty),// output empty
-  .data_count() 				// output [5 : 0] data_count
+  .data_count(),				// output [5 : 0] data_count
+  .underflow(dbg_i_ptr_uf),
+  .overflow(dbg_i_ptr_of)
 );
 
 always@(posedge clk or negedge rstn)

@@ -2,6 +2,7 @@
 
 module mac_top(
     input              clk,
+    input              clk_125,
 	input              rstn,
 
     input     [7:0]    GMII_RXD,
@@ -46,7 +47,8 @@ module mac_top(
     output            rx_tteptr_fifo_empty
     );
 
-wire    [1:0]   speed;        
+wire    [1:0]   speed;
+assign          GMII_TX_CLK =   clk_125;        
 
 mac_r_gmii_tte u_mac_r_gmii(
     .clk(clk),
@@ -54,7 +56,7 @@ mac_r_gmii_tte u_mac_r_gmii(
     .rx_clk(GMII_RX_CLK),
     .rx_dv(GMII_RX_DV),
     .gm_rx_d(GMII_RXD),
-    .gtx_clk(GMII_TX_CLK),
+    // .gtx_clk(GMII_TX_CLK),
     .speed(speed),
     .data_fifo_rd(rx_data_fifo_rd),
     .data_fifo_dout(rx_data_fifo_dout),
@@ -71,7 +73,8 @@ mac_t_gmii_tte u_mac_t_gmii(
     .clk(clk),
     .rstn(rstn),
     .tx_clk(MII_TX_CLK),
-    .gtx_clk(GMII_TX_CLK),
+    // .gtx_clk(GMII_TX_CLK),
+    .gtx_clk(clk_125),
     .gtx_dv(GMII_TX_EN),
     .gm_tx_d(GMII_TXD),
     .speed(speed),

@@ -119,7 +119,7 @@ wire    byte_dv;
 assign  byte_dv=nib_cnt[0] | speed[1];
 
 wire    byte_bp;
-assign  byte_bp=(byte_cnt>(MTU+8));
+assign  byte_bp=(byte_cnt>=(MTU+18));
 //============================================  
 //short-term rx_state.   
 //============================================ 
@@ -270,16 +270,16 @@ crc32_8023 u_crc32_8023(
 //============================================  
 //be state.   
 //============================================  
-reg     [12:0]  ram_nibble_be;
+(*MARK_DEBUG="true"*) reg     [12:0]  ram_nibble_be;
 wire    [12:0]  ram_cnt_be;
 reg     [7:0]	data_fifo_din;
 reg             data_fifo_wr;
 reg             data_fifo_wr_reg;
 wire            data_fifo_wr_dv;
-wire    [11:0]  data_fifo_depth;
+(*MARK_DEBUG="true"*) wire    [11:0]  data_fifo_depth;
 reg     [15:0]  ptr_fifo_din;
 reg             ptr_fifo_wr;
-wire            ptr_fifo_full;
+(*MARK_DEBUG="true"*) wire            ptr_fifo_full;
 
 assign  ram_cnt_be = speed[1]?ram_nibble_be:{1'b0,ram_nibble_be[12:1]};
 assign  data_fifo_wr_dv = data_fifo_wr_reg & (ram_nibble_be[0] | speed[1]); 
@@ -302,8 +302,8 @@ always @(posedge rx_clk or negedge rstn)
         data_fifo_din<=#DELAY data_ram_dout;
         end
 
-wire    bp;
-assign  bp=(data_fifo_depth>2578) | ptr_fifo_full;
+(*MARK_DEBUG="true"*) wire    bp;
+assign  bp=(data_fifo_depth>2564) | ptr_fifo_full;
 
 reg     [2:0]   be_state;
 always @(posedge rx_clk  or negedge rstn)
@@ -394,7 +394,7 @@ always @(posedge rx_clk or negedge rstn)
         end
 
 wire    tte_bp;
-assign  tte_bp=(tte_fifo_depth>2578) | tteptr_fifo_full;
+assign  tte_bp=(tte_fifo_depth>2564) | tteptr_fifo_full;
 
 reg     [2:0]   tte_state;
 always @(posedge rx_clk  or negedge rstn)

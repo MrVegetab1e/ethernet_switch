@@ -154,10 +154,10 @@ assign      source_portmap=     (sel==0)?4'b0001:
                                 (sel==1)?4'b0010:
                                 (sel==2)?4'b0100:4'b1000;
 
-(*MARK_DEBUG="true"*) wire  dbg_data_of,
-(*MARK_DEBUG="true"*) wire  dbg_data_uf,
-(*MARK_DEBUG="true"*) wire  dbg_ptr_of,
-(*MARK_DEBUG="true"*) wire  dbg_ptr_uf
+(*MARK_DEBUG="true"*) wire  dbg_data_of;
+(*MARK_DEBUG="true"*) wire  dbg_data_uf;
+(*MARK_DEBUG="true"*) wire  dbg_ptr_of;
+(*MARK_DEBUG="true"*) wire  dbg_ptr_uf;
 
 sfifo_w8_d16k    u_sfifo(
     .clk(clk),
