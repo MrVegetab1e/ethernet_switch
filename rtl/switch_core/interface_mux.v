@@ -153,6 +153,12 @@ assign      rx_data_fifo_dout=  (sel==0)?rx_data_fifo_dout0:
 assign      source_portmap=     (sel==0)?4'b0001:
                                 (sel==1)?4'b0010:
                                 (sel==2)?4'b0100:4'b1000;
+
+(*MARK_DEBUG="true"*) wire  dbg_data_of,
+(*MARK_DEBUG="true"*) wire  dbg_data_uf,
+(*MARK_DEBUG="true"*) wire  dbg_ptr_of,
+(*MARK_DEBUG="true"*) wire  dbg_ptr_uf
+
 sfifo_w8_d16k    u_sfifo(
     .clk(clk),
     .rst(!rstn),
@@ -162,7 +168,9 @@ sfifo_w8_d16k    u_sfifo(
     .dout(sfifo_dout),
 	.full(), 							
 	.empty(), 					
-    .data_count(sfifo_cnt)
+    .data_count(sfifo_cnt),
+    .underflow(dbg_data_uf),
+    .overflow(dbg_data_of)	
     );
 sfifo_w16_d32   u_ptr_sfifo(
     .clk(clk),
@@ -173,7 +181,9 @@ sfifo_w16_d32   u_ptr_sfifo(
     .dout(ptr_sfifo_dout),
     .empty(ptr_sfifo_empty),
     .full(ptr_sfifo_full),
-	.data_count()	
+	.data_count(),
+    .underflow(dbg_ptr_uf),
+    .overflow(dbg_ptr_of)	
     );             
 
 endmodule
