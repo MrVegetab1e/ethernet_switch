@@ -44,7 +44,7 @@ wire  [15:0]  rx_ptr_fifo_dout;
 wire  [7:0]   rx_data_fifo_dout;
 reg          rx_ptr_fifo_rd;
 reg          rx_data_fifo_rd;
-reg   [10:0]  cnt;
+reg   [12:0]  cnt;
 reg   [1:0]   sel;
 reg   [1:0]   RR;
 always@(posedge clk or negedge rstn)begin
@@ -97,7 +97,7 @@ always@(posedge clk or negedge rstn)begin
             state<=#2 2;
             end
 		2:begin
-            cnt<=#2 rx_ptr_fifo_dout[10:0];
+            cnt<=#2 rx_ptr_fifo_dout[12:0];
             error<=#2 rx_ptr_fifo_dout[14]|rx_ptr_fifo_dout[15];
             rx_data_fifo_rd<=#2 1;
             state<=#2 3;

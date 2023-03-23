@@ -56,7 +56,7 @@ input   [15:0]      port3_din,
 output              r_hash_clear,
 output              r_hash_update,
 output  [127:0]     r_flow_mux,
-output  [9:0]       r_hash
+output  [11:0]      r_hash
     );
 parameter DELAY = 2;
 

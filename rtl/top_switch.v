@@ -169,9 +169,7 @@ wire    [15:0]       emac3_rx_tteptr_fifo_dout;
 wire                 emac3_rx_tteptr_fifo_empty;
 
 wire                 clk;
-
-mac_top u_mac_top_0
-(
+mac_top u_mac_top_0(
     .clk(clk),
     .rstn(rstn),
 
@@ -535,7 +533,7 @@ wire  [47:0] tte_se_smac;
 wire         tte_se_req;
 wire         tte_se_ack;
 wire  [15:0] tte_se_result;   
-wire  [9:0]  tte_se_hash;
+wire  [11:0] tte_se_hash;
 wire         tte_se_nak;
 
 wire         tte_bp0;
@@ -574,7 +572,7 @@ tteframe_process u_tteframe_process(
 
 wire	hash_clear;
 wire	hash_update;
-wire	[9:0]	hash;
+wire	[11:0]	hash;
 wire	[119:0]	flow;
 wire	reg_rst;
 
@@ -596,7 +594,7 @@ hash_tte_bucket u_ttehash(
     );
 
 wire	[127:0]	flow_mux;
-wire	[9:0]	hash_mux;
+wire	[11:0]	hash_mux;
 wire	r_hash_clear;
 wire	r_hash_update;
 wire	ttehash_req;
@@ -631,36 +629,13 @@ wire    [15:0]  spi_dout;
 reg_ctrl	reg_ctrl_inst(
     .clk(clk),
 	.rst_n(rstn),
-
 	.spi_req(spi_req),
 	.spi_ack(spi_ack),
+	.ttehash_req(ttehash_req),
+	.ttehash_ack(ttehash_ack),
 	.spi_addr(spi_addr),
 	.spi_din(spi_din),
 	.spi_dout(spi_dout),
-
-	.ttehash_req(ttehash_req),
-	.ttehash_ack(ttehash_ack),
-
-	.port0_req(),
-	.port0_ack(),
-	.port0_addr(),
-	.port0_din(),
-
-	.port1_req(),
-	.port1_ack(),
-	.port1_addr(),
-	.port1_din(),
-
-	.port2_req(),
-	.port2_ack(),
-	.port2_addr(),
-	.port2_din(),
-
-	.port3_req(),
-	.port3_ack(),
-	.port3_addr(),
-	.port3_din(),
-
 	.r_hash_clear(r_hash_clear),
 	.r_hash_update(r_hash_update),
 	.r_flow_mux(flow_mux),
@@ -681,6 +656,7 @@ spi_process    spi_process_inst
 .spi_addr   (spi_addr),
 .reg_din    (spi_din)
 );
+
 
 switch_top tteswitch(
 	.clk(clk),

@@ -34,7 +34,7 @@ output  reg [15:0]  spi_dout,
 output              r_hash_clear,
 output              r_hash_update,
 output  [127:0]     r_flow_mux,
-output  [9:0]       r_hash
+output  [11:0]      r_hash
 );
 
 
@@ -159,8 +159,8 @@ wire    [6:0]   SPI_ADDR = SPI_POINTER_OUT[6:0];
 assign            r_hash_update = TABLE_CTRL_OUT[0];
 assign            r_hash_clear = TABLE_CTRL_OUT[1];
 
-assign            r_flow_mux = {TABLE_ST0_OUT,TABLE_ST1_OUT,TABLE_ST2_OUT,TABLE_ST3_OUT,TABLE_ST4_OUT,TABLE_ST5_OUT,TABLE_ST6_OUT,TABLE_ST7_OUT};
-assign            r_hash = TABLE_HASH_OUT[9:0];
+assign            r_flow_mux = {TABLE_ST7_OUT,TABLE_ST6_OUT,TABLE_ST5_OUT,TABLE_ST4_OUT,TABLE_ST3_OUT,TABLE_ST2_OUT,TABLE_ST1_OUT,TABLE_ST0_OUT};
+assign            r_hash = TABLE_HASH_OUT[11:0];
 //Registers
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
@@ -216,7 +216,7 @@ TABLE_HASH
 
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
-.RESET_VALUE    (DEFAULT_REGISTER_RESET_VALUE)
+.RESET_VALUE    (16'h5040)
 )
 PORT0_RX
 (
@@ -229,7 +229,7 @@ PORT0_RX
 
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
-.RESET_VALUE    (DEFAULT_REGISTER_RESET_VALUE)
+.RESET_VALUE    (16'hd0c0)
 )
 PORT0_TX
 (
@@ -242,7 +242,7 @@ PORT0_TX
 
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
-.RESET_VALUE    (DEFAULT_REGISTER_RESET_VALUE)
+.RESET_VALUE    (16'hf0e0)
 )
 PORT0_ER
 (
@@ -255,7 +255,7 @@ PORT0_ER
 
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
-.RESET_VALUE    (DEFAULT_REGISTER_RESET_VALUE)
+.RESET_VALUE    (16'h5141)
 )
 PORT1_RX
 (
@@ -268,7 +268,7 @@ PORT1_RX
 
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
-.RESET_VALUE    (DEFAULT_REGISTER_RESET_VALUE)
+.RESET_VALUE    (16'hd1c1)
 )
 PORT1_TX
 (
@@ -281,7 +281,7 @@ PORT1_TX
 
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
-.RESET_VALUE    (DEFAULT_REGISTER_RESET_VALUE)
+.RESET_VALUE    (16'hf1e1)
 )
 PORT1_ER
 (
@@ -294,7 +294,7 @@ PORT1_ER
 
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
-.RESET_VALUE    (DEFAULT_REGISTER_RESET_VALUE)
+.RESET_VALUE    (16'h5242)
 )
 PORT2_RX
 (
@@ -307,7 +307,7 @@ PORT2_RX
 
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
-.RESET_VALUE    (DEFAULT_REGISTER_RESET_VALUE)
+.RESET_VALUE    (16'hd2c2)
 )
 PORT2_TX
 (
@@ -320,7 +320,7 @@ PORT2_TX
 
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
-.RESET_VALUE    (DEFAULT_REGISTER_RESET_VALUE)
+.RESET_VALUE    (16'hf2e2)
 )
 PORT2_ER
 (
@@ -333,7 +333,7 @@ PORT2_ER
 
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
-.RESET_VALUE    (DEFAULT_REGISTER_RESET_VALUE)
+.RESET_VALUE    (16'h5343)
 )
 PORT3_RX
 (
@@ -346,7 +346,7 @@ PORT3_RX
 
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
-.RESET_VALUE    (DEFAULT_REGISTER_RESET_VALUE)
+.RESET_VALUE    (16'hd3c3)
 )
 PORT3_TX
 (
@@ -359,7 +359,7 @@ PORT3_TX
 
 register    #(
 .WIDTH          (DEFAULT_REGISTER_WIDTH),
-.RESET_VALUE    (DEFAULT_REGISTER_RESET_VALUE)
+.RESET_VALUE    (16'hf3e3)
 )
 PORT3_ER
 (

@@ -46,9 +46,9 @@ module mac_top(
     output            rx_tteptr_fifo_empty
     );
 
-wire    [1:0]   speed;        
-
-mac_r_gmii_tte u_mac_r_gmii(
+    wire    [1:0]   speed;        
+ 
+mac_r_gmii_tte u_mac_r_gmii_tte(
     .clk(clk),
     .rstn(rstn),
     .rx_clk(GMII_RX_CLK),
@@ -67,7 +67,7 @@ mac_r_gmii_tte u_mac_r_gmii(
     .tteptr_fifo_dout(rx_tteptr_fifo_dout),
     .tteptr_fifo_empty(rx_tteptr_fifo_empty)
     );
-mac_t_gmii_tte u_mac_t_gmii(
+mac_t_gmii_tte u_mac_t_gmii_tte(
     .clk(clk),
     .rstn(rstn),
     .tx_clk(MII_TX_CLK),
@@ -84,7 +84,7 @@ mac_t_gmii_tte u_mac_t_gmii(
     .tdata_fifo_din(tx_tte_fifo_dout),
     .tptr_fifo_rd(tx_tteptr_fifo_rd),
     .tptr_fifo_din(tx_tteptr_fifo_dout),
-    .tptr_fifo_empty(tx_tteptr_fifo_empty)
+    .tptr_fifo_empty(tx_tteptr_fifo_empty)          
     );
 
 smi_config  #(
@@ -101,5 +101,4 @@ smi_config_inst
 .speed                  (speed                  ),
 .led                    (led                    )    
 );  
-
 endmodule

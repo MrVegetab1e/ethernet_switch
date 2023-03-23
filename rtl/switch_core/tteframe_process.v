@@ -31,7 +31,7 @@ input                   ptr_sfifo_empty,
 
 output  reg  [47:0]     se_dmac,
 output  reg  [47:0]     se_smac,
-output  reg  [9:0]      se_hash,
+output  reg  [11:0]     se_hash,   //se_hash<=#2 {source_mac[4:0],desti_mac[6:0]};
 output  reg             se_req,
 input                   se_ack,
 input                   se_nak,
@@ -54,9 +54,6 @@ reg     [10:0]     cnt;
 reg     [3:0]      egress_portmap;
 reg     [11:0]     length;
 reg     [5:0]      pad_cnt;
-
-reg  [15:0]     source_portmap;
-
 always@(posedge clk or negedge rstn)begin
     if(!rstn)begin
         sfifo_rd<=#2 0;
@@ -65,7 +62,6 @@ always@(posedge clk or negedge rstn)begin
         se_smac<=#2 0;
         se_hash<=#2 0;
         se_req<=#2 0;
-        source_portmap<=#2 0;
         sof<=#2 0;
         dv<=#2 0;
         data<=#2 0;
@@ -88,8 +84,7 @@ always@(posedge clk or negedge rstn)begin
             end
         2:begin
             cnt<=#2 ptr_sfifo_dout[10:0];						
-            length<=#2 {1'b0,ptr_sfifo_dout[10:0]};
-            source_portmap<=#2 {12'b0,ptr_sfifo_dout[14:11]};					
+            length<=#2 {1'b0,ptr_sfifo_dout[10:0]};					
             state<=#2 3;
             end
         3:begin
@@ -154,7 +149,7 @@ always@(posedge clk or negedge rstn)begin
             end
         19:begin
             se_req<=#2 1;
-            se_hash<=#2 desti_mac[9:0];
+            se_hash<=#2 {source_mac[4:0],desti_mac[6:0]};
             se_dmac<=#2 desti_mac;
             se_smac<=#2 source_mac;
             state<=#2 20;
@@ -163,15 +158,12 @@ always@(posedge clk or negedge rstn)begin
             if(se_ack)begin
                 se_req<=#2 0;
                 state<=#2 22;
-                egress_portmap<=#2 se_result[3:0]&link&(~source_portmap);
+                egress_portmap<=#2 se_result[3:0]&link;
                 end
-            else if(se_nak)begin
+            if(se_nak)begin
                 se_req<=#2 0;
                 state<=#2 21;
                 egress_portmap<=#2 0;
-                end
-            else begin
-                state<=#2 0;
                 end
             end
         21:begin

@@ -31,14 +31,14 @@ input               rstn,
 //port se signals.
 input       [47:0]  se_dmac,
 input       [47:0]  se_smac, ///用于流表匹配时的源mac地址
-input       [9:0]   se_hash,        
+input       [11:0]  se_hash,        
 input               se_req,
 output  reg         se_ack,
 output  reg         se_nak,
 output  reg [15:0]  se_result,
 input               hash_clear, ///清空ram
 input               hash_update, ////更新ram
-input       [9:0]   hash,
+input       [11:0]  hash,
 input       [119:0] flow,
 output  reg         reg_rst    ////插入流表成功后返回1
 );
@@ -60,17 +60,23 @@ reg     [47:0]  hit_smac;
 
 reg             init;
 reg                 ram_wr;
-reg     [9:0]       ram_addr;     //input [9 : 0] addra
-reg     [119:0]     ram_din;      //input [95 : 0] dina
-wire    [119:0]     ram_dout;     //output [95 : 0] douta
-reg     [119:0]     ram_dout_reg; //output [95 : 0] douta
+reg     [11:0]      ram_addr;     //input  [11 : 0] addra
+reg     [119:0]     ram_din;      //input  [119 : 0] dina
+wire    [119:0]     ram_dout;     //output [119 : 0] douta
+reg     [119:0]     ram_dout_reg; //output [119 : 0] douta
 
 
-parameter   HASH0 = 10'b0100101000;
-parameter   DEST_MAC0 =48'h244bfe586128;
-parameter   SOURCE_MAC0 = 48'h000ec657ff9d;
-parameter   HASH_PORT0 = 16'b0001;
+parameter   HASH0 = 12'b0110_1000_1110;
+parameter   DEST_MAC0 =48'h60beb403060e;
+parameter   SOURCE_MAC0 = 48'h60beb403644d;
+parameter   HASH_PORT0 = 16'b0010;
 parameter   HASH_VALID0 = 8'b10000000;
+
+parameter   HASH1 = 12'b0111_0100_1101;
+parameter   DEST_MAC1 =48'h60beb403644d;
+parameter   SOURCE_MAC1 = 48'h60beb403060e;
+parameter   HASH_PORT1 = 16'b0100;
+parameter   HASH_VALID1 = 8'b10000000;
 
 always @(posedge clk or negedge rstn)
     if(!rstn) begin
@@ -149,7 +155,7 @@ always @(posedge clk or negedge rstn)
                 state<=#2 0;
             end
             6:begin
-                if(ram_addr<10'h3ff) begin
+                if(ram_addr<12'hfff) begin
                     ram_addr<=#2 ram_addr+1;
                     ram_wr<=#2 1;
                 end
@@ -162,6 +168,9 @@ always @(posedge clk or negedge rstn)
                 end
             end
             7:begin
+                ram_addr<=#2 HASH1;   
+                ram_wr<=#2 1;
+                ram_din<=#2 {HASH_VALID1,SOURCE_MAC1,DEST_MAC1,HASH_PORT1};
                 init <=#2 0;
                 state<=#2 0;
             end
@@ -174,12 +183,12 @@ always @(*)begin
 assign item_valid=ram_dout_reg[119];
 
 
-sram_w120_d1k u_sram_0 (
+sram_w120_d4k u_sram_0 (
   .clka(clk),           // input clka
-  .wea(ram_wr),       // input [0 : 0] wea
-  .addra(ram_addr),   // input [9 : 0] addra
-  .dina(ram_din),     // input [79 : 0] dina
-  .douta(ram_dout)    // output [79 : 0] douta
+  .wea(ram_wr),       // input  [0 : 0] wea
+  .addra(ram_addr),   // input  [11 : 0] addra
+  .dina(ram_din),     // input  [119 : 0] dina
+  .douta(ram_dout)    // output [119 : 0] douta
 );
 
 endmodule
