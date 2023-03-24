@@ -1,38 +1,18 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 2022/06/30 22:00:40
-// Design Name: 
-// Module Name: tteframe_process
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Revision 1.00 - Timing Optimization
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
-
-module tteframe_process(
+// Retimed to accommodate new fifo with extra output register
+module frame_process_retime(
 input                	clk,
 input                   rstn,
-output  reg             sfifo_rd,
-input        [7:0]      sfifo_dout,
+(*MARK_DEBUG="true"*) output  reg             sfifo_rd,
+(*MARK_DEBUG="true"*) input        [7:0]      sfifo_dout,
 output  reg             ptr_sfifo_rd,
 input        [15:0]     ptr_sfifo_dout,
 input                   ptr_sfifo_empty,
 
-output  reg  [47:0]     se_dmac,
-output  reg  [47:0]     se_smac,
+output  reg  [47:0]     se_mac,
+output  reg  [15:0]     source_portmap,
 output  reg  [9:0]      se_hash,
+output  reg             se_source,
 output  reg             se_req,
 input                   se_ack,
 input                   se_nak,
@@ -49,22 +29,18 @@ output  reg  [7:0]      data
 );
 reg     [47:0]     source_mac;
 reg     [47:0]     desti_mac;
-reg     [15:0]     length_type;
-// reg     [15:0]     len_tgt_combo; 
-reg     [5:0]      state;
+reg     [15:0]     length_type; 
+(*MARK_DEBUG="true"*) reg     [5:0]      state;
 reg     [10:0]     cnt;
 reg     [3:0]      egress_portmap;
 reg     [11:0]     length;
 reg     [5:0]      pad_cnt;
-
-reg  [15:0]     source_portmap;
-
+reg				   broadcast;
 always@(posedge clk or negedge rstn)begin
     if(!rstn)begin
         sfifo_rd<=#2 0;
         ptr_sfifo_rd<=#2 0;
-        se_dmac<=#2 0;
-        se_smac<=#2 0;
+        se_mac<=#2 0;
         se_hash<=#2 0;
         se_req<=#2 0;
         source_portmap<=#2 0;
@@ -73,25 +49,28 @@ always@(posedge clk or negedge rstn)begin
         data<=#2 0;
         state<=#2 0;
         cnt<=#2 0;
+		se_source<=#2 0;
+		broadcast<=#2 0;
         end
     else  begin
         case(state)
         0:begin
             dv<=#2 0;
             if(!ptr_sfifo_empty)begin
-                ptr_sfifo_rd<=#2 1;   	
+                ptr_sfifo_rd<=#2 1;  
+                sfifo_rd<=#2 1; 	
                 state<=#2 1;         	
                 end
             end
         1:begin
             ptr_sfifo_rd<=#2 0;
-            sfifo_rd<=#2 1;	
+            // sfifo_rd<=#2 1;	
             state<=#2 2;
             end
         2:begin
             cnt<=#2 ptr_sfifo_dout[10:0];						
-            length<=#2 {1'b0,ptr_sfifo_dout[10:0]};
-            source_portmap<=#2 {12'b0,ptr_sfifo_dout[14:11]};					
+            length<=#2 {1'b0,ptr_sfifo_dout[10:0]};				
+            source_portmap<=#2 {12'b0,ptr_sfifo_dout[14:11]};	
             state<=#2 3;
             end
         3:begin
@@ -164,64 +143,62 @@ always@(posedge clk or negedge rstn)begin
         14:begin
             source_mac[7:0]<=#2 sfifo_dout[7:0];
             source_mac[47:8]<=#2 source_mac[39:0];
+            sfifo_rd<=#2 0;
             state<=#2 15;
             end
         15:begin
             // length_type[15:8]<=#2 sfifo_dout[7:0];
             length_type[7:0]<=#2 sfifo_dout[7:0];
             length_type[15:8]<=#2 length_type[7:0];
-            sfifo_rd<=#2 0;
+            // sfifo_rd<=#2 0;
             state<=#2 16;
             end
         16:begin
             length_type[7:0]<=#2 sfifo_dout[7:0];
             length_type[15:8]<=#2 length_type[7:0];
             cnt<=#2 cnt-14;
+			if(desti_mac==48'hff_ff_ff_ff_ff_ff) broadcast<=#2 1;
+			else broadcast<=#2 0;
             state<=#2 19;
             end
         19:begin
+            se_source<=#2 1;
+            se_mac<=#2 source_mac;
+            se_hash<=#2 source_mac[9:0];
             se_req<=#2 1;
-            se_hash<=#2 desti_mac[9:0];
-            se_dmac<=#2 desti_mac;
-            se_smac<=#2 source_mac;
             state<=#2 20;
             end
         20:begin
-            if(se_ack)begin
-                se_req<=#2 0;
-                state<=#2 22;
-                egress_portmap<=#2 se_result[3:0]&link&(~source_portmap);
-                // len_tgt_combo <= {length[11:8], egress_portmap[3:0], length[7:0]}; 
-                end
-            else if(se_nak)begin
-                se_req<=#2 0;
+            if(se_ack|se_nak)begin
+                se_source<=#2 0;
+                se_hash<=#2 desti_mac[9:0];
+                se_mac<=#2 desti_mac;
                 state<=#2 21;
-                egress_portmap<=#2 0;
-                // len_tgt_combo <= {length[11:8], 4'b0, length[7:0]}; 
-                end
-            else begin
-                state<=#2 0;
                 end
             end
         21:begin
-            data<=#2 {length[11:8],egress_portmap[3:0]}; 
-            // data<=len_tgt_combo[15:8];
-            // len_tgt_combo<=len_tgt_combo << 8;
-            dv<=#2 0;
-            sof<=#2 0;  
-            state<=#2 23;
+            if(se_ack)begin
+                se_req<=#2 0;
+                state<=#2 22;
+                egress_portmap<=#2 se_result[3:0]&link;
+                end
+            if(se_nak | broadcast)begin
+                se_req<=#2 0;
+                state<=#2 22;
+                // egress_portmap<=#2 ((source_portmap==15'd1)?4'b1110:
+                //                 (source_portmap==15'd2)?4'b1101:
+                //                 (source_portmap==15'd4)?4'b1011:4'b0111)&link;
+                egress_portmap<=#2 (~source_portmap & link);
+                end
             end
         22:begin
             data<=#2 {length[11:8],egress_portmap[3:0]};  
-            // data<=len_tgt_combo[15:8];
-            // len_tgt_combo<=len_tgt_combo << 8;
             dv<=#2 1;
             sof<=#2 1;  
             state<=#2 23;
             end
         23:begin
             data<=#2 length[7:0];
-            // data<=len_tgt_combo[15:8];
             state<=#2 24;
             sof<=#2 0;
             end
@@ -293,13 +270,15 @@ always@(posedge clk or negedge rstn)begin
             // data<=#2 source_mac[7:0];
             data<=#2 source_mac[47:40];
             source_mac<=#2 source_mac << 8;
+            sfifo_rd<=#2 1;
             state<=#2 36;
             end
         36:begin
             data<=#2 length_type[15:8];
             length_type<=#2 length_type << 8;
+            cnt<=#2 cnt-1;
             state<=#2 37;
-            sfifo_rd<=#2 1;
+            // sfifo_rd<=#2 1;
             end
         37:begin
             // data<=#2 length_type[7:0];
@@ -320,7 +299,11 @@ always@(posedge clk or negedge rstn)begin
             data<=#2 sfifo_dout;
 			state<=#2 40;
 			end
-		40:begin
+        40: begin
+            data<=#2 sfifo_dout;
+			state<=#2 41;
+			end
+		41:begin
             data<=#2 0;
             if(pad_cnt==6'd63)begin
 				dv<=#2 0;
@@ -328,10 +311,10 @@ always@(posedge clk or negedge rstn)begin
 				end
 			else begin
                 data<=#2 0;
-				state<=#2 41;
+				state<=#2 42;
                 end
             end
-		41:begin
+		42:begin
 			if(pad_cnt>0) begin
 				// data<=#2 data+1;
 				pad_cnt<=#2 pad_cnt-1;

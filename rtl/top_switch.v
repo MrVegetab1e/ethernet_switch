@@ -461,7 +461,7 @@ wire  		 bp1;
 wire		 bp2;
 wire         bp3;
 
-frame_process u_frame_process(
+frame_process_retime u_frame_process(
     .clk(clk),
 	.rstn(rstn),
 	.sfifo_dout(sfifo_dout),
@@ -551,7 +551,7 @@ wire  		 tte_bp1;
 wire		 tte_bp2;
 wire         tte_bp3;
 
-tteframe_process u_tteframe_process(
+tteframe_process_retime u_tteframe_process(
     .clk(clk),
 	.rstn(rstn),
 	.sfifo_dout(tte_sfifo_dout),

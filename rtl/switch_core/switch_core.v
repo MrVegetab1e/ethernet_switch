@@ -39,7 +39,10 @@ reg				i_cell_first;
 reg  [15:0]		FQ_din;		
 reg				FQ_wr;
 reg				FQ_rd;
-reg  [9:0]		FQ_dout;	
+reg  [9:0]		FQ_dout;
+wire [9:0]		FQ_count;
+wire			FQ_alloc;				//check FQ depth before initiate writing
+assign 			FQ_alloc = |(FQ_count[9:6]) || (i_cell_ptr_fifo_dout[5:0] > FQ_count[5:0]);
 
 reg	 [1:0]		sram_cnt_a;	
 reg	 [1:0]		sram_cnt_b;
@@ -71,10 +74,10 @@ wire [3:0]		MC_ram_doutb;
 wire            FQ_act;
 
 
-(*MARK_DEBUG="true"*) wire	dbg_i_data_uf;
-(*MARK_DEBUG="true"*) wire	dbg_i_data_of;
-(*MARK_DEBUG="true"*) wire	dbg_i_ptr_uf;
-(*MARK_DEBUG="true"*) wire	dbg_i_ptr_of;
+wire	dbg_i_data_uf;
+wire	dbg_i_data_of;
+wire	dbg_i_ptr_uf;
+wire	dbg_i_ptr_of;
 
 //============================================  
 //队列控制器反压指示器，任意队列溢出都会使指示器置1
@@ -142,7 +145,9 @@ always@(posedge clk or negedge rstn)
 			sram_cnt_a<=#2  0;
 			i_cell_last<=#2 0;
 			i_cell_first<=#2 0;
-			if(!i_cell_ptr_fifo_empty & !qc_ptr_full & !FQ_empty & FQ_act)begin
+			// if(!i_cell_ptr_fifo_empty & !qc_ptr_full & !FQ_empty & FQ_act)begin
+			// bug fixed version, check for FQ depth before continue
+			if(!i_cell_ptr_fifo_empty && !qc_ptr_full && FQ_alloc && FQ_act)begin
 				i_cell_data_fifo_rd<=#2  1;
 				i_cell_ptr_fifo_rd<=#2  1;
 				qc_portmap<=#2 i_cell_ptr_fifo_dout[11:8];
@@ -324,7 +329,8 @@ multi_user_fq u_fq (
 	.FQ_rd(FQ_rd), 
 	.ptr_dout_s(ptr_dout_s), 
 	.ptr_fifo_empty(FQ_empty),
-	.FQ_act(FQ_act)
+	.FQ_act(FQ_act),
+	.FQ_count(FQ_count)
 );
 
 dpsram_w4_d512 u_MC_dpram (

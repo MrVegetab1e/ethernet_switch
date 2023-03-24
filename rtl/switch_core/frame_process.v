@@ -2,8 +2,8 @@
 module frame_process(
 input                	clk,
 input                   rstn,
-output  reg             sfifo_rd,
-input        [7:0]      sfifo_dout,
+(*MARK_DEBUG="true"*) output  reg             sfifo_rd,
+(*MARK_DEBUG="true"*) input        [7:0]      sfifo_dout,
 output  reg             ptr_sfifo_rd,
 input        [15:0]     ptr_sfifo_dout,
 input                   ptr_sfifo_empty,
@@ -73,61 +73,86 @@ always@(posedge clk or negedge rstn)begin
             end
         3:begin
 			length<=#2 length+2;	
-			desti_mac[47:40]<=#2 sfifo_dout[7:0];
+			// desti_mac[47:40]<=#2 sfifo_dout[7:0];
+            desti_mac[7:0]<=#2 sfifo_dout[7:0];
+            desti_mac[47:8]<=#2 desti_mac[39:0];
             state<=#2 4;
             end
         4:begin
 			pad_cnt<=#2 ~length[5:0];	
-			desti_mac[39:32]<=#2 sfifo_dout[7:0];
+			// desti_mac[39:32]<=#2 sfifo_dout[7:0];
+            desti_mac[7:0]<=#2 sfifo_dout[7:0];
+            desti_mac[47:8]<=#2 desti_mac[39:0];
             state<=#2 5;
             end
         5:begin
-            desti_mac[31:24]<=#2 sfifo_dout[7:0];
+            // desti_mac[31:24]<=#2 sfifo_dout[7:0];
+            desti_mac[7:0]<=#2 sfifo_dout[7:0];
+            desti_mac[47:8]<=#2 desti_mac[39:0];
             state<=#2 6;
             end
         6:begin
-            desti_mac[23:16]<=#2 sfifo_dout[7:0];
+            // desti_mac[23:16]<=#2 sfifo_dout[7:0];
+            desti_mac[7:0]<=#2 sfifo_dout[7:0];
+            desti_mac[47:8]<=#2 desti_mac[39:0];
             state<=#2 7;
             end
         7:begin
-            desti_mac[15:8]<=#2 sfifo_dout[7:0];
+            // desti_mac[15:8]<=#2 sfifo_dout[7:0];
+            desti_mac[7:0]<=#2 sfifo_dout[7:0];
+            desti_mac[47:8]<=#2 desti_mac[39:0];
             state<=#2 8;
             end
         8:begin
             desti_mac[7:0]<=#2 sfifo_dout[7:0];
+            desti_mac[47:8]<=#2 desti_mac[39:0];
             state<=#2 9;
             end
         9:begin
-            source_mac[47:40]<=#2 sfifo_dout[7:0];
+            // source_mac[47:40]<=#2 sfifo_dout[7:0];
+            source_mac[7:0]<=#2 sfifo_dout[7:0];
+            source_mac[47:8]<=#2 source_mac[39:0];
             state<=#2 10;
             end
         10:begin
-            source_mac[39:32]<=#2 sfifo_dout[7:0];
+            // source_mac[39:32]<=#2 sfifo_dout[7:0];
+            source_mac[7:0]<=#2 sfifo_dout[7:0];
+            source_mac[47:8]<=#2 source_mac[39:0];
             state<=#2 11;
             end
         11:begin
-            source_mac[31:24]<=#2 sfifo_dout[7:0];
+            // source_mac[31:24]<=#2 sfifo_dout[7:0];
+            source_mac[7:0]<=#2 sfifo_dout[7:0];
+            source_mac[47:8]<=#2 source_mac[39:0];
             state<=#2 12;
             end
         12:begin
-            source_mac[23:16]<=#2 sfifo_dout[7:0];
+            // source_mac[23:16]<=#2 sfifo_dout[7:0];
+            source_mac[7:0]<=#2 sfifo_dout[7:0];
+            source_mac[47:8]<=#2 source_mac[39:0];
             state<=#2 13;
             end
         13:begin
-            source_mac[15:8]<=#2 sfifo_dout[7:0];
+            // source_mac[15:8]<=#2 sfifo_dout[7:0];
+            source_mac[7:0]<=#2 sfifo_dout[7:0];
+            source_mac[47:8]<=#2 source_mac[39:0];
             state<=#2 14;
             end
         14:begin
             source_mac[7:0]<=#2 sfifo_dout[7:0];
+            source_mac[47:8]<=#2 source_mac[39:0];
             state<=#2 15;
             end
         15:begin
-            length_type[15:8]<=#2 sfifo_dout[7:0];
+            // length_type[15:8]<=#2 sfifo_dout[7:0];
+            length_type[7:0]<=#2 sfifo_dout[7:0];
+            length_type[15:8]<=#2 length_type[7:0];
             sfifo_rd<=#2 0;
             state<=#2 16;
             end
         16:begin
             length_type[7:0]<=#2 sfifo_dout[7:0];
+            length_type[15:8]<=#2 length_type[7:0];
             cnt<=#2 cnt-14;
 			if(desti_mac==48'hff_ff_ff_ff_ff_ff) broadcast<=#2 1;
 			else broadcast<=#2 0;
@@ -157,9 +182,10 @@ always@(posedge clk or negedge rstn)begin
             if(se_nak | broadcast)begin
                 se_req<=#2 0;
                 state<=#2 22;
-                egress_portmap<=#2 ((source_portmap==15'd1)?4'b1110:
-                                (source_portmap==15'd2)?4'b1101:
-                                (source_portmap==15'd4)?4'b1011:4'b0111)&link;
+                // egress_portmap<=#2 ((source_portmap==15'd1)?4'b1110:
+                //                 (source_portmap==15'd2)?4'b1101:
+                //                 (source_portmap==15'd4)?4'b1011:4'b0111)&link;
+                egress_portmap<=#2 (~source_portmap & link);
                 end
             end
         22:begin
@@ -175,59 +201,83 @@ always@(posedge clk or negedge rstn)begin
             end
         24:begin
             data<=#2 desti_mac[47:40];
+            desti_mac<=#2 desti_mac << 8;
             state<=#2 25;
             end
         25:begin
-            data<=#2 desti_mac[39:32];
+            // data<=#2 desti_mac[39:32];
+            data<=#2 desti_mac[47:40];
+            desti_mac<=#2 desti_mac << 8;
             state<=#2 26;
             end
         26:begin
-            data<=#2 desti_mac[31:24];
+            // data<=#2 desti_mac[31:24];
+            data<=#2 desti_mac[47:40];
+            desti_mac<=#2 desti_mac << 8;
             state<=#2 27;
             end
         27:begin
-            data<=#2 desti_mac[23:16];
+            // data<=#2 desti_mac[23:16];
+            data<=#2 desti_mac[47:40];
+            desti_mac<=#2 desti_mac << 8;
             state<=#2 28;
             end
         28:begin
-            data<=#2 desti_mac[15:8];
+            // data<=#2 desti_mac[15:8];
+            data<=#2 desti_mac[47:40];
+            desti_mac<=#2 desti_mac << 8;
             state<=#2 29; 
             end
         29:begin
-            data<=#2 desti_mac[7:0];
+            // data<=#2 desti_mac[7:0];
+            data<=#2 desti_mac[47:40];
+            desti_mac<=#2 desti_mac << 8;
             state<=#2 30;
             end
         30:begin
             data<=#2 source_mac[47:40];
+            source_mac<=#2 source_mac << 8;
             state<=#2 31;
             end
         31:begin
-            data<=#2 source_mac[39:32];
+            // data<=#2 source_mac[39:32];
+            data<=#2 source_mac[47:40];
+            source_mac<=#2 source_mac << 8;
             state<=#2 32;
             end 
         32:begin
-            data<=#2 source_mac[31:24];
+            // data<=#2 source_mac[31:24];
+            data<=#2 source_mac[47:40];
+            source_mac<=#2 source_mac << 8;
             state<=#2 33;
             end
         33:begin
-            data<=#2 source_mac[23:16];
+            // data<=#2 source_mac[23:16];
+            data<=#2 source_mac[47:40];
+            source_mac<=#2 source_mac << 8;
             state<=#2 34;
             end
         34:begin
-            data<=#2 source_mac[15:8];
+            // data<=#2 source_mac[15:8];
+            data<=#2 source_mac[47:40];
+            source_mac<=#2 source_mac << 8;
             state<=#2 35;
             end
         35:begin
-            data<=#2 source_mac[7:0];
+            // data<=#2 source_mac[7:0];
+            data<=#2 source_mac[47:40];
+            source_mac<=#2 source_mac << 8;
             state<=#2 36;
             end
         36:begin
             data<=#2 length_type[15:8];
+            length_type<=#2 length_type << 8;
             state<=#2 37;
             sfifo_rd<=#2 1;
             end
         37:begin
-            data<=#2 length_type[7:0];
+            // data<=#2 length_type[7:0];
+            data<=#2 length_type[15:8];
             cnt<=#2 cnt-1;
             state<=#2 38;
             end
@@ -257,7 +307,7 @@ always@(posedge clk or negedge rstn)begin
             end
 		41:begin
 			if(pad_cnt>0) begin
-				data<=#2 data+1;
+				// data<=#2 data+1;
 				pad_cnt<=#2 pad_cnt-1;
 				end
 			else begin

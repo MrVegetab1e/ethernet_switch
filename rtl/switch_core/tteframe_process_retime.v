@@ -21,10 +21,10 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module tteframe_process(
+module tteframe_process_retime(
 input                	clk,
 input                   rstn,
-output  reg             sfifo_rd,
+(*MARK_DEBUG="true"*) output  reg             sfifo_rd,
 input        [7:0]      sfifo_dout,
 output  reg             ptr_sfifo_rd,
 input        [15:0]     ptr_sfifo_dout,
@@ -50,8 +50,7 @@ output  reg  [7:0]      data
 reg     [47:0]     source_mac;
 reg     [47:0]     desti_mac;
 reg     [15:0]     length_type;
-// reg     [15:0]     len_tgt_combo; 
-reg     [5:0]      state;
+(*MARK_DEBUG="true"*) reg     [5:0]      state;
 reg     [10:0]     cnt;
 reg     [3:0]      egress_portmap;
 reg     [11:0]     length;
@@ -80,12 +79,13 @@ always@(posedge clk or negedge rstn)begin
             dv<=#2 0;
             if(!ptr_sfifo_empty)begin
                 ptr_sfifo_rd<=#2 1;   	
+                sfifo_rd<=#2 1;	
                 state<=#2 1;         	
                 end
             end
         1:begin
             ptr_sfifo_rd<=#2 0;
-            sfifo_rd<=#2 1;	
+            // sfifo_rd<=#2 1;	
             state<=#2 2;
             end
         2:begin
@@ -164,13 +164,14 @@ always@(posedge clk or negedge rstn)begin
         14:begin
             source_mac[7:0]<=#2 sfifo_dout[7:0];
             source_mac[47:8]<=#2 source_mac[39:0];
+            sfifo_rd<=#2 0;
             state<=#2 15;
             end
         15:begin
             // length_type[15:8]<=#2 sfifo_dout[7:0];
             length_type[7:0]<=#2 sfifo_dout[7:0];
             length_type[15:8]<=#2 length_type[7:0];
-            sfifo_rd<=#2 0;
+            // sfifo_rd<=#2 0;
             state<=#2 16;
             end
         16:begin
@@ -293,13 +294,15 @@ always@(posedge clk or negedge rstn)begin
             // data<=#2 source_mac[7:0];
             data<=#2 source_mac[47:40];
             source_mac<=#2 source_mac << 8;
+            sfifo_rd<=#2 1;
             state<=#2 36;
             end
         36:begin
             data<=#2 length_type[15:8];
             length_type<=#2 length_type << 8;
+            cnt<=#2 cnt-1;
             state<=#2 37;
-            sfifo_rd<=#2 1;
+            // sfifo_rd<=#2 1;
             end
         37:begin
             // data<=#2 length_type[7:0];
@@ -320,7 +323,11 @@ always@(posedge clk or negedge rstn)begin
             data<=#2 sfifo_dout;
 			state<=#2 40;
 			end
-		40:begin
+        40: begin
+            data<=#2 sfifo_dout;
+			state<=#2 41;
+			end
+		41:begin
             data<=#2 0;
             if(pad_cnt==6'd63)begin
 				dv<=#2 0;
@@ -328,10 +335,10 @@ always@(posedge clk or negedge rstn)begin
 				end
 			else begin
                 data<=#2 0;
-				state<=#2 41;
+				state<=#2 42;
                 end
             end
-		41:begin
+		42:begin
 			if(pad_cnt>0) begin
 				// data<=#2 data+1;
 				pad_cnt<=#2 pad_cnt-1;

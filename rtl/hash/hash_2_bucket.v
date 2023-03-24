@@ -11,12 +11,12 @@ input               clk,
 input               rstn,
 //port se signals.
 input               se_source,
-input       [47:0]  se_mac,
+(*MARK_DEBUG="true"*) input       [47:0]  se_mac,
 input       [15:0]  se_portmap,
 input       [9:0]   se_hash,        
-input               se_req,
-output  reg         se_ack,
-output  reg         se_nak,
+(*MARK_DEBUG="true"*) input               se_req,
+(*MARK_DEBUG="true"*) output  reg         se_ack,
+(*MARK_DEBUG="true"*) output  reg         se_nak,
 output  reg [15:0]  se_result,
 input               aging_req,  
 output  reg         aging_ack   
@@ -26,10 +26,12 @@ parameter   LIVE_TH=10'd150;
 //======================================
 //              main state.
 //======================================
-reg     [3:0]   state;
+(*MARK_DEBUG="true"*) reg     [3:0]   state;
 reg             clear_op;
-reg             hit0;
-reg             hit1;
+(*MARK_DEBUG="true"*) reg     [2:0]   hit0;
+(*MARK_DEBUG="true"*) reg     [2:0]   hit1;
+reg             hit0_0, hit0_1;
+reg             hit1_0, hit1_1;
 //======================================
 //              one cycle for state1.
 //======================================
@@ -44,15 +46,17 @@ wire            not_outlive_1;
 reg             ram_wr_0;
 reg     [9:0]   ram_addr_0;     //input [11 : 0] addra
 reg     [79:0]  ram_din_0;      //input [95 : 0] dina
-wire    [79:0]  ram_dout_0;     //output [95 : 0] douta
+(*MARK_DEBUG="true"*) wire    [79:0]  ram_dout_0;     //output [95 : 0] douta
 reg     [79:0]  ram_dout_0_reg; //output [95 : 0] douta
 reg             ram_wr_1;
 reg     [9:0]   ram_addr_1;     //input [11 : 0] addra
 reg     [79:0]  ram_din_1;      //input [95 : 0] dina
-wire    [79:0]  ram_dout_1;     //output [95 : 0] douta
+(*MARK_DEBUG="true"*) wire    [79:0]  ram_dout_1;     //output [95 : 0] douta
 reg     [79:0]  ram_dout_1_reg; //output [95 : 0] douta
 reg     [9:0]   aging_addr;
-reg     [47:0]  hit_mac;
+// reg     [47:0]  hit_mac;
+reg     [47:0]  hit_mac_0;
+reg     [47:0]  hit_mac_1;
 always @(posedge clk or negedge rstn)
     if(!rstn)begin
         state<=#2 0;
@@ -68,8 +72,12 @@ always @(posedge clk or negedge rstn)
         se_result<=#2 0;
         aging_ack<=#2 0;
         aging_addr<=#2 0;
-        hit_mac<=#2 0;
+        // hit_mac<=#2 0;
+        hit_mac_0<=#2 0;
+        hit_mac_1<=#2 0;
         count<=#2 0;
+        hit0<=#2 0;
+        hit1<=#2 0;
         end
     else begin
         ram_dout_0_reg<=#2 ram_dout_0;  
@@ -93,7 +101,9 @@ always @(posedge clk or negedge rstn)
             else if(se_req) begin
                 ram_addr_0<=#2 se_hash;
                 ram_addr_1<=#2 se_hash;
-                hit_mac   <=#2 se_mac;
+                // hit_mac   <=#2 se_mac;
+                hit_mac_0 <=#2 se_mac;
+                hit_mac_1 <=#2 se_mac;
                 count     <=#2 0;
                 state   <=#2 1;
                 end
@@ -121,13 +131,16 @@ always @(posedge clk or negedge rstn)
         2:begin
             if(se_source) state<=#2 3;
             else state<=#2 6;
+            hit0<=#2 {ram_dout_0[79], hit0_0, hit0_1};
+            hit1<=#2 {ram_dout_1[79], hit1_0, hit1_1};
             end
         3:begin
             //=====================================================
             //if no entry is matched(still valid), should add new 
             //entry.
             //=====================================================
-            if({hit1,hit0}==2'b00) state<=#2 4;
+            // if({hit1,hit0}==2'b00) state<=#2 4;
+            if({&(hit1), &(hit0)}==2'b0) state<=#2 4;
             //=====================================================
             //if an entry is existed and old entry should be refreshed.
             //=====================================================
@@ -159,7 +172,8 @@ always @(posedge clk or negedge rstn)
             end
         5:begin
             state<=#2 14;
-            case({hit1,hit0})
+            // case({hit1,hit0})
+            case({&(hit1), &(hit0)})
             2'b01: begin
                 se_nak<=#2 0;
                 se_ack<=#2 1;
@@ -182,7 +196,8 @@ always @(posedge clk or negedge rstn)
             end
         6:begin
             state<=#2 14;
-            case({hit1,hit0})
+            // case({hit1,hit0})
+            case({&(hit1), &(hit0)})
             2'b00: begin
                 se_ack<=#2 0;
                 se_nak<=#2 1;
@@ -239,6 +254,8 @@ always @(posedge clk or negedge rstn)
             end 
         14:begin
             state<=#2 0;
+            hit0<=#2 0;
+            hit1<=#2 0;
             end
         15:begin
             if(ram_addr_0<10'h3ff) begin
@@ -262,11 +279,15 @@ always @(posedge clk or negedge rstn)
         end
 
 always @(*)begin
-    hit0=(hit_mac==ram_dout_0_reg[63:16])& ram_dout_0_reg[79];          
-    hit1=(hit_mac==ram_dout_1_reg[63:16])& ram_dout_1_reg[79];          
+    // hit0=(hit_mac==ram_dout_0_reg[63:16])& ram_dout_0_reg[79];          
+    // hit1=(hit_mac==ram_dout_1_reg[63:16])& ram_dout_1_reg[79];          
+    hit0_0=(hit_mac_0[0+:24]==ram_dout_0[16+:24]);
+    hit0_1=(hit_mac_0[24+:24]==ram_dout_0[40+:24]);
+    hit1_0=(hit_mac_1[0+:24]==ram_dout_1[16+:24]);
+    hit1_1=(hit_mac_1[24+:24]==ram_dout_1[40+:24]);
     end
-assign item_valid0=ram_dout_0_reg[79];
-assign item_valid1=ram_dout_1_reg[79];
+(*MARK_DEBUG="true"*) assign item_valid0=ram_dout_0_reg[79];
+(*MARK_DEBUG="true"*) assign item_valid1=ram_dout_1_reg[79];
 assign live_time0=ram_dout_0_reg[73:64];
 assign live_time1=ram_dout_1_reg[73:64];
 assign not_outlive_0=(live_time0>0)?1:0;

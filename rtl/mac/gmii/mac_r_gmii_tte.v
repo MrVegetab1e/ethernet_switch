@@ -31,11 +31,11 @@ output              gtx_clk,
 
 input       [1:0]   speed,  //ethernet speed 00:10M 01:100M 10:1000M
 
-input               data_fifo_rd,
+(*MARK_DEBUG="true"*) input               data_fifo_rd,
 output      [7:0]   data_fifo_dout,
-input               ptr_fifo_rd, 
+(*MARK_DEBUG="true"*) input               ptr_fifo_rd, 
 output      [15:0]  ptr_fifo_dout,
-output              ptr_fifo_empty,
+(*MARK_DEBUG="true"*) output              ptr_fifo_empty,
 input               tte_fifo_rd,
 output      [7:0]   tte_fifo_dout,
 input               tteptr_fifo_rd, 
@@ -270,16 +270,16 @@ crc32_8023 u_crc32_8023(
 //============================================  
 //be state.   
 //============================================  
-(*MARK_DEBUG="true"*) reg     [12:0]  ram_nibble_be;
+reg     [12:0]  ram_nibble_be;
 wire    [12:0]  ram_cnt_be;
 reg     [7:0]	data_fifo_din;
 reg             data_fifo_wr;
 reg             data_fifo_wr_reg;
 wire            data_fifo_wr_dv;
-(*MARK_DEBUG="true"*) wire    [11:0]  data_fifo_depth;
+wire    [11:0]  data_fifo_depth;
 reg     [15:0]  ptr_fifo_din;
 reg             ptr_fifo_wr;
-(*MARK_DEBUG="true"*) wire            ptr_fifo_full;
+wire            ptr_fifo_full;
 
 assign  ram_cnt_be = speed[1]?ram_nibble_be:{1'b0,ram_nibble_be[12:1]};
 assign  data_fifo_wr_dv = data_fifo_wr_reg & (ram_nibble_be[0] | speed[1]); 
@@ -302,7 +302,7 @@ always @(posedge rx_clk or negedge rstn)
         data_fifo_din<=#DELAY data_ram_dout;
         end
 
-(*MARK_DEBUG="true"*) wire    bp;
+wire    bp;
 assign  bp=(data_fifo_depth>2564) | ptr_fifo_full;
 
 reg     [2:0]   be_state;
@@ -454,6 +454,9 @@ assign  d_valid = data_fifo_wr_dv | tte_fifo_wr_dv;
 //============================================  
 //fifo used. 
 //============================================  
+
+(*MARK_DEBUG="true"*) wire dbg_data_empty;
+
 afifo_w8_d4k u_data_fifo (
   .rst(!rstn),                      // input rst
   .wr_clk(rx_clk),                  // input wr_clk
@@ -463,7 +466,7 @@ afifo_w8_d4k u_data_fifo (
   .rd_en(data_fifo_rd),             // input rd_en
   .dout(data_fifo_dout),            // output [7 : 0]       
   .full(), 
-  .empty(), 
+  .empty(dbg_data_empty), 
   .rd_data_count(), 				// output [11 : 0] rd_data_count
   .wr_data_count(data_fifo_depth) 	// output [11 : 0] wr_data_count
 );
