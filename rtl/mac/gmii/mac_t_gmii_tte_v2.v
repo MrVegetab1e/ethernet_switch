@@ -62,24 +62,56 @@ module mac_t_gmii_tte_v2(
     localparam MAC_MII_STATE_WAIT = 64; // wait as protocol required
 
     // no jitter clk switch
+    reg     [ 1:0]  speed_reg;
+    wire            speed_change;
+    always @(posedge sys_clk or negedge rstn) begin
+        if (!rstn) begin
+            speed_reg   <=  'b0;
+        end
+        else begin
+            speed_reg   <=   speed;
+        end
+    end
+    assign          speed_change =  |(speed ^ speed_reg);
+
     wire            tx_master_clk;
     reg             tx_clk_en_reg_p;
     reg             tx_clk_en_reg_n;
     reg             gtx_clk_en_reg_p;
     reg             gtx_clk_en_reg_n;
 
-    always @(posedge tx_clk) begin
-        tx_clk_en_reg_p     <=  !speed[1] && !gtx_clk_en_reg_n;
+    always @(posedge tx_clk or posedge speed_change) begin
+        if (speed_change) begin
+            tx_clk_en_reg_p     <=  'b0;
+        end
+        else begin
+            tx_clk_en_reg_p     <=  !speed[1] && !gtx_clk_en_reg_n;
+        end
     end 
-    always @(negedge tx_clk) begin
-        tx_clk_en_reg_n     <=  tx_clk_en_reg_p;
+    always @(negedge tx_clk or posedge speed_change) begin
+        if (speed_change) begin
+            tx_clk_en_reg_n     <=  'b0;
+        end
+        else begin
+            tx_clk_en_reg_n     <=  tx_clk_en_reg_p;
+        end
     end
 
-    always @(posedge gtx_clk) begin
-        gtx_clk_en_reg_p    <=  speed[1] && !tx_clk_en_reg_n;
+    always @(posedge gtx_clk or posedge speed_change) begin
+        if (speed_change) begin
+            gtx_clk_en_reg_p    <=  'b0;
+        end
+        else begin
+            gtx_clk_en_reg_p    <=  speed[1] && !tx_clk_en_reg_n;
+        end
     end  
-    always @(negedge gtx_clk) begin
-        gtx_clk_en_reg_n    <=  gtx_clk_en_reg_p;
+    always @(negedge gtx_clk or negedge speed_change) begin
+        if (speed_change) begin
+            gtx_clk_en_reg_n    <=  'b0;
+        end
+        else begin
+            gtx_clk_en_reg_n    <=  gtx_clk_en_reg_p;
+        end
     end
 
     assign  tx_master_clk   =   (tx_clk_en_reg_n && tx_clk) || (gtx_clk_en_reg_n && gtx_clk);
@@ -94,7 +126,7 @@ module mac_t_gmii_tte_v2(
     wire    [ 7:0]  tx_data_afifo_dout;
     reg             tx_data_afifo_wr;
     reg             tx_data_afifo_rd;
-    wire    [10:0]  tx_data_afifo_depth;
+    wire    [11:0]  tx_data_afifo_depth;
 
     reg     [15:0]  tx_ptr_afifo_din;
     wire    [15:0]  tx_ptr_afifo_dout;
@@ -120,7 +152,8 @@ module mac_t_gmii_tte_v2(
     wire            tx_bp_ctrl;
 
     assign          tx_bp       =   tx_bp_data || tx_bp_ctrl;
-    assign          tx_bp_data  =   (tx_data_afifo_depth > (4096 - 1518 - 8)); // max len + preamble
+    // assign          tx_bp_data  =   (tx_data_afifo_depth > (4096 - 1518 - 8)); // max len + preamble
+    assign          tx_bp_data  =   tx_data_afifo_depth[11:4] > 8'hA0;
     assign          tx_bp_ctrl  =   tx_ptr_afifo_full;
 
     always @(*) begin
@@ -294,10 +327,10 @@ module mac_t_gmii_tte_v2(
         .empty(tx_ptr_afifo_empty)      	// output empty
     );
 
-    reg [ 7:0]  mii_state, mii_state_next;
-    reg [10:0]  mii_cnt;
-    reg         mii_dv;
-    reg [ 7:0]  mii_d;
+    (*MARK_DEBUG="true"*) reg [ 7:0]  mii_state, mii_state_next;
+    (*MARK_DEBUG="true"*) reg [10:0]  mii_cnt;
+    (*MARK_DEBUG="true"*) reg         mii_dv;
+    (*MARK_DEBUG="true"*) reg [ 7:0]  mii_d;
 
     always @(*) begin
         case (mii_state)
