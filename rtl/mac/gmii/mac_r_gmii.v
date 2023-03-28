@@ -40,6 +40,7 @@ output              ptr_fifo_empty
 
 parameter DELAY=2;  
 parameter CRC_RESULT_VALUE=32'hc704dd7b;
+parameter MTU=1500;
 
 assign  gtx_clk = rx_clk & speed[1];
 //============================================  
@@ -100,13 +101,19 @@ assign  sfd=rx_dv_reg0  & ((rx_d_reg==8'b11010101) | (rx_d_reg0==4'b1101));
 
 wire    nib_cnt_clr;
 reg     [11:0]  nib_cnt;
+wire    [11:0]  byte_cnt;
 always @(posedge rx_clk  or negedge rstn)
     if(!rstn)nib_cnt<=#DELAY 0;
     else if(nib_cnt_clr) nib_cnt<=#DELAY 0; 
     else nib_cnt<=#DELAY nib_cnt+1; 
 
+assign byte_cnt = speed[1]?nib_cnt:{1'b0,nib_cnt[11:1]};
+
 wire    byte_dv;
 assign  byte_dv=nib_cnt[0] | speed[1]; 
+
+wire    byte_bp;
+assign  byte_bp=(byte_cnt>(MTU+8));
 
 wire    [7:0]	data_fifo_din;
 wire            data_fifo_wr;
@@ -152,23 +159,26 @@ always @(posedge rx_clk  or negedge rstn)
             else state<=#DELAY 0;
             end
         2:begin
-            if(dv_eof)begin
+            if(dv_eof | (!rx_dv_reg0) )begin
                 fv<=#2 0;
-                if(speed[1]) ptr_fifo_din[11:0]<=#DELAY nib_cnt;
-                else ptr_fifo_din[11:0]<=#DELAY {1'b0,nib_cnt[11:1]};
-                if(speed[1])begin
-                    if((nib_cnt<64) | (nib_cnt>1518)) ptr_fifo_din[14]<=#DELAY 1;
-                    else ptr_fifo_din[14]<=#DELAY 0;
-                end
-                else begin
-                    if((nib_cnt[11:1]<64) | (nib_cnt[11:1]>1518))ptr_fifo_din[14]<=#DELAY 1;
-                    else ptr_fifo_din[14]<=#DELAY 0;
-                end
+                ptr_fifo_din[11:0]<=#DELAY byte_cnt;
+                if((byte_cnt[11:0]<64) | (byte_cnt[11:0]>1518))ptr_fifo_din[14]<=#DELAY 1;
+                else ptr_fifo_din[14]<=#DELAY 0;
                 if(crc_result==CRC_RESULT_VALUE) ptr_fifo_din[15]<=#DELAY 1'b0;
                 else ptr_fifo_din[15]<=#DELAY 1'b1;
                 ptr_fifo_wr<=#DELAY 1;
                 state<=#DELAY 3;
                 end
+            // else if (byte_bp)begin
+            //     fv<=#2 0;
+            //     ptr_fifo_din[11:0]<=#DELAY byte_cnt;
+            //     if((byte_cnt[11:0]<64) | (byte_cnt[11:0]>1518))ptr_fifo_din[14]<=#DELAY 1;
+            //     else ptr_fifo_din[14]<=#DELAY 0;
+            //     if(crc_result==CRC_RESULT_VALUE) ptr_fifo_din[15]<=#DELAY 1'b0;
+            //     else ptr_fifo_din[15]<=#DELAY 1'b1;
+            //     ptr_fifo_wr<=#DELAY 1;
+            //     state<=#DELAY 3;
+            // end
             end
         3:begin
             ptr_fifo_wr<=#DELAY 0;

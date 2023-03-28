@@ -5,7 +5,7 @@
 // 
 // Create Date: 2022/05/11 16:43:39
 // Design Name: 
-// Module Name: mac_r_gmii
+// Module Name: mac_r_gmii_tte
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -184,11 +184,7 @@ always @(posedge rx_clk  or negedge rstn)
                     load_be<=#DELAY 1;
                 end
             end
-            else if(dv_eof)begin
-                fv<=#DELAY 0;
-                st_state<=#DELAY 0;
-            end
-            else if(!rx_dv_reg0)begin
+            else if(dv_eof | (!rx_dv_reg0))begin
                 fv<=#DELAY 0;
                 st_state<=#DELAY 0;
             end
@@ -199,19 +195,7 @@ always @(posedge rx_clk  or negedge rstn)
             st_state<=#DELAY 4;
         end
         4:begin
-            if(dv_eof)begin
-                fv<=#DELAY 0;
-                load_byte<=#DELAY byte_cnt;
-                load_req<=#DELAY 1;
-                st_state<=#DELAY 5;
-                end
-            else if(!rx_dv_reg0)begin
-                fv<=#DELAY 0;
-                load_byte<=#DELAY byte_cnt;
-                load_req<=#DELAY 1;
-                st_state<=#DELAY 5;
-                end
-            else if(byte_bp)begin
+            if(dv_eof | (!rx_dv_reg0) | byte_bp)begin
                 fv<=#DELAY 0;
                 load_byte<=#DELAY byte_cnt;
                 load_req<=#DELAY 1;

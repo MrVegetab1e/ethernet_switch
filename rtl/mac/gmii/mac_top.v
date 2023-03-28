@@ -87,7 +87,7 @@ mac_t_gmii_tte_v2 u_mac_t_gmii(
     .tdata_fifo_din(tx_tte_fifo_dout),
     .tptr_fifo_rd(tx_tteptr_fifo_rd),
     .tptr_fifo_din(tx_tteptr_fifo_dout),
-    .tptr_fifo_empty(tx_tteptr_fifo_empty)
+    .tptr_fifo_empty(tx_tteptr_fifo_empty)          
     );
 
 // mac_t_gmii_tte u_mac_t_gmii(
@@ -125,5 +125,4 @@ smi_config_inst
 .speed                  (speed                  ),
 .led                    (led                    )    
 );  
-
 endmodule
