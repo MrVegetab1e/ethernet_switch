@@ -70,6 +70,10 @@ wire    [1:0]       led_r3;
 
 wire    [3:0]       link;
 
+wire				clk_in;
+wire				clk;
+wire				clk_125;
+
 assign led = led_r0&led_r1&led_r2&led_r3;
 //interface of interface mux and  switch_pos
 wire	    	     emac0_tx_data_fifo_rd;
@@ -168,9 +172,12 @@ wire                 emac3_rx_tteptr_fifo_rd;
 wire    [15:0]       emac3_rx_tteptr_fifo_dout;
 wire                 emac3_rx_tteptr_fifo_empty;
 
-wire                 clk;
-mac_top u_mac_top_0(
+// wire                 clk;
+
+mac_top u_mac_top_0
+(
     .clk(clk),
+	.clk_125(clk_125),
     .rstn(rstn),
 
     .GMII_RXD(GMII_RXD_0),
@@ -217,6 +224,7 @@ mac_top u_mac_top_0(
 
 mac_top u_mac_top_1(
     .clk(clk),
+	.clk_125(clk_125),
     .rstn(rstn),
 
     .GMII_RXD(GMII_RXD_1),
@@ -263,6 +271,7 @@ mac_top u_mac_top_1(
     
 mac_top u_mac_top_2(
     .clk(clk),
+	.clk_125(clk_125),
     .rstn(rstn),
 
     .GMII_RXD(GMII_RXD_2),
@@ -309,6 +318,7 @@ mac_top u_mac_top_2(
     
 mac_top u_mac_top_3(
     .clk(clk),
+	.clk_125(clk_125),
     .rstn(rstn),
 
     .GMII_RXD(GMII_RXD_3),
@@ -451,7 +461,7 @@ wire  		 bp1;
 wire		 bp2;
 wire         bp3;
 
-frame_process u_frame_process(
+frame_process_retime u_frame_process(
     .clk(clk),
 	.rstn(rstn),
 	.sfifo_dout(sfifo_dout),
@@ -541,7 +551,7 @@ wire  		 tte_bp1;
 wire		 tte_bp2;
 wire         tte_bp3;
 
-tteframe_process u_tteframe_process(
+tteframe_process_retime u_tteframe_process(
     .clk(clk),
 	.rstn(rstn),
 	.sfifo_dout(tte_sfifo_dout),
@@ -693,9 +703,16 @@ generate single end clock
 **************************************************************************/
 IBUFDS sys_clk_ibufgds
 (
-.O                              (clk                     ),
+.O                              (clk_in                  ),
 .I                              (sys_clk_p               ),
 .IB                             (sys_clk_n               )
+);
+
+clk_wiz_0 pll(
+	.resetn(rstn),
+	.clk_in1(clk_in),
+	.clk_out1(clk),
+	.clk_out2(clk_125)
 );
 
 assign  phy_rstn_0=1'b1;

@@ -161,7 +161,7 @@ always @(posedge clk or negedge rst_n)
       if (~rst_n)
         write_data <= 16'd0;
       else 
-        write_data <= 16'h2100;//restart An:h1340 100m:h2100
+        write_data <= 16'h1340;//restart An:h1340 100m:h2100
     end  
 //wait counter  
 always @(posedge clk or negedge rst_n)

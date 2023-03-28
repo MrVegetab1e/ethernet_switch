@@ -8,7 +8,8 @@ input					FQ_wr,
 input					FQ_rd,
 output		  [9:0]		ptr_dout_s,
 output		  			ptr_fifo_empty,
-output reg				FQ_act
+output reg				FQ_act,
+output		  [9:0]		FQ_count
     );
 reg	  [2:0]		FQ_state;
 reg	  [9:0]		addr_cnt;
@@ -59,7 +60,7 @@ sfifo_ft_w10_d512 u_ptr_fifo(
 	.dout(ptr_dout_s[9:0]),
 	.empty(ptr_fifo_empty),
 	.full(),
-	.data_count()	
+	.data_count(FQ_count)	
 	);
 
 // ila_fq ila_fq_inst (

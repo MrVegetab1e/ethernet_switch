@@ -2,6 +2,7 @@
 
 module mac_top(
     input              clk,
+    input              clk_125,
 	input              rstn,
 
     input     [7:0]    GMII_RXD,
@@ -46,15 +47,16 @@ module mac_top(
     output            rx_tteptr_fifo_empty
     );
 
-    wire    [1:0]   speed;        
- 
-mac_r_gmii_tte u_mac_r_gmii_tte(
+wire    [1:0]   speed;
+assign          GMII_TX_CLK =   clk_125;        
+
+mac_r_gmii_tte u_mac_r_gmii(
     .clk(clk),
     .rstn(rstn),
     .rx_clk(GMII_RX_CLK),
     .rx_dv(GMII_RX_DV),
     .gm_rx_d(GMII_RXD),
-    .gtx_clk(GMII_TX_CLK),
+    // .gtx_clk(GMII_TX_CLK),
     .speed(speed),
     .data_fifo_rd(rx_data_fifo_rd),
     .data_fifo_dout(rx_data_fifo_dout),
@@ -67,13 +69,14 @@ mac_r_gmii_tte u_mac_r_gmii_tte(
     .tteptr_fifo_dout(rx_tteptr_fifo_dout),
     .tteptr_fifo_empty(rx_tteptr_fifo_empty)
     );
-mac_t_gmii_tte u_mac_t_gmii_tte(
-    .clk(clk),
+
+mac_t_gmii_tte_v2 u_mac_t_gmii(
+    .sys_clk(clk),
     .rstn(rstn),
     .tx_clk(MII_TX_CLK),
-    .gtx_clk(GMII_TX_CLK),
+    .gtx_clk(clk_125),
     .gtx_dv(GMII_TX_EN),
-    .gm_tx_d(GMII_TXD),
+    .gtx_d(GMII_TXD),
     .speed(speed),
     .data_fifo_rd(tx_data_fifo_rd),
     .data_fifo_din(tx_data_fifo_dout),
@@ -86,6 +89,27 @@ mac_t_gmii_tte u_mac_t_gmii_tte(
     .tptr_fifo_din(tx_tteptr_fifo_dout),
     .tptr_fifo_empty(tx_tteptr_fifo_empty)          
     );
+
+// mac_t_gmii_tte u_mac_t_gmii(
+//     .clk(clk),
+//     .rstn(rstn),
+//     .tx_clk(MII_TX_CLK),
+//     // .gtx_clk(GMII_TX_CLK),
+//     .gtx_clk(clk_125),
+//     .gtx_dv(GMII_TX_EN),
+//     .gm_tx_d(GMII_TXD),
+//     .speed(speed),
+//     .data_fifo_rd(tx_data_fifo_rd),
+//     .data_fifo_din(tx_data_fifo_dout),
+//     .ptr_fifo_rd(tx_ptr_fifo_rd),
+//     .ptr_fifo_din(tx_ptr_fifo_dout),
+//     .ptr_fifo_empty(tx_ptr_fifo_empty),
+//     .tdata_fifo_rd(tx_tte_fifo_rd),
+//     .tdata_fifo_din(tx_tte_fifo_dout),
+//     .tptr_fifo_rd(tx_tteptr_fifo_rd),
+//     .tptr_fifo_din(tx_tteptr_fifo_dout),
+//     .tptr_fifo_empty(tx_tteptr_fifo_empty)
+//     );
 
 smi_config  #(
 .REF_CLK                 (200                   ),        

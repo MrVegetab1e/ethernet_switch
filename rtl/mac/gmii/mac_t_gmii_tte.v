@@ -91,10 +91,12 @@ wire       		ptr_fifo_empty_gtx;
 
 
 wire        	bp_tx;
-assign      	bp_tx=ptr_fifo_full_tx | (data_fifo_depth_tx>2566);
+// assign      	bp_tx=ptr_fifo_full_tx | (data_fifo_depth_tx>2566);
+assign      	bp_tx=ptr_fifo_full_tx | (data_fifo_depth_tx[11:4]>=8'hA0);
 
 wire        	bp_gtx;
-assign      	bp_gtx=ptr_fifo_full_gtx | (data_fifo_depth_gtx>2566);
+// assign      	bp_gtx=ptr_fifo_full_gtx | (data_fifo_depth_gtx>2566);
+assign      	bp_gtx=ptr_fifo_full_gtx | (data_fifo_depth_gtx[11:4]>=8'hA0);
 
 wire            bp;
 assign          bp = speed[1]?bp_gtx:bp_tx;
@@ -136,10 +138,12 @@ wire       		tptr_fifo_empty_gtx;
 
 
 wire        	tbp_tx;
-assign      	tbp_tx=tptr_fifo_full_tx | (tdata_fifo_depth_tx>2566);
+// assign      	tbp_tx=tptr_fifo_full_tx | (tdata_fifo_depth_tx>2566);
+assign      	tbp_tx=tptr_fifo_full_tx | (tdata_fifo_depth_tx[11:4]>=8'hA0);
 
 wire        	tbp_gtx;
-assign      	tbp_gtx=tptr_fifo_full_gtx | (tdata_fifo_depth_gtx>2566);
+// assign      	tbp_gtx=tptr_fifo_full_gtx | (tdata_fifo_depth_gtx>2566);
+assign      	tbp_gtx=tptr_fifo_full_gtx | (tdata_fifo_depth_gtx[11:4]>=8'hA0);
 
 wire            tbp;
 assign          tbp = speed[1]?tbp_gtx:tbp_tx;

@@ -32,13 +32,13 @@ output             ptr_sfifo_empty
 );
 wire   [3:0]  source_portmap;
 wire          bp;
-reg    [3:0]  state;
+(*MARK_DEBUG="true"*) reg    [3:0]  state;
 reg           error;
-reg           sfifo_wr;
-reg   [7:0]   sfifo_din;
+(*MARK_DEBUG="true"*) reg           sfifo_wr;
+(*MARK_DEBUG="true"*) reg   [7:0]   sfifo_din;
 wire  [13:0]  sfifo_cnt;
-reg          ptr_sfifo_wr;
-reg   [15:0]  ptr_sfifo_din;
+(*MARK_DEBUG="true"*) reg          ptr_sfifo_wr;
+(*MARK_DEBUG="true"*) reg   [15:0]  ptr_sfifo_din;
 wire         ptr_sfifo_full;
 wire  [15:0]  rx_ptr_fifo_dout;
 wire  [7:0]   rx_data_fifo_dout;
@@ -153,7 +153,13 @@ assign      rx_data_fifo_dout=  (sel==0)?rx_data_fifo_dout0:
 assign      source_portmap=     (sel==0)?4'b0001:
                                 (sel==1)?4'b0010:
                                 (sel==2)?4'b0100:4'b1000;
-sfifo_w8_d16k    u_sfifo(
+
+(*MARK_DEBUG="true"*) wire  dbg_data_of;
+(*MARK_DEBUG="true"*) wire  dbg_data_uf;
+(*MARK_DEBUG="true"*) wire  dbg_ptr_of;
+(*MARK_DEBUG="true"*) wire  dbg_ptr_uf;
+
+sfifo_reg_w8_d16k    u_sfifo(
     .clk(clk),
     .rst(!rstn),
     .din(sfifo_din),
@@ -162,7 +168,9 @@ sfifo_w8_d16k    u_sfifo(
     .dout(sfifo_dout),
 	.full(), 							
 	.empty(), 					
-    .data_count(sfifo_cnt)
+    .data_count(sfifo_cnt),
+    .underflow(dbg_data_uf),
+    .overflow(dbg_data_of)	
     );
 sfifo_w16_d32   u_ptr_sfifo(
     .clk(clk),
@@ -173,7 +181,9 @@ sfifo_w16_d32   u_ptr_sfifo(
     .dout(ptr_sfifo_dout),
     .empty(ptr_sfifo_empty),
     .full(ptr_sfifo_full),
-	.data_count()	
+	.data_count(),
+    .underflow(dbg_ptr_uf),
+    .overflow(dbg_ptr_of)	
     );             
 
 endmodule
