@@ -20,7 +20,8 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 module mac_t_gmii_tte_v2(
-    input           rstn,       // async rst
+    input           rstn_sys,   // async rst
+    input           rstn_mac,
     input           sys_clk,    // sys clk
     input           tx_clk,     // mii tx clk
     input           gtx_clk,    // gmii tx clk, 125MHz, External
@@ -64,8 +65,8 @@ module mac_t_gmii_tte_v2(
     // no jitter clk switch
     reg     [ 1:0]  speed_reg;
     wire            speed_change;
-    always @(posedge sys_clk or negedge rstn) begin
-        if (!rstn) begin
+    always @(posedge sys_clk or negedge rstn_sys) begin
+        if (!rstn_sys) begin
             speed_reg   <=  'b0;
         end
         else begin
@@ -80,16 +81,16 @@ module mac_t_gmii_tte_v2(
     reg             gtx_clk_en_reg_p;
     reg             gtx_clk_en_reg_n;
 
-    always @(posedge tx_clk or posedge speed_change) begin
-        if (speed_change) begin
+    always @(posedge tx_clk or posedge speed_change or negedge rstn_sys) begin
+        if (!rstn_sys || speed_change) begin
             tx_clk_en_reg_p     <=  'b0;
         end
         else begin
             tx_clk_en_reg_p     <=  !speed[1] && !gtx_clk_en_reg_n;
         end
     end 
-    always @(negedge tx_clk or posedge speed_change) begin
-        if (speed_change) begin
+    always @(negedge tx_clk or posedge speed_change or negedge rstn_sys) begin
+        if (!rstn_sys || speed_change) begin
             tx_clk_en_reg_n     <=  'b0;
         end
         else begin
@@ -97,16 +98,16 @@ module mac_t_gmii_tte_v2(
         end
     end
 
-    always @(posedge gtx_clk or posedge speed_change) begin
-        if (speed_change) begin
+    always @(posedge gtx_clk or posedge speed_change or negedge rstn_sys) begin
+        if (!rstn_sys || speed_change) begin
             gtx_clk_en_reg_p    <=  'b0;
         end
         else begin
             gtx_clk_en_reg_p    <=  speed[1] && !tx_clk_en_reg_n;
         end
     end  
-    always @(negedge gtx_clk or negedge speed_change) begin
-        if (speed_change) begin
+    always @(negedge gtx_clk or negedge speed_change or negedge rstn_sys) begin
+        if (!rstn_sys || speed_change) begin
             gtx_clk_en_reg_n    <=  'b0;
         end
         else begin
@@ -198,8 +199,8 @@ module mac_t_gmii_tte_v2(
         endcase
     end
 
-    always @(posedge sys_clk or negedge rstn) begin
-        if (~rstn) begin
+    always @(posedge sys_clk or negedge rstn_sys) begin
+        if (~rstn_sys) begin
             tx_state    <=  #2 MAC_TX_STATE_IDLE;
         end
         else begin
@@ -207,8 +208,8 @@ module mac_t_gmii_tte_v2(
         end
     end
 
-    always @(posedge sys_clk or negedge rstn) begin
-        if (~rstn) begin
+    always @(posedge sys_clk or negedge rstn_sys) begin
+        if (~rstn_sys) begin
             tx_arb_dir          <=  'b0;
             tx_loop_cnt         <=  'b0;
             tx_byte_cnt         <=  'b0;
@@ -291,7 +292,7 @@ module mac_t_gmii_tte_v2(
 
     crc32_8023 u_crc32_8023(
         .clk(sys_clk), 
-        .reset(!rstn), 
+        .reset(!rstn_sys), 
         .d(tx_data_in), 
         .load_init(crc_init),
         .calc(crc_cal), 
@@ -302,7 +303,7 @@ module mac_t_gmii_tte_v2(
 
 
     afifo_w8_d4k u_data_fifo_tx (
-        .rst(!rstn),                      // input rst
+        .rst(!rstn_sys),                      // input rst
         .wr_clk(sys_clk),                     // input wr_clk
         .rd_clk(tx_master_clk),                // input rd_clk
         .din(tx_data_afifo_din),            // input [7 : 0] din
@@ -316,7 +317,7 @@ module mac_t_gmii_tte_v2(
     );
 
     afifo_w16_d32 u_ptr_fifo_tx (
-        .rst(!rstn),                      // input rst
+        .rst(!rstn_sys),                      // input rst
         .wr_clk(sys_clk),                     // input wr_clk
         .rd_clk(tx_master_clk),                // input rd_clk
         .din(tx_ptr_afifo_din),             // input [15 : 0] din
@@ -351,8 +352,8 @@ module mac_t_gmii_tte_v2(
         endcase
     end
 
-    always @(posedge tx_master_clk or negedge rstn) begin
-        if (!rstn) begin
+    always @(posedge tx_master_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
             mii_state   <=  #2 MAC_TX_STATE_IDLE;
         end
         else begin
@@ -360,8 +361,8 @@ module mac_t_gmii_tte_v2(
         end
     end
 
-    always @(posedge tx_master_clk or negedge rstn) begin
-        if (!rstn) begin
+    always @(posedge tx_master_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
             tx_data_afifo_rd    <=  'b0;
             tx_ptr_afifo_rd     <=  'b0;
         end
@@ -388,8 +389,8 @@ module mac_t_gmii_tte_v2(
         end
     end
 
-    always @(posedge tx_master_clk or negedge rstn) begin
-        if (!rstn) begin
+    always @(posedge tx_master_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
             mii_cnt <=  'b0;
         end
         else begin
@@ -405,8 +406,8 @@ module mac_t_gmii_tte_v2(
         end
     end
 
-    always @(posedge tx_master_clk or negedge rstn) begin
-        if (!rstn) begin
+    always @(posedge tx_master_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
             mii_dv  <=  'b0;
             mii_d   <=  'b0;
         end
