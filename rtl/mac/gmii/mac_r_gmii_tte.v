@@ -32,11 +32,11 @@ output              gtx_clk,
 
 input       [1:0]   speed,  //ethernet speed 00:10M 01:100M 10:1000M
 
-(*MARK_DEBUG="true"*) input               data_fifo_rd,
+input               data_fifo_rd,
 output      [7:0]   data_fifo_dout,
-(*MARK_DEBUG="true"*) input               ptr_fifo_rd, 
+input               ptr_fifo_rd, 
 output      [15:0]  ptr_fifo_dout,
-(*MARK_DEBUG="true"*) output              ptr_fifo_empty,
+output              ptr_fifo_empty,
 input               tte_fifo_rd,
 output      [7:0]   tte_fifo_dout,
 input               tteptr_fifo_rd, 
@@ -440,7 +440,7 @@ assign  d_valid = data_fifo_wr_dv | tte_fifo_wr_dv;
 //fifo used. 
 //============================================  
 
-(*MARK_DEBUG="true"*) wire dbg_data_empty;
+(*MARK_DEBUG="true"*)wire dbg_data_empty;
 
 afifo_w8_d4k u_data_fifo (
   .rst(!rstn_sys),                  // input rst

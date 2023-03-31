@@ -9,11 +9,11 @@ input					o_cell_data_first,
 input					o_cell_data_last,
 output	reg				o_cell_data_fifo_bp,
 
-input					ptr_fifo_rd,
-output		  [15:0]	ptr_fifo_dout,
-output					ptr_fifo_empty,
-input					data_fifo_rd,
-output		  [7:0]		data_fifo_dout
+(*MARK_DEBUG="true"*) input					ptr_fifo_rd,
+(*MARK_DEBUG="true"*) output		  [15:0]	ptr_fifo_dout,
+(*MARK_DEBUG="true"*) output					ptr_fifo_empty,
+(*MARK_DEBUG="true"*) input					data_fifo_rd,
+(*MARK_DEBUG="true"*) output		  [7:0]		data_fifo_dout
 );
 		
 reg				o_cell_data_fifo_rd;
@@ -173,6 +173,7 @@ always@(posedge clk or negedge rstn)
 		end
 assign data_fifo_wr=byte_dv & (byte_cnt<frame_len);
 			
+(*MARK_DEBUG="true"*) wire dbg_data_empty;
 sfifo_w8_d4k u_data_fifo(
   .clk(clk), 
   .rst(!rstn), 
@@ -181,7 +182,7 @@ sfifo_w8_d4k u_data_fifo(
   .rd_en(data_fifo_rd), 
   .dout(data_fifo_dout[7:0]), 
   .full(), 
-  .empty(),
+  .empty(dbg_data_empty),
   .data_count(data_fifo_depth[11:0])
 );
 

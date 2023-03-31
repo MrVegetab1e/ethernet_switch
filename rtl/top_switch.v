@@ -74,10 +74,11 @@ wire				clk_in;
 wire				clk;
 wire				clk_125;
 
-wire				locked;
-wire				rstn_pll;
-wire				rstn_sys;
-wire 				rstn_mac;
+(*MARK_DEBUG="true"*) wire				locked;
+// (*MARK_DEBUG="true"*) wire				rstn_pll;
+(*MARK_DEBUG="true"*) wire				rstn_sys;
+(*MARK_DEBUG="true"*) wire 				rstn_mac;
+(*MARK_DEBUG="true"*) wire 				rstn_phy;
 
 assign led = led_r0&led_r1&led_r2&led_r3;
 //interface of interface mux and  switch_pos
@@ -718,7 +719,7 @@ IBUFDS sys_clk_ibufgds
 );
 
 clk_wiz_0 u_pll(
-	.resetn(rstn_pll),
+	.resetn(1'b1),
 	.clk_in1(clk_in),
 	.clk_out1(clk),
 	.clk_out2(clk_125),
@@ -730,13 +731,20 @@ rst_ctrl u_rst(
 	.sys_clk(clk),
 	.arstn(rstn),
 	.pll_locked(locked),
-	.rstn_pll(rstn_pll),
+	// .rstn_pll(rstn_pll),
 	.rstn_sys(rstn_sys),
-	.rstn_mac(rstn_mac)
+	.rstn_mac(rstn_mac),
+	.rstn_phy(rstn_phy)
 );
 
 assign  phy_rstn_0=1'b1;
 assign  phy_rstn_1=1'b1;
 assign  phy_rstn_2=1'b1;
 assign  phy_rstn_3=1'b1;
+
+// assign	phy_rstn_0 = rstn_phy;
+// assign	phy_rstn_1 = rstn_phy;
+// assign	phy_rstn_2 = rstn_phy;
+// assign	phy_rstn_3 = rstn_phy;
+
 endmodule

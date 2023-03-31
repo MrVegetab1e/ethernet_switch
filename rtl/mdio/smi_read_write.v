@@ -114,8 +114,10 @@ always @(*)
         end
 	  W_END,R_END :
 	    next_state <= IDLE ;
-      default     :
+      default     : begin
+	    mdio_en <= 1'b0;
         next_state <= IDLE ;
+	  end
     endcase
   end
   
