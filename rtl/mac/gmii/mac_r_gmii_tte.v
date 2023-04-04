@@ -21,7 +21,8 @@
 
 
 module mac_r_gmii_tte(
-input               rstn,
+input               rstn_sys,
+input               rstn_mac,
 input               clk,
 
 input               rx_clk,
@@ -31,11 +32,11 @@ output              gtx_clk,
 
 input       [1:0]   speed,  //ethernet speed 00:10M 01:100M 10:1000M
 
-(*MARK_DEBUG="true"*) input               data_fifo_rd,
+input               data_fifo_rd,
 output      [7:0]   data_fifo_dout,
-(*MARK_DEBUG="true"*) input               ptr_fifo_rd, 
+input               ptr_fifo_rd, 
 output      [15:0]  ptr_fifo_dout,
-(*MARK_DEBUG="true"*) output              ptr_fifo_empty,
+output              ptr_fifo_empty,
 input               tte_fifo_rd,
 output      [7:0]   tte_fifo_dout,
 input               tteptr_fifo_rd, 
@@ -53,8 +54,8 @@ assign  gtx_clk = rx_clk & speed[1];
 //generte a pipeline of input gm_rx_d.   
 //============================================  
 reg     [7:0]  rx_d_reg;
-always @(posedge rx_clk or negedge rstn)
-    if(!rstn)begin
+always @(posedge rx_clk or negedge rstn_mac)
+    if(!rstn_mac)begin
         rx_d_reg<=#DELAY 0;
         end
     else if(speed[1])begin
@@ -68,8 +69,8 @@ always @(posedge rx_clk or negedge rstn)
 //============================================  
 reg     [3:0]	rx_d_reg0;
 reg     [3:0]   rx_d_reg1;
-always @(posedge rx_clk or negedge rstn)
-    if(!rstn)begin
+always @(posedge rx_clk or negedge rstn_mac)
+    if(!rstn_mac)begin
         rx_d_reg0<=#DELAY 0;
         rx_d_reg1<=#DELAY 0;
         end
@@ -86,8 +87,8 @@ always @(posedge rx_clk or negedge rstn)
 //============================================  
 reg             rx_dv_reg0;
 reg             rx_dv_reg1;
-always @(posedge rx_clk or negedge rstn)
-    if(!rstn)begin
+always @(posedge rx_clk or negedge rstn_mac)
+    if(!rstn_mac)begin
         rx_dv_reg0<=#DELAY 0;
         rx_dv_reg1<=#DELAY 0;
         end
@@ -108,8 +109,8 @@ assign  sfd=rx_dv_reg0  & ((rx_d_reg==8'b11010101) | (rx_d_reg0==4'b1101));
 wire    nib_cnt_clr;
 reg     [12:0]  nib_cnt;
 wire    [12:0]  byte_cnt;
-always @(posedge rx_clk  or negedge rstn)
-    if(!rstn)nib_cnt<=#DELAY 0;
+always @(posedge rx_clk  or negedge rstn_mac)
+    if(!rstn_mac)nib_cnt<=#DELAY 0;
     else if(nib_cnt_clr) nib_cnt<=#DELAY 0; 
     else nib_cnt<=#DELAY nib_cnt+1; 
 
@@ -141,8 +142,8 @@ reg     [2:0]   st_state;
 
 assign  nib_cnt_clr=(dv_sof & sfd) | ((st_state==1)& sfd);
 
-always @(posedge rx_clk  or negedge rstn)
-    if(!rstn)begin
+always @(posedge rx_clk  or negedge rstn_mac)
+    if(!rstn_mac)begin
         st_state<=#DELAY 0;
         load_tte<=#DELAY 0;
         load_be<=#DELAY 0;
@@ -232,8 +233,8 @@ wire    [31:0]  crc_result;
 
 assign  load_init = nib_cnt_clr;
 
-always @(posedge rx_clk or negedge rstn)
-    if(!rstn)begin
+always @(posedge rx_clk or negedge rstn_mac)
+    if(!rstn_mac)begin
         crc_din<=#DELAY 0;
         end
     else begin
@@ -242,7 +243,7 @@ always @(posedge rx_clk or negedge rstn)
 
 crc32_8023 u_crc32_8023(
     .clk(rx_clk), 
-    .reset(!rstn), 
+    .reset(!rstn_mac), 
     .d(crc_din), 
     .load_init(load_init),
     .calc(calc), 
@@ -270,16 +271,16 @@ assign  data_fifo_wr_dv = data_fifo_wr_reg & (ram_nibble_be[0] | speed[1]);
 //============================================  
 //generte a pipeline    
 //============================================  
-always @(posedge rx_clk or negedge rstn)
-    if(!rstn)begin
+always @(posedge rx_clk or negedge rstn_mac)
+    if(!rstn_mac)begin
         data_fifo_wr_reg<=#DELAY 0;
         end
     else begin
         data_fifo_wr_reg<=#DELAY data_fifo_wr;
         end
 
-always @(posedge rx_clk or negedge rstn)
-    if(!rstn)begin
+always @(posedge rx_clk or negedge rstn_mac)
+    if(!rstn_mac)begin
         data_fifo_din<=#DELAY 0;
         end
     else begin
@@ -290,8 +291,8 @@ wire    bp;
 assign  bp=(data_fifo_depth>2564) | ptr_fifo_full;
 
 reg     [2:0]   be_state;
-always @(posedge rx_clk  or negedge rstn)
-    if(!rstn)begin
+always @(posedge rx_clk  or negedge rstn_mac)
+    if(!rstn_mac)begin
         be_state<=#DELAY 0;
         ptr_fifo_din<=#DELAY 0;
         ptr_fifo_wr<=#DELAY 0;
@@ -361,16 +362,16 @@ assign  tte_fifo_wr_dv = tte_fifo_wr_reg & (ram_nibble_tte[0] | speed[1]);
 //============================================  
 //generte a pipeline    
 //============================================  
-always @(posedge rx_clk or negedge rstn)
-    if(!rstn)begin
+always @(posedge rx_clk or negedge rstn_mac)
+    if(!rstn_mac)begin
         tte_fifo_wr_reg<=#DELAY 0;
         end
     else begin
         tte_fifo_wr_reg<=#DELAY tte_fifo_wr;
         end
 
-always @(posedge rx_clk or negedge rstn)
-    if(!rstn)begin
+always @(posedge rx_clk or negedge rstn_mac)
+    if(!rstn_mac)begin
         tte_fifo_din<=#DELAY 0;
         end
     else begin
@@ -381,8 +382,8 @@ wire    tte_bp;
 assign  tte_bp=(tte_fifo_depth>2564) | tteptr_fifo_full;
 
 reg     [2:0]   tte_state;
-always @(posedge rx_clk  or negedge rstn)
-    if(!rstn)begin
+always @(posedge rx_clk  or negedge rstn_mac)
+    if(!rstn_mac)begin
         tte_state<=#DELAY 0;
         tteptr_fifo_din<=#DELAY 0;
         tteptr_fifo_wr<=#DELAY 0;
@@ -439,14 +440,14 @@ assign  d_valid = data_fifo_wr_dv | tte_fifo_wr_dv;
 //fifo used. 
 //============================================  
 
-(*MARK_DEBUG="true"*) wire dbg_data_empty;
+(*MARK_DEBUG="true"*)wire dbg_data_empty;
 
 afifo_w8_d4k u_data_fifo (
-  .rst(!rstn),                      // input rst
+  .rst(!rstn_sys),                  // input rst
   .wr_clk(rx_clk),                  // input wr_clk
   .rd_clk(clk),                     // input rd_clk
   .din(data_fifo_din),              // input [7 : 0] din
-  .wr_en(data_fifo_wr_dv),             // input wr_en
+  .wr_en(data_fifo_wr_dv),          // input wr_en
   .rd_en(data_fifo_rd),             // input rd_en
   .dout(data_fifo_dout),            // output [7 : 0]       
   .full(), 
@@ -456,7 +457,7 @@ afifo_w8_d4k u_data_fifo (
 );
 
 afifo_w16_d32 u_ptr_fifo (
-  .rst(!rstn),                      // input rst
+  .rst(!rstn_sys),                  // input rst
   .wr_clk(rx_clk),                  // input wr_clk
   .rd_clk(clk),                     // input rd_clk
   .din(ptr_fifo_din),               // input [15 : 0] din
@@ -467,13 +468,13 @@ afifo_w16_d32 u_ptr_fifo (
   .empty(ptr_fifo_empty)            // output empty
 );
 afifo_w8_d4k u_tte_fifo (
-  .rst(!rstn),                      // input rst
+  .rst(!rstn_sys),                  // input rst
   .wr_clk(rx_clk),                  // input wr_clk
   .rd_clk(clk),                     // input rd_clk
-  .din(tte_fifo_din),              // input [7 : 0] din
-  .wr_en(tte_fifo_wr_dv),             // input wr_en
-  .rd_en(tte_fifo_rd),             // input rd_en
-  .dout(tte_fifo_dout),            // output [7 : 0]       
+  .din(tte_fifo_din),               // input [7 : 0] din
+  .wr_en(tte_fifo_wr_dv),           // input wr_en
+  .rd_en(tte_fifo_rd),              // input rd_en
+  .dout(tte_fifo_dout),             // output [7 : 0]       
   .full(), 
   .empty(), 
   .rd_data_count(), 				// output [11 : 0] rd_data_count
@@ -481,14 +482,14 @@ afifo_w8_d4k u_tte_fifo (
 );
 
 afifo_w16_d32 u_tteptr_fifo (
-  .rst(!rstn),                      // input rst
+  .rst(!rstn_sys),                  // input rst
   .wr_clk(rx_clk),                  // input wr_clk
   .rd_clk(clk),                     // input rd_clk
-  .din(tteptr_fifo_din),               // input [15 : 0] din
-  .wr_en(tteptr_fifo_wr),              // input wr_en
-  .rd_en(tteptr_fifo_rd),              // input rd_en
-  .dout(tteptr_fifo_dout),             // output [15 : 0] dout
-  .full(tteptr_fifo_full),             // output full
-  .empty(tteptr_fifo_empty)            // output empty
+  .din(tteptr_fifo_din),            // input [15 : 0] din
+  .wr_en(tteptr_fifo_wr),           // input wr_en
+  .rd_en(tteptr_fifo_rd),           // input rd_en
+  .dout(tteptr_fifo_dout),          // output [15 : 0] dout
+  .full(tteptr_fifo_full),          // output full
+  .empty(tteptr_fifo_empty)         // output empty
 );
 endmodule

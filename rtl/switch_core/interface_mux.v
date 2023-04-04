@@ -32,13 +32,13 @@ output             ptr_sfifo_empty
 );
 wire   [3:0]  source_portmap;
 wire          bp;
-(*MARK_DEBUG="true"*) reg    [3:0]  state;
+reg    [3:0]  state;
 reg           error;
-(*MARK_DEBUG="true"*) reg           sfifo_wr;
-(*MARK_DEBUG="true"*) reg   [7:0]   sfifo_din;
+reg           sfifo_wr;
+reg   [7:0]   sfifo_din;
 wire  [13:0]  sfifo_cnt;
-(*MARK_DEBUG="true"*) reg          ptr_sfifo_wr;
-(*MARK_DEBUG="true"*) reg   [15:0]  ptr_sfifo_din;
+reg          ptr_sfifo_wr;
+reg   [15:0]  ptr_sfifo_din;
 wire         ptr_sfifo_full;
 wire  [15:0]  rx_ptr_fifo_dout;
 wire  [7:0]   rx_data_fifo_dout;

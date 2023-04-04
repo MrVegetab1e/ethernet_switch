@@ -3,7 +3,8 @@
 module mac_top(
     input              clk,
     input              clk_125,
-	input              rstn,
+	input              rstn_sys,
+    input              rstn_mac,
 
     input     [7:0]    GMII_RXD,
     input              GMII_RX_DV,
@@ -52,7 +53,8 @@ assign          GMII_TX_CLK =   clk_125;
 
 mac_r_gmii_tte u_mac_r_gmii(
     .clk(clk),
-    .rstn(rstn),
+    .rstn_sys(rstn_sys),
+    .rstn_mac(rstn_mac),
     .rx_clk(GMII_RX_CLK),
     .rx_dv(GMII_RX_DV),
     .gm_rx_d(GMII_RXD),
@@ -72,7 +74,8 @@ mac_r_gmii_tte u_mac_r_gmii(
 
 mac_t_gmii_tte_v2 u_mac_t_gmii(
     .sys_clk(clk),
-    .rstn(rstn),
+    .rstn_sys(rstn_sys),
+    .rstn_mac(rstn_mac),
     .tx_clk(MII_TX_CLK),
     .gtx_clk(clk_125),
     .gtx_dv(GMII_TX_EN),
@@ -118,7 +121,7 @@ smi_config  #(
 smi_config_inst
 (
 .clk                    (clk                    ),
-.rst_n                  (rstn                   ),         
+.rst_n                  (rstn_sys               ),         
 .mdc                    (MDC                    ),
 .mdio                   (MDIO                   ),
 .link                   (link                   ),

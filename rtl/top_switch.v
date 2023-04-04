@@ -74,6 +74,12 @@ wire				clk_in;
 wire				clk;
 wire				clk_125;
 
+(*MARK_DEBUG="true"*) wire				locked;
+// (*MARK_DEBUG="true"*) wire				rstn_pll;
+(*MARK_DEBUG="true"*) wire				rstn_sys;
+(*MARK_DEBUG="true"*) wire 				rstn_mac;
+(*MARK_DEBUG="true"*) wire 				rstn_phy;
+
 assign led = led_r0&led_r1&led_r2&led_r3;
 //interface of interface mux and  switch_pos
 wire	    	     emac0_tx_data_fifo_rd;
@@ -178,7 +184,8 @@ mac_top u_mac_top_0
 (
     .clk(clk),
 	.clk_125(clk_125),
-    .rstn(rstn),
+	.rstn_sys(rstn_sys),
+    .rstn_mac(rstn_mac),
 
     .GMII_RXD(GMII_RXD_0),
     .GMII_RX_DV(GMII_RX_DV_0),
@@ -225,7 +232,8 @@ mac_top u_mac_top_0
 mac_top u_mac_top_1(
     .clk(clk),
 	.clk_125(clk_125),
-    .rstn(rstn),
+	.rstn_sys(rstn_sys),
+    .rstn_mac(rstn_mac),
 
     .GMII_RXD(GMII_RXD_1),
     .GMII_RX_DV(GMII_RX_DV_1),
@@ -272,7 +280,8 @@ mac_top u_mac_top_1(
 mac_top u_mac_top_2(
     .clk(clk),
 	.clk_125(clk_125),
-    .rstn(rstn),
+	.rstn_sys(rstn_sys),
+    .rstn_mac(rstn_mac),
 
     .GMII_RXD(GMII_RXD_2),
     .GMII_RX_DV(GMII_RX_DV_2),
@@ -319,7 +328,8 @@ mac_top u_mac_top_2(
 mac_top u_mac_top_3(
     .clk(clk),
 	.clk_125(clk_125),
-    .rstn(rstn),
+	.rstn_sys(rstn_sys),
+    .rstn_mac(rstn_mac),
 
     .GMII_RXD(GMII_RXD_3),
     .GMII_RX_DV(GMII_RX_DV_3),
@@ -371,7 +381,7 @@ wire     [15:0]    ptr_sfifo_dout;
 wire               ptr_sfifo_empty;
 interface_mux u_interface_mux(
     .clk(clk),
-	.rstn(rstn),
+	.rstn(rstn_sys),
     .rx_data_fifo_dout0(emac0_rx_data_fifo_dout),
 	.rx_data_fifo_rd0(emac0_rx_data_fifo_rd),
 	.rx_ptr_fifo_dout0(emac0_rx_ptr_fifo_dout),
@@ -410,7 +420,7 @@ wire     [15:0]    tteptr_sfifo_dout;
 wire               tteptr_sfifo_empty;
 interface_mux u_tteinterface_mux(
     .clk(clk),
-	.rstn(rstn),
+	.rstn(rstn_sys),
     .rx_data_fifo_dout0(emac0_rx_tte_fifo_dout),
 	.rx_data_fifo_rd0(emac0_rx_tte_fifo_rd),
 	.rx_ptr_fifo_dout0(emac0_rx_tteptr_fifo_dout),
@@ -463,7 +473,7 @@ wire         bp3;
 
 frame_process_retime u_frame_process(
     .clk(clk),
-	.rstn(rstn),
+	.rstn(rstn_sys),
 	.sfifo_dout(sfifo_dout),
 	.sfifo_rd(sfifo_rd),
 	.ptr_sfifo_rd(ptr_sfifo_rd),
@@ -492,7 +502,7 @@ frame_process_retime u_frame_process(
     );
 hash_2_bucket u_hash(
     .clk(clk),
-	.rstn(rstn),
+	.rstn(rstn_sys),
 	.se_req(se_req),
 	.se_ack(se_ack),
 	.se_hash(se_hash),
@@ -507,7 +517,7 @@ hash_2_bucket u_hash(
 
 switch_top switch(
 	.clk(clk),
-	.rstn(rstn),
+	.rstn(rstn_sys),
 	
 	.sof(sof),
 	.dv(dv),
@@ -553,7 +563,7 @@ wire         tte_bp3;
 
 tteframe_process_retime u_tteframe_process(
     .clk(clk),
-	.rstn(rstn),
+	.rstn(rstn_sys),
 	.sfifo_dout(tte_sfifo_dout),
 	.sfifo_rd(tte_sfifo_rd),
 	.ptr_sfifo_rd(tteptr_sfifo_rd),
@@ -588,7 +598,7 @@ wire	reg_rst;
 
 hash_tte_bucket u_ttehash(
     .clk(clk),
-	.rstn(rstn),
+	.rstn(rstn_sys),
 	.se_req(tte_se_req),
 	.se_ack(tte_se_ack),
 	.se_hash(tte_se_hash),
@@ -612,7 +622,7 @@ wire	ttehash_ack;
 
 bus2ttehash	bus2ttehashinst(
     .clk(clk),
-	.rstn(rstn),
+	.rstn(rstn_sys),
 	.flow_mux(flow_mux[119:0]),
 	.hash_mux(hash_mux),
 	.flow(flow),
@@ -638,7 +648,7 @@ wire    [15:0]  spi_dout;
 
 reg_ctrl	reg_ctrl_inst(
     .clk(clk),
-	.rst_n(rstn),
+	.rst_n(rstn_sys),
 	.spi_req(spi_req),
 	.spi_ack(spi_ack),
 	.ttehash_req(ttehash_req),
@@ -655,7 +665,7 @@ reg_ctrl	reg_ctrl_inst(
 spi_process    spi_process_inst
 (
 .clk        (clk),
-.rst_n      (rstn),
+.rst_n      (rstn_sys),
 .csb        (csb),
 .mosi       (mosi),
 .sck        (sck),
@@ -670,7 +680,7 @@ spi_process    spi_process_inst
 
 switch_top tteswitch(
 	.clk(clk),
-	.rstn(rstn),
+	.rstn(rstn_sys),
 	
 	.sof(tte_sof),
 	.dv(tte_dv),
@@ -708,15 +718,33 @@ IBUFDS sys_clk_ibufgds
 .IB                             (sys_clk_n               )
 );
 
-clk_wiz_0 pll(
-	.resetn(rstn),
+clk_wiz_0 u_pll(
+	.resetn(1'b1),
 	.clk_in1(clk_in),
 	.clk_out1(clk),
-	.clk_out2(clk_125)
+	.clk_out2(clk_125),
+	.locked(locked)
+);
+
+rst_ctrl u_rst(
+	.src_clk(clk_in),
+	.sys_clk(clk),
+	.arstn(rstn),
+	.pll_locked(locked),
+	// .rstn_pll(rstn_pll),
+	.rstn_sys(rstn_sys),
+	.rstn_mac(rstn_mac),
+	.rstn_phy(rstn_phy)
 );
 
 assign  phy_rstn_0=1'b1;
 assign  phy_rstn_1=1'b1;
 assign  phy_rstn_2=1'b1;
 assign  phy_rstn_3=1'b1;
+
+// assign	phy_rstn_0 = rstn_phy;
+// assign	phy_rstn_1 = rstn_phy;
+// assign	phy_rstn_2 = rstn_phy;
+// assign	phy_rstn_3 = rstn_phy;
+
 endmodule
