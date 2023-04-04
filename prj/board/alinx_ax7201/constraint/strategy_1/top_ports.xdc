@@ -59,7 +59,6 @@ set_property IOSTANDARD LVCMOS33 [get_ports {led[0]}]
 set_property PACKAGE_PIN F16 [get_ports {led[1]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {led[1]}]
 ############## ethernet PORT0 RX define############
-create_clock -period 8.000 -name GMII_RX_CLK_0 [get_ports GMII_RX_CLK_0]
 set_property IOSTANDARD LVCMOS33 [get_ports GMII_RX_CLK_0]
 set_property PACKAGE_PIN K18 [get_ports GMII_RX_CLK_0]
 
@@ -93,7 +92,6 @@ set_property PACKAGE_PIN M20 [get_ports {GMII_RXD_0[6]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {GMII_RXD_0[7]}]
 set_property PACKAGE_PIN N19 [get_ports {GMII_RXD_0[7]}]
 ############## ethernet PORT0 TX define##############
-create_clock -period 40.000 -name MII_TX_CLK_0 [get_ports MII_TX_CLK_0]
 set_property IOSTANDARD LVCMOS33 [get_ports MII_TX_CLK_0]
 set_property PACKAGE_PIN K21 [get_ports MII_TX_CLK_0]
 
@@ -133,7 +131,6 @@ set_property PACKAGE_PIN L20 [get_ports {GMII_TXD_0[7]}]
 set_property IOSTANDARD LVCMOS33 [get_ports phy_rstn_0]
 set_property PACKAGE_PIN G20 [get_ports phy_rstn_0]
 ############## ethernet PORT1 RX define############
-create_clock -period 8.000 -name GMII_RX_CLK_1 [get_ports GMII_RX_CLK_1]
 set_property IOSTANDARD LVCMOS33 [get_ports GMII_RX_CLK_1]
 set_property PACKAGE_PIN J20 [get_ports GMII_RX_CLK_1]
 
@@ -167,7 +164,6 @@ set_property PACKAGE_PIN J15 [get_ports {GMII_RXD_1[6]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {GMII_RXD_1[7]}]
 set_property PACKAGE_PIN H13 [get_ports {GMII_RXD_1[7]}]
 ############## ethernet PORT1 TX define##############
-create_clock -period 40.000 -name MII_TX_CLK_1 [get_ports MII_TX_CLK_1]
 set_property IOSTANDARD LVCMOS33 [get_ports MII_TX_CLK_1]
 set_property PACKAGE_PIN T14 [get_ports MII_TX_CLK_1]
 
@@ -207,7 +203,6 @@ set_property PACKAGE_PIN V15 [get_ports {GMII_TXD_1[7]}]
 set_property IOSTANDARD LVCMOS33 [get_ports phy_rstn_1]
 set_property PACKAGE_PIN L14 [get_ports phy_rstn_1]
 ############## ethernet PORT2 RX define############
-create_clock -period 8.000 -name GMII_RX_CLK_2 [get_ports GMII_RX_CLK_2]
 set_property IOSTANDARD LVCMOS33 [get_ports GMII_RX_CLK_2]
 set_property PACKAGE_PIN V13 [get_ports GMII_RX_CLK_2]
 
@@ -241,7 +236,6 @@ set_property PACKAGE_PIN W21 [get_ports {GMII_RXD_2[6]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {GMII_RXD_2[7]}]
 set_property PACKAGE_PIN T21 [get_ports {GMII_RXD_2[7]}]
 ############## ethernet PORT2 TX define##############
-create_clock -period 40.000 -name MII_TX_CLK_2 [get_ports MII_TX_CLK_2]
 set_property IOSTANDARD LVCMOS33 [get_ports MII_TX_CLK_2]
 set_property PACKAGE_PIN V10 [get_ports MII_TX_CLK_2]
 
@@ -281,7 +275,6 @@ set_property PACKAGE_PIN AB10 [get_ports {GMII_TXD_2[7]}]
 set_property IOSTANDARD LVCMOS33 [get_ports phy_rstn_2]
 set_property PACKAGE_PIN T20 [get_ports phy_rstn_2]
 ############## ethernet PORT3 RX define############
-create_clock -period 8.000 -name GMII_RX_CLK_3 [get_ports GMII_RX_CLK_3]
 set_property IOSTANDARD LVCMOS33 [get_ports GMII_RX_CLK_3]
 set_property PACKAGE_PIN Y18 [get_ports GMII_RX_CLK_3]
 
@@ -315,7 +308,6 @@ set_property PACKAGE_PIN R14 [get_ports {GMII_RXD_3[6]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {GMII_RXD_3[7]}]
 set_property PACKAGE_PIN P14 [get_ports {GMII_RXD_3[7]}]
 ############## ethernet PORT3 TX define##############
-create_clock -period 40.000 -name MII_TX_CLK_3 [get_ports MII_TX_CLK_3]
 set_property IOSTANDARD LVCMOS33 [get_ports MII_TX_CLK_3]
 set_property PACKAGE_PIN U16 [get_ports MII_TX_CLK_3]
 
