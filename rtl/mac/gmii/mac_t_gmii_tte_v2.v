@@ -5,7 +5,7 @@
 // 
 // Create Date: 2022/05/11 16:43:39
 // Design Name: 
-// Module Name: mac_r_gmii
+// Module Name: mac_t_gmii_tte_v2
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 

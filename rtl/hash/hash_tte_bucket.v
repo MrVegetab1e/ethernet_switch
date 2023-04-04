@@ -81,7 +81,7 @@ parameter   HASH_VALID1 = 8'b10000000;
 always @(posedge clk or negedge rstn)
     if(!rstn) begin
         state <=#2 0;
-        init <=#2 1;
+        init <=#2 0;
         clear_op<=#2 1;
         ram_wr<=#2 0;
         ram_addr<=#2 0; 
