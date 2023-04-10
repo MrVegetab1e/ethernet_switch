@@ -1,4 +1,4 @@
-// binary-tree scalable priority encoder
+// binary-tree based scalable priority encoder
 module prio_enc #(
     parameter   PE_WIDTH    =   4,
     parameter   PE_WIDTH_L2 =   $clog2(PE_WIDTH)

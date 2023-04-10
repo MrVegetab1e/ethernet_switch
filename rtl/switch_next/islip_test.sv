@@ -1,13 +1,16 @@
-module islip_test (
-    input           clk,
-    input           rst,
-    input           arb_valid_in,
-    output          arb_ready_in,
-    input   [ 3:0]  rx_req_vect [3:0],
-    input   [ 3:0]  tx_rdy_vect,
-    output          arb_valid_out,
-    input           arb_ready_out,
-    output  [ 3:0]  arb_vect [3:0]
+module islip_test #(
+    parameter   ISLIP_WIDTH     =   4,
+    parameter   ISLIP_WIDTH_L2  =   $clog2(ISLIP_WIDTH)
+) (
+    input                   clk,
+    input                   rst,
+    input                   arb_valid_in,
+    output                  arb_ready_in,
+    input   [ISLIP_WIDTH:0] rx_req_vect     [ISLIP_WIDTH:0],
+    input   [ISLIP_WIDTH:0] tx_rdy_vect,
+    output                  arb_valid_out,
+    input                   arb_ready_out,
+    output  [ISLIP_WIDTH:0] arb_vect        [ISLIP_WIDTH:0]
 );
 
     // idle state
@@ -19,22 +22,22 @@ module islip_test (
     // wait state, wait for other module to acquire arbitation result
     parameter   ARB_STATE_WAIT = 8;
 
-    reg     [ 3:0]  arb_state, arb_state_next;
+    reg     [   ISLIP_WIDTH:0]  arb_state, arb_state_next;
 
-    reg     [ 1:0]  rx_rndrb_state          [ 3:0];
-    reg     [ 1:0]  tx_rndrb_state          [ 3:0];
+    reg     [ISLIP_WIDTH_L2:0]  rx_rndrb_state          [ISLIP_WIDTH:0];
+    reg     [ISLIP_WIDTH_L2:0]  tx_rndrb_state          [ISLIP_WIDTH:0];
 
-    reg     [ 3:0]  rx_rndrb_vect_in_reg    [ 3:0];
-    wire    [ 3:0]  rx_rndrb_vect_in        [ 3:0];
-    wire    [ 3:0]  rx_rndrb_vect_out       [ 3:0]; 
-    wire    [ 1:0]  rx_rndrb_bin_out        [ 3:0];
+    reg     [   ISLIP_WIDTH:0]  rx_rndrb_vect_in_reg    [ISLIP_WIDTH:0];
+    wire    [   ISLIP_WIDTH:0]  rx_rndrb_vect_in        [ISLIP_WIDTH:0];
+    wire    [   ISLIP_WIDTH:0]  rx_rndrb_vect_out       [ISLIP_WIDTH:0]; 
+    wire    [ISLIP_WIDTH_L2:0]  rx_rndrb_bin_out        [ISLIP_WIDTH:0];
 
-    reg     [ 3:0]  rndrb_vect_reg          [ 3:0];
+    reg     [   ISLIP_WIDTH:0]  rndrb_vect_reg          [ISLIP_WIDTH:0];
 
-    wire    [ 3:0]  tx_rndrb_vect_in        [ 3:0];
-    wire    [ 3:0]  tx_rndrb_vect_out       [ 3:0];
-    reg     [ 3:0]  tx_rndrb_vect_out_reg   [ 3:0];
-    wire    [ 1:0]  tx_rndrb_bin_out        [ 3:0];
+    wire    [   ISLIP_WIDTH:0]  tx_rndrb_vect_in        [ISLIP_WIDTH:0];
+    wire    [   ISLIP_WIDTH:0]  tx_rndrb_vect_out       [ISLIP_WIDTH:0];
+    reg     [   ISLIP_WIDTH:0]  tx_rndrb_vect_out_reg   [ISLIP_WIDTH:0];
+    wire    [ISLIP_WIDTH_L2:0]  tx_rndrb_bin_out        [ISLIP_WIDTH:0];
 
     genvar  n, m;
 
@@ -67,7 +70,7 @@ module islip_test (
 
     generate
 
-        for (n = 0; n < 4; n = n + 1) begin : input_reg
+        for (n = 0; n < ISLIP_WIDTH; n = n + 1) begin : input_reg
             always @(posedge clk) begin
                 if (rst) begin
                     rx_rndrb_vect_in_reg[n] <=  'b0;
@@ -76,14 +79,14 @@ module islip_test (
                     rx_rndrb_vect_in_reg[n] <=  rx_req_vect[n];
                 end
             end
-            for (m = 0; m < 4; m = m + 1) begin
+            for (m = 0; m < ISLIP_WIDTH; m = m + 1) begin
                 assign  rx_rndrb_vect_in[n][m]  =   rx_rndrb_vect_in_reg[m][n];
             end   
         end
 
-        for (n = 0; n < 4; n = n + 1) begin : output_arbit
+        for (n = 0; n < ISLIP_WIDTH; n = n + 1) begin : output_arbit
             rnd_rb_ppe #(
-                .RR_WIDTH   (4)
+                .RR_WIDTH   (ISLIP_WIDTH)
             ) u_o_arb (
                 .rr_vec_in  (rx_rndrb_vect_in       [n]),
                 .rr_priority(rx_rndrb_state         [n]),
@@ -92,7 +95,7 @@ module islip_test (
             );
         end
 
-        for (n = 0; n < 4; n = n + 1) begin : intermediate_reg
+        for (n = 0; n < ISLIP_WIDTH; n = n + 1) begin : intermediate_reg
             always @(posedge clk) begin
                 if (rst) begin
                     rndrb_vect_reg[n]   <=  'b0; 
@@ -101,14 +104,14 @@ module islip_test (
                     rndrb_vect_reg[n]   <=  rx_rndrb_vect_out[n];
                 end
             end
-            for (m = 0; m < 4; m = m + 1) begin
+            for (m = 0; m < ISLIP_WIDTH; m = m + 1) begin
                 assign  tx_rndrb_vect_in[n][m]  =   (rndrb_vect_reg[m][n]);
             end
         end
 
-        for (n = 0; n < 4; n = n + 1) begin : input_arbit
+        for (n = 0; n < ISLIP_WIDTH; n = n + 1) begin : input_arbit
             rnd_rb_ppe #(
-                .RR_WIDTH   (4)
+                .RR_WIDTH   (ISLIP_WIDTH)
             ) u_i_arb (
                 .rr_vec_in  (tx_rndrb_vect_in   [n]),
                 .rr_priority(tx_rndrb_state     [n]),
@@ -117,7 +120,7 @@ module islip_test (
             );
         end
 
-        for (n = 0; n < 4; n = n + 1) begin : output_reg
+        for (n = 0; n < ISLIP_WIDTH; n = n + 1) begin : output_reg
             always @(posedge clk) begin
                 if (rst) begin
                     tx_rndrb_vect_out_reg[n]    <=  'b0;
@@ -129,7 +132,7 @@ module islip_test (
             assign  arb_vect[n] =   tx_rndrb_vect_out_reg[n];
         end
 
-        for (n = 0; n < 4; n = n + 1) begin : rx_rndrb_state_update
+        for (n = 0; n < ISLIP_WIDTH; n = n + 1) begin : rx_rndrb_state_update
             always @(posedge clk) begin
                 if (rst) begin
                     rx_rndrb_state[n]   <=  'b0;
@@ -142,13 +145,16 @@ module islip_test (
             end 
         end
 
-        for (n = 0; n < 4; n = n + 1) begin : tx_rndrb_state_update
+        for (n = 0; n < ISLIP_WIDTH; n = n + 1) begin : tx_rndrb_state_update
             always @(posedge clk) begin
                 if (rst) begin
                     tx_rndrb_state[n]   <=  'b0;
                 end
                 else if (arb_state == ARB_STATE_ACPT) begin
-                    if (arb_vect[n] != 'b0) begin
+                    // if (tx_rndrb_vect_out[n] != 'b0) begin
+                        // tx_rndrb_state[n]   <=  tx_rndrb_bin_out[n] + 1'b1;
+                    // end
+                    if (tx_rndrb_bin_out[rx_rndrb_bin_out[n]] == n && tx_rndrb_vect_out[n] != 'b0) begin
                         tx_rndrb_state[n]   <=  tx_rndrb_bin_out[n] + 1'b1;
                     end
                 end
