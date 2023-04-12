@@ -10,13 +10,13 @@
 // Target Devices: 
 // Tool Versions: 
 // Description: 
-// Based on ver 2, timing optimized
+// Reworked again, ieee 1588 compatibility added
 // Dependencies: 
 // 
 // Revision:
 // Revision 0.01 - File Created
 // Additional Comments:
-// 
+// Only 2 step clock support available now, need refinement
 //////////////////////////////////////////////////////////////////////////////////
 
 module mac_t_gmii_tte_v2(
@@ -31,36 +31,42 @@ module mac_t_gmii_tte_v2(
     input   [ 1:0]  speed,      // speed from mdio
 
     // normal dataflow
-    output          data_fifo_rd,
-    input   [ 7:0]  data_fifo_din,
+    output reg      data_fifo_rd,
+    input   [ 7:0]  data_fifo_din,  // registered output, better timing
+    input           data_fifo_empty,
     output reg      ptr_fifo_rd, 
     input   [15:0]  ptr_fifo_din,
     input           ptr_fifo_empty,
     // tte dataflow
-    output          tdata_fifo_rd,
+    output reg      tdata_fifo_rd,
     input   [ 7:0]  tdata_fifo_din,
-    output reg      tptr_fifo_rd, 
+    input           tdata_fifo_empty,
+    output reg      tptr_fifo_rd,
     input   [15:0]  tptr_fifo_din,
-    input           tptr_fifo_empty
+    input           tptr_fifo_empty,
+    // 1588 interface
+    input   [31:0]  counter_ns,         // current time
+    output  [63:0]  counter_delay       // broadcast slave-master delay to rx port, update delay_resp
 );
 
-    localparam DELAY = 2;
+    localparam  MAC_TX_STATE_IDLE   =   1;  // idle state, wait for new packet
+    localparam  MAC_TX_STATE_STA0   =   2;  // start state 0, not used
+    localparam  MAC_TX_STATE_STA1   =   4;  // start state 1, read ptr
+    localparam  MAC_TX_STATE_STA2   =   8;  // start state 2, process ptr
+    localparam  MAC_TX_STATE_STA3   =   16; // start state 3, wait until data arrive
+    localparam  MAC_TX_STATE_STA4   =   32; // start state 4, wait until buffer is filled
+    localparam  MAC_TX_STATE_PREA   =   64; // preamble state, not counting
+    localparam  MAC_TX_STATE_DATA   =   128;// data state, count for data bytes
+    localparam  MAC_TX_STATE_CRCV   =   256;// crc state, output crc value
+    localparam  MAC_TX_STATE_WAIT   =   512;// wait state, comply with standard
 
-    localparam MAC_TX_STATE_IDLE = 1;   // idle, wait for ptr input
-    localparam MAC_TX_STATE_STAR = 2;   // read ptr, initial for tx sequence
-    localparam MAC_TX_STATE_PREA = 4;   // attach preamble sequence before frame
-    localparam MAC_TX_STATE_PDAT = 8;   // 1 clk wait for fifo output
-    localparam MAC_TX_STATE_DATA = 16;  // data transfer loop
-    localparam MAC_TX_STATE_PCRC = 32;
-    localparam MAC_TX_STATE_CRCV = 64;  // attach crc value at end
-
-    localparam MAC_MII_STATE_IDLE = 1;  // idle, wait for ptr input
-    localparam MAC_MII_STATE_PTR1 = 2;  // read ptr
-    localparam MAC_MII_STATE_PTR2 = 4;  // ptr return, prepare for mii tx sequence
-    localparam MAC_MII_STATE_DAT1 = 8;  // mii mode, output big end of data
-    localparam MAC_MII_STATE_DAT2 = 16; // mii mode, output little end of data
-    localparam MAC_MII_STATE_GDAT = 32; // gmii mode
-    localparam MAC_MII_STATE_WAIT = 64; // wait as protocol required
+    localparam  PTP_TX_STATE_IDLE   =   1;  // idle state, wait for ptp packet
+    localparam  PTP_TX_STATE_TYPE   =   2;  // type state, check for ptp type
+    localparam  PTP_TX_STATE_SYNC   =   4;  // sync state, update master-slave latency
+    localparam  PTP_TX_STATE_DYRQ   =   8;  // delay_req state, update slave-master latency
+    localparam  PTP_TX_STATE_FUP1   =   16; // follow_up state 1, wait for correctionField
+    localparam  PTP_TX_STATE_FUP2   =   32; // follow_up state 2, update correctionField
+    localparam  PTP_TX_STATE_FUP3   =   64; // follow_up state 3, replace data with new correctionField
 
     // no jitter clk switch
     reg     [ 1:0]  speed_reg;
@@ -117,27 +123,20 @@ module mac_t_gmii_tte_v2(
 
     assign  tx_master_clk   =   (tx_clk_en_reg_n && tx_clk) || (gtx_clk_en_reg_n && gtx_clk);
 
-    reg     [ 6:0]  tx_state, tx_state_next;
+    reg     [15:0]  tx_state, tx_state_next;
+    reg     [96:0]  tx_buffer;      // extended buffer for PTP operations
+    reg     [47:0]  tx_buffer_cf;   // high 48 bit of correctionField
 
     reg             tx_arb_dir;
     reg     [10:0]  tx_loop_cnt;
-    reg     [10:0]  tx_byte_cnt;    // max len 1532B, min len 60B
+    reg     [10:0]  tx_byte_cnt;
+    reg     [10:0]  tx_byte_tgt;
+    reg             tx_byte_en;     // generate read signal for 4-bit MII
 
-    reg     [ 7:0]  tx_data_afifo_din;
-    wire    [ 7:0]  tx_data_afifo_dout;
-    reg             tx_data_afifo_wr;
-    reg             tx_data_afifo_rd;
-    wire    [11:0]  tx_data_afifo_depth;
-    (*MARK_DEBUG="true"*) wire            tx_data_afifo_empty;
-    (*MARK_DEBUG="true"*) wire            tx_data_afifo_rd_rst_bsy;
-    wire            tx_data_afifo_wr_rst_bsy;
-
-    reg     [15:0]  tx_ptr_afifo_din;
-    wire    [15:0]  tx_ptr_afifo_dout;
-    reg             tx_ptr_afifo_wr;
-    reg             tx_ptr_afifo_rd;
-    wire            tx_ptr_afifo_empty;
-    wire            tx_ptr_afifo_full;
+    reg     [47:0]  ptp_delay_sync; // ingress-egress delay of sync
+    reg     [47:0]  ptp_delay_req;  // ingress-egress delay of delay_req
+    reg     [31:0]  ptp_time_ts;    // timestamp from packet
+    reg     [31:0]  ptp_time_now;   // timestamp of now
 
     reg             crc_init;
     reg             crc_cal;
@@ -146,58 +145,59 @@ module mac_t_gmii_tte_v2(
     wire    [ 7:0]  crc_dout;
 
     wire    [ 7:0]  tx_data_in;
-
-    assign          tx_data_in  = tx_arb_dir ? tdata_fifo_din : data_fifo_din;
-    assign          data_fifo_rd    =   |(tx_state_next[4:3]) && ~tx_arb_dir;
-    assign          tdata_fifo_rd   =   |(tx_state_next[4:3]) && tx_arb_dir;
-
-    wire            tx_bp;
-    wire            tx_bp_data;
-    wire            tx_bp_ctrl;
-
-    assign          tx_bp       =   tx_bp_data || tx_bp_ctrl;
-    // assign          tx_bp_data  =   (tx_data_afifo_depth > (4096 - 1518 - 8)); // max len + preamble
-    assign          tx_bp_data  =   tx_data_afifo_depth[11:4] > 8'hA0;
-    assign          tx_bp_ctrl  =   tx_ptr_afifo_full;
+    wire    [15:0]  tx_ptr_in;
+    assign          tx_data_in  =   tx_arb_dir ? tdata_fifo_din : data_fifo_din;
+    assign          tx_ptr_in   =   tx_arb_dir ? tptr_fifo_din  : ptr_fifo_din;
 
     always @(*) begin
         case (tx_state)
             MAC_TX_STATE_IDLE: begin
-                if ((!tptr_fifo_empty || !ptr_fifo_empty) && !tx_bp && !tx_data_afifo_wr_rst_bsy)
-                    tx_state_next   =   MAC_TX_STATE_STAR;
+                if (!ptr_fifo_empty || !tptr_fifo_empty)
+                    tx_state_next   =   MAC_TX_STATE_STA1;
                 else
                     tx_state_next   =   MAC_TX_STATE_IDLE;
             end
-            MAC_TX_STATE_STAR: begin
-                tx_state_next   =   MAC_TX_STATE_PREA;
+            MAC_TX_STATE_STA1: begin
+                if (!data_fifo_empty || !tdata_fifo_empty)
+                    tx_state_next   =   MAC_TX_STATE_STA2;
+                else
+                    tx_state_next   =   MAC_TX_STATE_IDLE;
+            end
+            MAC_TX_STATE_STA2: begin
+                tx_state_next   =   MAC_TX_STATE_STA3;
+            end
+            MAC_TX_STATE_STA3: begin
+                tx_state_next   =   MAC_TX_STATE_STA4;
+            end
+            MAC_TX_STATE_STA4: begin
+                if (tx_loop_cnt == 'h3)
+                    tx_state_next   =   MAC_TX_STATE_PREA;
+                else
+                    tx_state_next   =   MAC_TX_STATE_STA4;
             end
             MAC_TX_STATE_PREA: begin
-                if (tx_loop_cnt == 'b1)
-                    tx_state_next   =   MAC_TX_STATE_PDAT;
+                if (tx_loop_cnt == 'hB)
+                    tx_state_next   =   MAC_TX_STATE_DATA;
                 else
                     tx_state_next   =   MAC_TX_STATE_PREA;
             end
-            MAC_TX_STATE_PDAT: begin
-                tx_state_next   =   MAC_TX_STATE_DATA; 
-            end
             MAC_TX_STATE_DATA: begin
-                if (tx_loop_cnt == 'b1)
-                    tx_state_next   =   MAC_TX_STATE_PCRC;
-                else
+                if (tx_byte_cnt == tx_byte_tgt)
+                    tx_state_next   =   MAC_TX_STATE_CRCV;
+                else 
                     tx_state_next   =   MAC_TX_STATE_DATA;
             end
-            MAC_TX_STATE_PCRC: begin
-                tx_state_next   =   MAC_TX_STATE_CRCV;
-            end
             MAC_TX_STATE_CRCV: begin
-                if (tx_loop_cnt == 'b1) begin
-                    // (!tptr_fifo_empty || !ptr_fifo_empty) 
-                    //     tx_state_next   =   MAC_TX_STATE_STAR;
-                    // else
-                    tx_state_next   =   MAC_TX_STATE_IDLE;
-                end
+                if (tx_loop_cnt == 'h10)
+                    tx_state_next   =   MAC_TX_STATE_WAIT;
                 else
                     tx_state_next   =   MAC_TX_STATE_CRCV;
+            end
+            MAC_TX_STATE_WAIT: begin
+                if (tx_loop_cnt == 'h18)
+                    tx_state_next   =   MAC_TX_STATE_IDLE;
+                else
+                    tx_state_next   =   MAC_TX_STATE_WAIT;
             end
             default: begin
                 tx_state_next   =   tx_state;
@@ -205,8 +205,8 @@ module mac_t_gmii_tte_v2(
         endcase
     end
 
-    always @(posedge sys_clk or negedge rstn_sys) begin
-        if (~rstn_sys) begin
+    always @(posedge tx_master_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
             tx_state    <=  MAC_TX_STATE_IDLE;
         end
         else begin
@@ -214,239 +214,184 @@ module mac_t_gmii_tte_v2(
         end
     end
 
-    always @(posedge sys_clk or negedge rstn_sys) begin
-        if (~rstn_sys) begin
-            tx_arb_dir          <=  'b0;
-            tx_loop_cnt         <=  'b0;
-            tx_byte_cnt         <=  'b0;
-            ptr_fifo_rd         <=  'b0;
-            // data_fifo_rd        <=  'b0;
-            tptr_fifo_rd        <=  'b0;
-            // tdata_fifo_rd       <=  'b0;
-            tx_ptr_afifo_din    <=  'b0;
-            tx_ptr_afifo_wr     <=  'b0;
-            tx_data_afifo_din   <=  'b0;
-            tx_data_afifo_wr    <=  'b0;
-            crc_init            <=  'b0;
-            crc_cal             <=  'b0;
-            crc_dv              <=  'b0;
+    always @(posedge tx_master_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            tx_loop_cnt <=  'b0;
+            tx_byte_cnt <=  'b0;
+            tx_byte_en  <=  'b0;
         end
         else begin
-            if (tx_state_next == MAC_TX_STATE_STAR && tx_state != MAC_TX_STATE_STAR) begin
+            if (tx_state == MAC_TX_STATE_IDLE) begin
+                tx_loop_cnt <=  'b0;
+                tx_byte_cnt <=  'b0;
+            end
+            else if (tx_state == MAC_TX_STATE_STA4) begin
+                tx_loop_cnt <=  tx_loop_cnt + 1'b1;
+            end
+            else if (tx_state == MAC_TX_STATE_PREA) begin
+                tx_loop_cnt <=  tx_loop_cnt + 1'b1;
+                tx_byte_en  <=  !tx_byte_en;
+            end
+            else if (tx_state == MAC_TX_STATE_DATA) begin
+                tx_byte_en  <=  !tx_byte_en;
+                if (speed[1] || tx_byte_en) begin
+                    tx_byte_cnt <=  tx_byte_cnt + 1'b1;
+                end
+            end
+            else if (tx_state == MAC_TX_STATE_CRCV) begin
+                tx_loop_cnt <=  tx_loop_cnt + 1'b1;
+                tx_byte_en  <=  !tx_byte_en;
+            end
+            else if (tx_state == MAC_TX_STATE_WAIT) begin
+                tx_loop_cnt <=  tx_loop_cnt + 1'b1; 
+            end
+        end
+    end
+
+    always @(posedge tx_master_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            // upstream fifo read ctrl
+            ptr_fifo_rd     <=  'b0;
+            data_fifo_rd    <=  'b0;
+            tptr_fifo_rd    <=  'b0;
+            tdata_fifo_rd   <=  'b0;
+            // tx internal ctrl
+            tx_arb_dir  <=  'b0;
+            tx_byte_tgt <=  'b0;
+            crc_init    <=  'b0;
+            crc_cal     <=  'b0;
+            crc_dv      <=  'b0;
+        end
+        else begin
+            if (tx_state_next == MAC_TX_STATE_STA1) begin
                 tx_arb_dir          <=  !tptr_fifo_empty;
-                tx_ptr_afifo_wr     <=  'b0;
                 ptr_fifo_rd         <=  tptr_fifo_empty;
                 tptr_fifo_rd        <=  !tptr_fifo_empty;
             end
-            else if (tx_state_next == MAC_TX_STATE_PREA && tx_state != MAC_TX_STATE_PREA) begin
-                tx_loop_cnt         <=  'h7;
-                tx_data_afifo_wr    <=  'b1;
-                tx_data_afifo_din   <=  8'h55;
-                ptr_fifo_rd         <=  'b0;
-                tptr_fifo_rd        <=  'b0;
+            else if (tx_state_next == MAC_TX_STATE_STA2) begin
+                ptr_fifo_rd     <=  'b0;
+                tptr_fifo_rd    <=  'b0;
+                data_fifo_rd    <=  !tx_arb_dir;
+                tdata_fifo_rd   <=  tx_arb_dir;
+                tx_byte_tgt     <=  tx_ptr_in[10:0];
             end
-            else if (tx_state_next == MAC_TX_STATE_PREA) begin
-                tx_loop_cnt         <=  tx_loop_cnt - 1'b1;
-                tx_byte_cnt         <=  (tx_arb_dir) ? tptr_fifo_din[10:0] : ptr_fifo_din[10:0];
-                crc_init            <=  'b1;
+            else if (tx_state_next == MAC_TX_STATE_STA3) begin
+                crc_init        <=  1'b1;
             end
-            else if (tx_state_next == MAC_TX_STATE_PDAT && tx_state != MAC_TX_STATE_PDAT) begin
-                // tx_loop_cnt         <=  (tx_byte_cnt < 60) ? 60 : tx_byte_cnt;
-                tx_loop_cnt         <=  tx_byte_cnt;
-                // data_fifo_rd        <=  !tx_arb_dir;
-                // tdata_fifo_rd       <=  tx_arb_dir;
-                tx_data_afifo_din   <=  8'hd5;
-                crc_cal             <=  'b1;
-                crc_dv              <=  'b1;
-                crc_init            <=  'b0;
+            else if (tx_state_next == MAC_TX_STATE_STA3) begin
+                crc_init        <=  1'b0;
             end
-            // else if (tx_state_next == MAC_TX_STATE_DATA && tx_state != MAC_TX_STATE_DATA) begin
-                // crc_init            <=  1'b0;
-            // end
             else if (tx_state_next == MAC_TX_STATE_DATA) begin
-                tx_loop_cnt         <=  tx_loop_cnt - 1'b1;
-                tx_data_afifo_din   <=  tx_data_in;
+                crc_cal         <=  1'b1;
+                crc_dv          <=  1'b1;
             end
-            else if (tx_state_next == MAC_TX_STATE_PCRC && tx_state != MAC_TX_STATE_PCRC) begin
-                tx_loop_cnt         <=  'h5;
-                tx_data_afifo_din   <=  tx_data_in;
-                crc_cal             <=  'b0;
-                crc_dv              <=  'b0;
-                // data_fifo_rd    <=  'b0;
-                // tdata_fifo_rd   <=  'b0;
+            else if (tx_state == MAC_TX_STATE_CRCV) begin
+                crc_cal         <=  1'b0;
             end
-            else if (tx_state_next == MAC_TX_STATE_CRCV && tx_state != MAC_TX_STATE_CRCV) begin
-                tx_data_afifo_wr    <=  'b0;
-                crc_dv              <=  'b1;
+            else if (tx_state == MAC_TX_STATE_WAIT) begin
+                crc_dv          <=  1'b0;
             end
-            else if (tx_state_next == MAC_TX_STATE_CRCV) begin
-                tx_loop_cnt         <=  tx_loop_cnt - 1'b1;
-                tx_data_afifo_wr    <=  'b1;
-                tx_data_afifo_din   <=  crc_dout;
+            else begin
+                ptr_fifo_rd     <=  'b0;
+                data_fifo_rd    <=  'b0;
+                tptr_fifo_rd    <=  'b0;
+                tdata_fifo_rd   <=  'b0;
+                tx_arb_dir  <=  'b0;
+                tx_byte_tgt <=  'b0;
+                crc_init    <=  'b0;
+                crc_cal     <=  'b0;
+                crc_dv      <=  'b0;    
             end
-            else if (tx_state_next == MAC_TX_STATE_IDLE && tx_state != MAC_TX_STATE_IDLE) begin
-                tx_data_afifo_wr    <=  'b0;
-                tx_ptr_afifo_wr     <=  'b1;
-                tx_ptr_afifo_din    <=  {4'b0, speed[1], tx_byte_cnt + 11'd12};
-                crc_dv              <=  'b0;
+        end
+    end
+
+    reg     [15:0]  ptp_state, ptp_state_now;
+    
+    always @(*) begin
+        case(ptp_state)
+            PTP_TX_STATE_IDLE: begin
+
             end
-            else if (tx_state == MAC_TX_STATE_IDLE) begin
-                // tx_loop_cnt         <=  tx_loop_cnt - 1'b1;
-                tx_ptr_afifo_wr     <=  'b0;
+            PTP_TX_STATE_TYPE: begin
+                
+            end
+            PTP_TX_STATE_SYNC: begin
+                
+            end
+            PTP_TX_STATE_DYRQ: begin
+                
+            end
+            PTP_TX_STATE_FUP1: begin
+                
+            end
+            PTP_TX_STATE_FUP2: begin
+                
+            end
+            PTP_TX_STATE_FUP3: begin
+                
+            end
+            default:
+                tx_state_next   =   tx_state;
+        endcase
+    end
+
+    always @(posedge tx_master_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            ptp_state   <=  PTP_TX_STATE_IDLE;
+        end
+        else begin
+            ptp_state   <=  ptp_state_now;
+        end
+    end
+
+    reg     [ 7:0]  mii_d;
+    reg             mii_dv;
+
+    wire    [ 7:0]  mii_d_in;
+    assign          mii_d_in    =   (tx_state == MAC_TX_STATE_CRCV)     ?   crc_dout            :
+                                    (ptp_state == PTP_TX_STATE_FUP3)    ?   tx_buffer_cf[7:0]   :
+                                    tx_buffer[7:0];
+
+    always @(posedge tx_master_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            tx_buffer   <=  {8'hd5, {7{8'h55}}, {4{8'b0}}};
+            mii_d       <=  'b0;
+            mii_dv      <=  'b0;
+        end
+        else begin  // initialize tx buffer
+            if (tx_state == MAC_TX_STATE_STA3) begin
+                tx_buffer   <=  {tx_data_in, tx_buffer[95:8]};
+                mii_d       <=  'b0;
+                mii_dv      <=  'b0;
+            end     // send tx buffer
+            else if (tx_state == MAC_TX_STATE_PREA || tx_state == MAC_TX_STATE_DATA || tx_state == MAC_TX_STATE_CRCV) begin
+                if (speed[1] || tx_byte_en) begin
+                    tx_buffer   <=  {tx_data_in, tx_buffer[95:8]};
+                    mii_d       <=  mii_d_in;
+                    mii_dv      <=  1'b1;
+                end
+                else begin
+                    mii_d   <=  mii_d >> 4;
+                    mii_dv  <=  1'b1;
+                end
+            end
+            else begin
+                tx_buffer   <=  {8'hd5, {7{8'h55}}, {4{8'b0}}};
+                mii_d       <=  'b0;
+                mii_dv      <=  'b0;
             end
         end
     end
 
     crc32_8023 u_crc32_8023(
-        .clk(sys_clk), 
-        .reset(!rstn_sys), 
-        .d(tx_data_in), 
+        .clk(tx_master_clk), 
+        .reset(!rstn_mac), 
+        .d(mii_d_in), 
         .load_init(crc_init),
         .calc(crc_cal), 
         .d_valid(crc_dv), 
         .crc_reg(crc_result), 
         .crc(crc_dout)
     );
-
-
-    afifo_w8_d4k u_data_fifo_tx (
-        .rst(!rstn_sys),                        // input rst
-        .wr_clk(sys_clk),                       // input wr_clk
-        .rd_clk(tx_master_clk),                 // input rd_clk
-        .din(tx_data_afifo_din),                // input [7 : 0] din
-        .wr_en(tx_data_afifo_wr),               // input wr_en
-        .rd_en(tx_data_afifo_rd),               // input rd_en
-        .dout(tx_data_afifo_dout),              // output [7 : 0] dout
-        .full(),                                // output full
-        .empty(tx_data_afifo_empty),            // output empty
-        .rd_data_count(),					    // output [11 : 0] rd_data_count
-        .wr_data_count(tx_data_afifo_depth),    // output [11 : 0] wr_data_count
-        .rd_rst_busy(tx_data_afifo_rd_rst_bsy),
-        .wr_rst_busy(tx_data_afifo_wr_rst_bsy)
-    );
-
-    afifo_w16_d32 u_ptr_fifo_tx (
-        .rst(!rstn_sys),                      // input rst
-        .wr_clk(sys_clk),                     // input wr_clk
-        .rd_clk(tx_master_clk),                // input rd_clk
-        .din(tx_ptr_afifo_din),             // input [15 : 0] din
-        .wr_en(tx_ptr_afifo_wr),            // input wr_en
-        .rd_en(tx_ptr_afifo_rd),            // input rd_en
-        .dout(tx_ptr_afifo_dout),           // output [15 : 0] dout
-        .full(tx_ptr_afifo_full),           // output full
-        .empty(tx_ptr_afifo_empty)      	// output empty
-    );
-
-    (*MARK_DEBUG="true"*) reg [ 7:0]  mii_state, mii_state_next;
-    (*MARK_DEBUG="true"*) reg [10:0]  mii_cnt;
-    (*MARK_DEBUG="true"*) reg         mii_dv;
-    (*MARK_DEBUG="true"*) reg [ 7:0]  mii_d;
-
-    always @(*) begin
-        case (mii_state)
-            MAC_MII_STATE_IDLE:
-                mii_state_next  =  (!tx_ptr_afifo_empty && !tx_data_afifo_rd_rst_bsy) ? MAC_MII_STATE_PTR1 : MAC_MII_STATE_IDLE;
-            MAC_MII_STATE_PTR1:
-                mii_state_next  =  (tx_data_afifo_empty) ? MAC_MII_STATE_IDLE : MAC_MII_STATE_PTR2;
-            MAC_MII_STATE_PTR2:
-                mii_state_next  =  (tx_ptr_afifo_dout[11]) ? MAC_MII_STATE_GDAT : MAC_MII_STATE_DAT1;
-            MAC_MII_STATE_DAT1:
-                mii_state_next  =  MAC_MII_STATE_DAT2;
-            MAC_MII_STATE_DAT2:
-                mii_state_next  =  (mii_cnt == 'h0) ? MAC_MII_STATE_WAIT : MAC_MII_STATE_DAT1;
-            MAC_MII_STATE_GDAT:
-                mii_state_next  =  (mii_cnt == 'h0) ? MAC_MII_STATE_WAIT : MAC_MII_STATE_GDAT;
-            MAC_MII_STATE_WAIT:
-                mii_state_next  =  (mii_cnt == 'b0) ? MAC_MII_STATE_IDLE : MAC_MII_STATE_WAIT;
-            default:
-                mii_state_next  =  mii_state;
-        endcase
-    end
-
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
-        if (!rstn_mac) begin
-            mii_state   <=  MAC_TX_STATE_IDLE;
-        end
-        else begin
-            mii_state   <=  mii_state_next;
-        end
-    end
-
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
-        if (!rstn_mac) begin
-            tx_data_afifo_rd    <=  'b0;
-            tx_ptr_afifo_rd     <=  'b0;
-        end
-        else begin
-            if (mii_state_next == MAC_MII_STATE_IDLE) begin
-                tx_ptr_afifo_rd     <=  'b0;
-                tx_data_afifo_rd    <=  'b0;
-            end
-            else if (mii_state_next == MAC_MII_STATE_PTR1) begin
-                tx_ptr_afifo_rd     <=  'b1;
-            end
-            else if (mii_state_next == MAC_MII_STATE_PTR2) begin
-                tx_ptr_afifo_rd     <=  'b0; 
-                tx_data_afifo_rd    <=  'b1;
-            end
-            else if (mii_state_next == MAC_MII_STATE_DAT1) begin
-                tx_data_afifo_rd    <=  'b0;
-            end
-            else if (mii_state_next == MAC_MII_STATE_DAT2) begin
-                tx_data_afifo_rd    <=  (mii_cnt == 'b0) ? 'b0 : 'b1;
-            end
-            else if (mii_state_next == MAC_MII_STATE_GDAT) begin
-                tx_data_afifo_rd    <=  (mii_cnt == 'b1) ? 'b0 : 'b1;
-            end
-            else if (mii_state_next == MAC_MII_STATE_WAIT) begin
-                tx_data_afifo_rd    <=  'b0;
-            end
-        end
-    end
-
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
-        if (!rstn_mac) begin
-            mii_cnt <=  'b0;
-        end
-        else begin
-            if (mii_state_next == MAC_MII_STATE_DAT1) begin
-                mii_cnt <=  (mii_state == MAC_MII_STATE_PTR2) ? tx_ptr_afifo_dout[10:0] - 1'b1 : mii_cnt - 1'b1;
-            end
-            else if (mii_state_next == MAC_MII_STATE_GDAT) begin
-                mii_cnt <=  (mii_state == MAC_MII_STATE_PTR2) ? tx_ptr_afifo_dout[10:0] - 1'b1 : mii_cnt - 1'b1;
-            end
-            else if (mii_state_next == MAC_MII_STATE_WAIT) begin
-                mii_cnt <=  (mii_state == MAC_MII_STATE_WAIT) ? mii_cnt - 1'b1 : 'd12;
-            end
-        end
-    end
-
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
-        if (!rstn_mac) begin
-            mii_dv  <=  'b0;
-            mii_d   <=  'b0;
-        end
-        else begin
-            if (mii_state == MAC_MII_STATE_DAT1) begin
-                mii_d   <=  {4'b0, tx_data_afifo_dout[3:0]};
-                mii_dv  <=  'b1;
-            end
-            else if (mii_state == MAC_MII_STATE_DAT2) begin
-                mii_d   <=  {4'b0, tx_data_afifo_dout[7:4]};
-                mii_dv  <=  'b1;
-            end
-            else if (mii_state == MAC_MII_STATE_GDAT) begin
-                mii_d   <=  tx_data_afifo_dout;
-                mii_dv  <=  'b1;
-            end
-            else begin
-                mii_d   <=  'b0;
-                mii_dv  <=  'b0;
-            end
-        end
-    end
-
-    assign      gtx_d   =   mii_d;
-    assign      gtx_dv  =   mii_dv;
 
 endmodule
