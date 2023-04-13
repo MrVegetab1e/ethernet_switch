@@ -147,6 +147,13 @@ module mac_t_gmii_tte_v4(
 
     reg     [47:0]  ptp_delay_sync; // ingress-egress delay of sync
     reg     [47:0]  ptp_delay_req;  // ingress-egress delay of delay_req
+    reg     [47:0]  ptp_cf;         // updated correctionField
+    wire            ptp_carry;
+    wire            ptp_carry_1;
+    reg             ptp_carry_reg;
+    reg             ptp_carry_reg_1;
+    wire    [ 7:0]  ptp_cf_add;
+    wire    [ 7:0]  ptp_cf_add_1;
     reg     [31:0]  ptp_time_ts;    // timestamp from packet
     reg     [31:0]  ptp_time_now;   // timestamp of now
     reg     [31:0]  ptp_time_now_sys;   // timestamp of now, system side
@@ -278,7 +285,7 @@ module mac_t_gmii_tte_v4(
                     ptp_state_next  =   PTP_TX_STATE_DYRQ;              
             end
             PTP_TX_STATE_FUP1: begin
-                if (tx_cnt_front == 24)
+                if (tx_cnt_front == 30)
                     ptp_state_next  =   PTP_TX_STATE_FUP2;
                 else
                     ptp_state_next  =   PTP_TX_STATE_FUP1;   
@@ -290,7 +297,7 @@ module mac_t_gmii_tte_v4(
                     ptp_state_next  =   PTP_TX_STATE_FUP2;
             end
             PTP_TX_STATE_FUP3: begin
-                if (tx_cnt_front == 44)
+                if (tx_cnt_front == 42)
                     ptp_state_next  =   PTP_TX_STATE_IDL1;
                 else
                     ptp_state_next  =   PTP_TX_STATE_FUP3;       
@@ -323,7 +330,9 @@ module mac_t_gmii_tte_v4(
 
     always @(posedge tx_master_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
-            tx_buf_cf           <=  'h010203040506;
+            tx_buf_cf           <=  'b0;
+            ptp_cf              <=  'b0;
+            ptp_carry_reg       <=  'b0;
             ptp_delay_sync      <=  'b0;
             ptp_delay_req       <=  'b0;
             ptp_time_ts         <=  'b0;
@@ -354,14 +363,14 @@ module mac_t_gmii_tte_v4(
                     ptp_time_ts     <=  {ptp_time_ts[23:0], tx_data_in};
                 end
                 else if (tx_cnt_front == 38) begin
-                    ptp_delay_sync[16:0]    <=  (ptp_time_now[15:0] - ptp_time_ts[15:0]);
+                    {ptp_carry_reg_1, ptp_delay_sync[15:0]} <=  (ptp_time_now[15:0] - ptp_time_ts[15:0]);
                 end
                 else if (tx_cnt_front == 39) begin
-                    ptp_delay_sync[31:16]   <=  (ptp_time_now[30:16] - ptp_time_ts[30:16] - ptp_delay_sync[16]);
+                    ptp_delay_sync[31:16]   <=  (ptp_time_now[31:16] - ptp_time_ts[31:16] - ptp_carry_reg_1);
                 end
-                else if (tx_cnt_front == 40) begin
-                    ptp_delay_sync[31]      <=  (ptp_time_now[31]^ptp_time_ts[31]) ? ~ptp_delay_sync[31] : ptp_delay_sync[31];
-                end
+                // else if (tx_cnt_front == 40) begin
+                //     ptp_delay_sync[31]      <=  (ptp_time_now[31]^ptp_time_ts[31]) ? ~ptp_delay_sync[31] : ptp_delay_sync[31];
+                // end
             end
             else if (ptp_state == PTP_TX_STATE_DYRQ) begin
                 if (tx_cnt_front == 32) begin
@@ -381,17 +390,66 @@ module mac_t_gmii_tte_v4(
                     ptp_time_ts     <=  {ptp_time_ts[23:0], tx_data_in};
                 end
                 else if (tx_cnt_front == 38) begin
-                    ptp_delay_req[16:0]     <=  (ptp_time_now[15:0] - ptp_time_ts[15:0]);
+                    {ptp_carry_reg_1, ptp_delay_req[15:0]}  <=  (ptp_time_now[15:0] - ptp_time_ts[15:0]);
                 end
                 else if (tx_cnt_front == 39) begin
-                    ptp_delay_req[31:16]    <=  (ptp_time_now[30:16] - ptp_time_ts[30:16] - ptp_delay_sync[16]);
+                    ptp_delay_req[31:16]    <=  (ptp_time_now[31:16] - ptp_time_ts[31:16] - ptp_carry_reg_1);
                 end
-                else if (tx_cnt_front == 40) begin
-                    ptp_delay_req[31]       <=  (ptp_time_now[31]^ptp_time_ts[31]) ? ~ptp_delay_sync[31] : ptp_delay_sync[31];
+                // else if (tx_cnt_front == 40) begin
+                //     ptp_delay_req[31]       <=  (ptp_time_now[31]^ptp_time_ts[31]) ? ~ptp_delay_req[31] : ptp_delay_req[31];
+                // end
+            end
+            else if (ptp_state == PTP_TX_STATE_FUP1) begin
+                if (tx_cnt_front == 30) begin
+                    tx_buf_cf   <=  {tx_data_in, tx_buffer[95:56]};
                 end
+            end
+            else if (ptp_state == PTP_TX_STATE_FUP2) begin
+                if (tx_cnt_front == 31) begin
+                    tx_buf_cf       <=  {tx_buf_cf[39:0], tx_buf_cf[47:40]};
+                    ptp_delay_sync  <=  {ptp_delay_sync[7:0], ptp_delay_sync[31:8]};
+                    ptp_cf          <=  {ptp_cf_add, ptp_cf[47:8]};
+                    ptp_carry_reg   <=  ptp_carry;
+                end
+                if (tx_cnt_front == 32) begin
+                    tx_buf_cf       <=  {tx_buf_cf[39:0], tx_buf_cf[47:40]};
+                    ptp_delay_sync  <=  {ptp_delay_sync[7:0], ptp_delay_sync[31:8]};
+                    ptp_cf          <=  {ptp_cf_add, ptp_cf[47:8]};
+                    ptp_carry_reg   <=  ptp_carry;
+                end
+                if (tx_cnt_front == 33) begin
+                    tx_buf_cf       <=  {tx_buf_cf[39:0], tx_buf_cf[47:40]};
+                    ptp_delay_sync  <=  {ptp_delay_sync[7:0], ptp_delay_sync[31:8]};
+                    ptp_cf          <=  {ptp_cf_add, ptp_cf[47:8]};
+                    ptp_carry_reg   <=  ptp_carry;
+                end
+                if (tx_cnt_front == 34) begin
+                    tx_buf_cf       <=  {tx_buf_cf[39:0], tx_buf_cf[47:40]};
+                    ptp_delay_sync  <=  {ptp_delay_sync[7:0], ptp_delay_sync[31:8]};
+                    ptp_cf          <=  {ptp_cf_add, ptp_cf[47:8]};
+                    ptp_carry_reg   <=  ptp_carry;
+                end
+                if (tx_cnt_front == 35) begin
+                    tx_buf_cf       <=  {tx_buf_cf[39:0], tx_buf_cf[47:40]};
+                    // ptp_delay_sync  <=  {ptp_delay_sync[7:0], ptp_delay_sync[31:8]};
+                    ptp_cf          <=  {ptp_cf_add_1, ptp_cf[47:8]};
+                    ptp_carry_reg   <=  ptp_carry_1;
+                end
+                if (tx_cnt_front == 36) begin
+                    tx_buf_cf       <=  {tx_buf_cf[39:0], tx_buf_cf[47:40]};
+                    // ptp_delay_sync  <=  {ptp_delay_sync[7:0], ptp_delay_sync[31:8]};
+                    ptp_cf          <=  {ptp_cf_add_1, ptp_cf[47:8]};
+                    ptp_carry_reg   <=  ptp_carry_1;
+                end
+            end
+            else if (ptp_state == PTP_TX_STATE_FUP3) begin
+                ptp_cf  <=  ptp_cf << 8;
             end
         end
     end
+
+    assign  {ptp_carry, ptp_cf_add}         =   tx_buf_cf[47:40] + ptp_delay_sync[7:0] + ptp_carry_reg;
+    assign  {ptp_carry_1, ptp_cf_add_1}     =   tx_buf_cf[47:40] + ptp_carry_reg;
 
     reg     [15:0]  mii_state, mii_state_next;
 
@@ -400,7 +458,7 @@ module mac_t_gmii_tte_v4(
 
     wire    [ 7:0]  mii_d_in;
     assign          mii_d_in    =   (mii_state == 'h08)                 ?   crc_dout        :
-                                    (ptp_state == PTP_TX_STATE_FUP3)    ?   tx_buf_cf[7:0]  :
+                                    (ptp_state == PTP_TX_STATE_FUP3)    ?   ptp_cf[47:40]   :
                                     tx_buffer[7:0];
 
     always @(*) begin
@@ -461,6 +519,7 @@ module mac_t_gmii_tte_v4(
     always @(posedge tx_master_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             tx_buffer       <=  {8'hd5, {7{8'h55}}, {4{8'b0}}};
+            // tx_buf_cf       <=  'b0;
             tx_cnt_back     <=  11'hFF8;
             tx_cnt_back_1   <=  11'hFF9;
             mii_d           <=  'b0;
@@ -469,11 +528,13 @@ module mac_t_gmii_tte_v4(
         else begin  // initialize tx buffer
             if (!tx_buf_rdy[3] && tx_byte_valid[1]) begin
                 tx_buffer       <=  {tx_data_in, tx_buffer[95:8]};
+                // tx_buf_cf       <=  {tx_data_in, tx_buf_cf[47:8]};
                 mii_d           <=  'b0;
                 mii_dv          <=  'b0;
             end     // send tx buffer
             else if (tx_cnt_back != tx_byte_cnt && tx_buf_rdy[3]) begin
                 tx_buffer       <=  {tx_data_in, tx_buffer[95:8]};
+                // tx_buf_cf       <=  {tx_data_in, tx_buf_cf[47:8]};
                 // tx_cnt_back     <=  tx_cnt_back + 1'b1;
                 tx_cnt_back     <=  tx_cnt_back_1;
                 tx_cnt_back_1   <=  tx_cnt_back_1 + 1'b1;
@@ -486,6 +547,7 @@ module mac_t_gmii_tte_v4(
             end
             else begin
                 tx_buffer       <=  {8'hd5, {7{8'h55}}, {4{8'b0}}};
+                // tx_buf_cf       <=  'b0;
                 tx_cnt_back     <=  11'hFF8;
                 tx_cnt_back_1   <=  11'hFF9;
                 mii_d           <=  'b0;
