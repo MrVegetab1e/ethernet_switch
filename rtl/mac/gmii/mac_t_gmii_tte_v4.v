@@ -32,14 +32,14 @@ module mac_t_gmii_tte_v4(
     input   [ 1:0]  speed,          // speed from mdio
 
     // normal dataflow
-    output reg      data_fifo_rd,
+    output          data_fifo_rd,
     input   [ 7:0]  data_fifo_din,  // registered output, better timing
     input           data_fifo_empty,
     output reg      ptr_fifo_rd, 
     input   [15:0]  ptr_fifo_din,
     input           ptr_fifo_empty,
     // tte dataflow
-    output reg      tdata_fifo_rd,
+    output          tdata_fifo_rd,
     input   [ 7:0]  tdata_fifo_din,
     input           tdata_fifo_empty,
     output reg      tptr_fifo_rd,
@@ -143,7 +143,12 @@ module mac_t_gmii_tte_v4(
     reg     [10:0]  tx_cnt_back_1;
     reg     [10:0]  tx_byte_cnt;    // total byte count
     reg     [ 1:0]  tx_byte_valid;
-    reg             tx_read_req;    // generate read signal for 4-bit MII
+    reg             tx_read_req;    // generate read signal for 4-bit MII\
+
+    reg             data_fifo_en;
+    reg             tdata_fifo_en;
+    assign          data_fifo_rd    =   data_fifo_en && (speed[1] || tx_read_req);
+    assign          tdata_fifo_rd   =   tdata_fifo_en && (speed[1] || tx_read_req);
 
     reg     [47:0]  ptp_delay_sync; // ingress-egress delay of sync
     reg     [47:0]  ptp_delay_req;  // ingress-egress delay of delay_req
@@ -158,7 +163,7 @@ module mac_t_gmii_tte_v4(
     reg     [31:0]  ptp_time_now;   // timestamp of now
     reg     [31:0]  ptp_time_now_sys;   // timestamp of now, system side
     reg             ptp_time_req;       // lockup counter output for cross clk domain
-    reg             ptp_time_req_mac;
+    reg     [ 1:0]  ptp_time_req_mac;
     reg     [ 1:0]  ptp_time_rdy_sys;   // system side of lockup signal
     reg     [ 1:0]  ptp_time_rdy_mac;   // mac side of lockup signal
 
@@ -201,7 +206,8 @@ module mac_t_gmii_tte_v4(
             if (data_fifo_rd || tdata_fifo_rd) begin
                 tx_cnt_front    <=  tx_cnt_front + 1'b1;
             end
-            else begin
+            else if (tx_state_next == 1) begin
+                // tx_cnt_front    <=  speed[1];
                 tx_cnt_front    <=  'b1;
             end
             tx_byte_valid   <=  {tx_byte_valid[0], (data_fifo_rd || tdata_fifo_rd)};
@@ -213,35 +219,41 @@ module mac_t_gmii_tte_v4(
             tx_arb_dir      <=  'b0;
             ptr_fifo_rd     <=  'b0;
             tptr_fifo_rd    <=  'b0;
-            data_fifo_rd    <=  'b0;
-            tdata_fifo_rd   <=  'b0;
+            data_fifo_en    <=  'b0;
+            tdata_fifo_en   <=  'b0;
             tx_byte_cnt     <=  'b0;
+            tx_read_req     <=  'b1;
         end        
         else begin
             if (tx_state_next == 'h1) begin
                 ptr_fifo_rd     <=  'b0;
                 tptr_fifo_rd    <=  'b0;
-                data_fifo_rd    <=  'b0;
-                tdata_fifo_rd   <=  'b0;
+                data_fifo_en    <=  'b0;
+                tdata_fifo_en   <=  'b0;
                 tx_byte_cnt     <=  'b0;
+                tx_read_req     <=  'b1;
             end
             else if (tx_state_next == 'h2) begin
                 tx_arb_dir      <=  !tptr_fifo_empty;
                 ptr_fifo_rd     <=  tptr_fifo_empty;
                 tptr_fifo_rd    <=  !tptr_fifo_empty;
+                tx_read_req     <=  !tx_read_req;
             end
             else if (tx_state_next == 'h4) begin
                 ptr_fifo_rd     <=  'b0;
                 tptr_fifo_rd    <=  'b0;
-                data_fifo_rd    <=  !tx_arb_dir;
-                tdata_fifo_rd   <=  tx_arb_dir;
+                data_fifo_en    <=  !tx_arb_dir;
+                tdata_fifo_en   <=  tx_arb_dir;
+                tx_read_req     <=  !tx_read_req;
             end
             else if (tx_state_next == 'h8) begin
-                tx_byte_cnt     <=  tx_ptr_in[10:0];
+                tx_byte_cnt     <=  tx_ptr_in[10:0] + !speed[1];
+                tx_read_req     <=  !tx_read_req;
             end
             else if (tx_state_next == 'h16) begin
-                data_fifo_rd    <=  'b0;
-                tdata_fifo_rd   <=  'b0;
+                data_fifo_en    <=  'b0;
+                tdata_fifo_en   <=  'b0;
+                tx_read_req     <=  !tx_read_req;
             end
         end
     end
@@ -313,7 +325,9 @@ module mac_t_gmii_tte_v4(
             ptp_state   <=  PTP_TX_STATE_IDL1;
         end
         else begin
-            ptp_state   <=  ptp_state_next;
+            if (speed[1] || !tx_read_req) begin
+                ptp_state   <=  ptp_state_next;
+            end
         end
     end
 
@@ -323,8 +337,22 @@ module mac_t_gmii_tte_v4(
             ptp_time_now_sys    <=  'b0;
         end
         else begin
-            ptp_time_rdy_sys    <=  {ptp_time_rdy_sys[0], ptp_time_req_mac};
+            ptp_time_rdy_sys    <=  {ptp_time_rdy_sys[0], ptp_time_req_mac[1]};
             ptp_time_now_sys    <=  ptp_time_rdy_sys[1] ? ptp_time_now_sys : counter_ns;
+        end
+    end
+
+    always @(posedge tx_master_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            ptp_time_now        <=  'b0;
+            ptp_time_req_mac    <=  'b0;    // pulse signal
+            ptp_time_rdy_mac    <=  'b0;
+        end
+        else begin
+            ptp_time_req_mac[0] <=  (ptp_time_req || (ptp_time_req_mac && ~ptp_time_rdy_mac[1]));
+            ptp_time_req_mac[1] <=  ptp_time_req_mac[0];
+            ptp_time_rdy_mac    <=  {ptp_time_rdy_mac[0], ptp_time_rdy_sys[1]};
+            ptp_time_now        <=  (ptp_time_req_mac == 2'b10) ? ptp_time_now_sys : ptp_time_now;
         end
     end
 
@@ -336,15 +364,9 @@ module mac_t_gmii_tte_v4(
             ptp_delay_sync      <=  'b0;
             ptp_delay_req       <=  'b0;
             ptp_time_ts         <=  'b0;
-            ptp_time_now        <=  'b0;
             ptp_time_req        <=  'b0;    // toggle signal
-            ptp_time_req_mac    <=  'b0;    // pulse signal
-            ptp_time_rdy_mac    <=  'b0;
         end
-        else begin
-            ptp_time_req_mac    <=  (ptp_time_req || (ptp_time_req_mac && ~ptp_time_rdy_mac[1]));
-            ptp_time_rdy_mac    <=  {ptp_time_rdy_mac[0], ptp_time_rdy_sys[1]};
-            ptp_time_now        <=  ptp_time_rdy_mac[1] ? ptp_time_now_sys : ptp_time_now;
+        else if (speed[1] || !tx_read_req) begin
             if (ptp_state == PTP_TX_STATE_SYNC) begin
                 if (tx_cnt_front == 32) begin
                     ptp_time_req    <=  'b1;
@@ -401,7 +423,7 @@ module mac_t_gmii_tte_v4(
             end
             else if (ptp_state == PTP_TX_STATE_FUP1) begin
                 if (tx_cnt_front == 30) begin
-                    tx_buf_cf   <=  {tx_data_in, tx_buffer[95:56]};
+                    tx_buf_cf   <=  speed[1] ? {tx_data_in, tx_buffer[95:56]} : tx_buffer[95:48];
                 end
             end
             else if (ptp_state == PTP_TX_STATE_FUP2) begin
@@ -465,8 +487,8 @@ module mac_t_gmii_tte_v4(
         case(mii_state)
             'h01: mii_state_next = tx_buf_rdy[3] ? 'h2 : 'h1;
             'h02: mii_state_next = (tx_cnt_back_1 == 0) ? 'h4 : 'h2;
-            'h04: mii_state_next = (tx_cnt_back_1 == tx_byte_cnt) ? 'h8 : 'h4;
-            'h08: mii_state_next = !tx_buf_rdy[3] ? 'h1 : 'h8;
+            'h04: mii_state_next = (tx_cnt_back_1 == tx_byte_cnt) && (speed[1] || tx_read_req) ? 'h8 : 'h4;
+            'h08: mii_state_next = !tx_buf_rdy[3] && (speed[1] || tx_read_req) ? 'h1 : 'h8;
         endcase
     end
 
@@ -490,7 +512,7 @@ module mac_t_gmii_tte_v4(
             if (tx_byte_valid[1]) begin
                 tx_buf_rdy  <=  {tx_buf_rdy[2:0], 1'b1};
             end
-            else if (mii_state == 'h08) begin
+            else if (mii_state == 'h08 && (speed[1] || tx_read_req)) begin
                 tx_buf_rdy  <=  {tx_buf_rdy[2:0], 1'b0};
             end
             if (mii_state_next == 'h01) begin
@@ -501,17 +523,19 @@ module mac_t_gmii_tte_v4(
             else if (mii_state_next == 'h02) begin
                 crc_init    <=  'b1;
                 crc_cal     <=  'b0;
-                crc_dv      <=  'b0;                
+                crc_dv      <=  'b0;
             end
             else if (mii_state_next == 'h04) begin
                 crc_init    <=  'b0;
                 crc_cal     <=  'b1;
-                crc_dv      <=  'b1;
+                // crc_dv      <=  'b1;
+                crc_dv      <=  (speed[1] || tx_read_req);
             end
             else if (mii_state_next == 'h08) begin
                 crc_init    <=  'b0;
                 crc_cal     <=  'b0;
-                crc_dv      <=  'b1;                
+                // crc_dv      <=  'b1;
+                crc_dv      <=  (speed[1] || !tx_read_req);
             end
         end
     end
@@ -526,33 +550,58 @@ module mac_t_gmii_tte_v4(
             mii_dv          <=  'b0;
         end
         else begin  // initialize tx buffer
-            if (!tx_buf_rdy[3] && tx_byte_valid[1]) begin
-                tx_buffer       <=  {tx_data_in, tx_buffer[95:8]};
-                // tx_buf_cf       <=  {tx_data_in, tx_buf_cf[47:8]};
-                mii_d           <=  'b0;
-                mii_dv          <=  'b0;
-            end     // send tx buffer
-            else if (tx_cnt_back != tx_byte_cnt && tx_buf_rdy[3]) begin
-                tx_buffer       <=  {tx_data_in, tx_buffer[95:8]};
-                // tx_buf_cf       <=  {tx_data_in, tx_buf_cf[47:8]};
-                // tx_cnt_back     <=  tx_cnt_back + 1'b1;
-                tx_cnt_back     <=  tx_cnt_back_1;
-                tx_cnt_back_1   <=  tx_cnt_back_1 + 1'b1;
-                mii_d           <=  mii_d_in;
-                mii_dv          <=  1'b1;
+            if (tx_state_next == 1) begin
+                tx_buffer   <=  {8'hd5, {7{8'h55}}, {4{8'b0}}};
             end
-            else if (mii_state_next == 'h8) begin
-                mii_d           <=  mii_d_in;
-                mii_dv          <=  1'b1;                
+            else if (tx_byte_valid[1]) begin
+                tx_buffer   <=  {tx_data_in, tx_buffer[95:8]};
+            end
+            else if (mii_state_next != 1 && (speed[1] || tx_read_req)) begin
+                tx_buffer   <=  {tx_data_in, tx_buffer[95:8]};
+            end
+            if (mii_state_next != 1) begin
+                if ((speed[1] || tx_read_req)) begin
+                    mii_d           <=  mii_d_in;
+                    mii_dv          <=  1'b1;
+                    tx_cnt_back     <=  tx_cnt_back_1;
+                    tx_cnt_back_1   <=  tx_cnt_back_1 + 1'b1;
+                end
+                else begin
+                    mii_d           <=  mii_d >> 4;
+                end
             end
             else begin
-                tx_buffer       <=  {8'hd5, {7{8'h55}}, {4{8'b0}}};
-                // tx_buf_cf       <=  'b0;
+                mii_dv          <=  1'b0;
                 tx_cnt_back     <=  11'hFF8;
                 tx_cnt_back_1   <=  11'hFF9;
-                mii_d           <=  'b0;
-                mii_dv          <=  'b0;
             end
+            // if (!tx_buf_rdy[3] && tx_byte_valid[1]) begin
+            //     tx_buffer       <=  {tx_data_in, tx_buffer[95:8]};
+            //     // tx_buf_cf       <=  {tx_data_in, tx_buf_cf[47:8]};
+            //     mii_d           <=  'b0;
+            //     mii_dv          <=  'b0;
+            // end     // send tx buffer
+            // else if (tx_cnt_back != tx_byte_cnt && tx_buf_rdy[3]) begin
+            //     tx_buffer       <=  {tx_data_in, tx_buffer[95:8]};
+            //     // tx_buf_cf       <=  {tx_data_in, tx_buf_cf[47:8]};
+            //     // tx_cnt_back     <=  tx_cnt_back + 1'b1;
+            //     tx_cnt_back     <=  tx_cnt_back_1;
+            //     tx_cnt_back_1   <=  tx_cnt_back_1 + 1'b1;
+            //     mii_d           <=  mii_d_in;
+            //     mii_dv          <=  1'b1;
+            // end
+            // else if (mii_state_next == 'h8) begin
+            //     mii_d           <=  mii_d_in;
+            //     mii_dv          <=  1'b1;                
+            // end
+            // else begin
+            //     tx_buffer       <=  {8'hd5, {7{8'h55}}, {4{8'b0}}};
+            //     // tx_buf_cf       <=  'b0;
+            //     tx_cnt_back     <=  11'hFF8;
+            //     tx_cnt_back_1   <=  11'hFF9;
+            //     mii_d           <=  'b0;
+            //     mii_dv          <=  'b0;
+            // end
         end
     end
 

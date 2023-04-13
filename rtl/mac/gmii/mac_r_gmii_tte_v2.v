@@ -4,13 +4,13 @@
 // Engineer: 
 // 
 // Create Date: 2022/05/11 16:43:39
-// Design Name: GMII RX interface, version 3
+// Design Name: GMII RX interface, version 2
 // Module Name: mac_r_gmii_tte_v2
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
 // Description: 
-// Reworked rx interface, utilization optimized
+// Reworked rx interface, ieee 1588 compatibility added
 // Dependencies: 
 // 
 // Revision:

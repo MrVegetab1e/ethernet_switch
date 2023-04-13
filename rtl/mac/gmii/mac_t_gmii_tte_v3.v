@@ -19,26 +19,27 @@
 // Only 2 step clock support available now, need refinement
 //////////////////////////////////////////////////////////////////////////////////
 
-module mac_t_gmii_tte_v2(
-    input           rstn_sys,   // async reset, system side
-    input           rstn_mac,   // async reset, (g)mii side
-    input           sys_clk,    // sys clk
-    input           tx_clk,     // mii tx clk
-    input           gtx_clk,    // gmii tx clk, 125MHz, External
-    output          gtx_dv,     // (g)mii tx valid
-    output  [ 7:0]  gtx_d,      // (g)mii tx data
+module mac_t_gmii_tte_v3(
+    input           rstn_sys,       // async reset, system side
+    input           rstn_mac,       // async reset, (g)mii side
+    input           sys_clk,        // sys clk
+    input           tx_clk,         // mii tx clk
+    input           gtx_clk,        // gmii tx clk, 125MHz, External
+    output          interface_clk,  // interface clk, drive output fifo
+    output          gtx_dv,         // (g)mii tx valid
+    output  [ 7:0]  gtx_d,          // (g)mii tx data
 
-    input   [ 1:0]  speed,      // speed from mdio
+    input   [ 1:0]  speed,          // speed from mdio
 
     // normal dataflow
-    output reg      data_fifo_rd,
+    output          data_fifo_rd,
     input   [ 7:0]  data_fifo_din,  // registered output, better timing
     input           data_fifo_empty,
     output reg      ptr_fifo_rd, 
     input   [15:0]  ptr_fifo_din,
     input           ptr_fifo_empty,
     // tte dataflow
-    output reg      tdata_fifo_rd,
+    output          tdata_fifo_rd,
     input   [ 7:0]  tdata_fifo_din,
     input           tdata_fifo_empty,
     output reg      tptr_fifo_rd,
@@ -50,15 +51,14 @@ module mac_t_gmii_tte_v2(
 );
 
     localparam  MAC_TX_STATE_IDLE   =   1;  // idle state, wait for new packet
-    localparam  MAC_TX_STATE_STA0   =   2;  // start state 0, not used
-    localparam  MAC_TX_STATE_STA1   =   4;  // start state 1, read ptr
-    localparam  MAC_TX_STATE_STA2   =   8;  // start state 2, process ptr
-    localparam  MAC_TX_STATE_STA3   =   16; // start state 3, wait until data arrive
-    localparam  MAC_TX_STATE_STA4   =   32; // start state 4, wait until buffer is filled
-    localparam  MAC_TX_STATE_PREA   =   64; // preamble state, not counting
-    localparam  MAC_TX_STATE_DATA   =   128;// data state, count for data bytes
-    localparam  MAC_TX_STATE_CRCV   =   256;// crc state, output crc value
-    localparam  MAC_TX_STATE_WAIT   =   512;// wait state, comply with standard
+    localparam  MAC_TX_STATE_STA1   =   2;  // start state 1, read ptr
+    localparam  MAC_TX_STATE_STA2   =   4;  // start state 2, process ptr
+    localparam  MAC_TX_STATE_STA3   =   8;  // start state 3, wait until data arrive
+    localparam  MAC_TX_STATE_STA4   =   16; // start state 4, wait until buffer is filled
+    localparam  MAC_TX_STATE_PREA   =   32; // preamble state, not counting
+    localparam  MAC_TX_STATE_DATA   =   64; // data state, count for data bytes
+    localparam  MAC_TX_STATE_CRCV   =   128;// crc state, output crc value
+    localparam  MAC_TX_STATE_WAIT   =   256;// wait state, comply with standard
 
     localparam  PTP_TX_STATE_IDLE   =   1;  // idle state, wait for ptp packet
     localparam  PTP_TX_STATE_TYPE   =   2;  // type state, check for ptp type
@@ -122,16 +122,22 @@ module mac_t_gmii_tte_v2(
     end
 
     assign  tx_master_clk   =   (tx_clk_en_reg_n && tx_clk) || (gtx_clk_en_reg_n && gtx_clk);
+    assign  interface_clk   =   tx_master_clk;
 
     reg     [15:0]  tx_state, tx_state_next;
-    reg     [96:0]  tx_buffer;      // extended buffer for PTP operations
+    reg     [95:0]  tx_buffer;      // extended buffer for PTP operations
     reg     [47:0]  tx_buffer_cf;   // high 48 bit of correctionField
 
     reg             tx_arb_dir;
-    reg     [10:0]  tx_loop_cnt;
-    reg     [10:0]  tx_byte_cnt;
-    reg     [10:0]  tx_byte_tgt;
-    reg             tx_byte_en;     // generate read signal for 4-bit MII
+    reg     [10:0]  tx_cnt_front;   // frontend count
+    reg     [10:0]  tx_cnt_back;    // backend count
+    reg     [10:0]  tx_byte_cnt;    // total byte count
+    reg             tx_read_req;     // generate read signal for 4-bit MII
+
+    reg             data_fifo_en;
+    reg             tdata_fifo_en;
+    assign          data_fifo_rd    =   data_fifo_en && (tx_read_req || tx_state[5:3] != 'b0);
+    assign          tdata_fifo_rd   =   tdata_fifo_en && (tx_read_req || tx_state[5:3] != 'b0);
 
     reg     [47:0]  ptp_delay_sync; // ingress-egress delay of sync
     reg     [47:0]  ptp_delay_req;  // ingress-egress delay of delay_req
@@ -158,10 +164,10 @@ module mac_t_gmii_tte_v2(
                     tx_state_next   =   MAC_TX_STATE_IDLE;
             end
             MAC_TX_STATE_STA1: begin
-                if (!data_fifo_empty || !tdata_fifo_empty)
+                // if (!data_fifo_empty || !tdata_fifo_empty)
                     tx_state_next   =   MAC_TX_STATE_STA2;
-                else
-                    tx_state_next   =   MAC_TX_STATE_IDLE;
+                // else
+                //     tx_state_next   =   MAC_TX_STATE_IDLE;
             end
             MAC_TX_STATE_STA2: begin
                 tx_state_next   =   MAC_TX_STATE_STA3;
@@ -170,31 +176,31 @@ module mac_t_gmii_tte_v2(
                 tx_state_next   =   MAC_TX_STATE_STA4;
             end
             MAC_TX_STATE_STA4: begin
-                if (tx_loop_cnt == 'h3)
+                if (tx_cnt_front == 'h3)
                     tx_state_next   =   MAC_TX_STATE_PREA;
                 else
                     tx_state_next   =   MAC_TX_STATE_STA4;
             end
             MAC_TX_STATE_PREA: begin
-                if (tx_loop_cnt == 'hB)
+                if (tx_cnt_back == 'hB)
                     tx_state_next   =   MAC_TX_STATE_DATA;
                 else
                     tx_state_next   =   MAC_TX_STATE_PREA;
             end
             MAC_TX_STATE_DATA: begin
-                if (tx_byte_cnt == tx_byte_tgt)
+                if (tx_cnt_back == tx_byte_cnt)
                     tx_state_next   =   MAC_TX_STATE_CRCV;
                 else 
                     tx_state_next   =   MAC_TX_STATE_DATA;
             end
             MAC_TX_STATE_CRCV: begin
-                if (tx_loop_cnt == 'h10)
+                if (tx_cnt_back == 'h4)
                     tx_state_next   =   MAC_TX_STATE_WAIT;
                 else
                     tx_state_next   =   MAC_TX_STATE_CRCV;
             end
             MAC_TX_STATE_WAIT: begin
-                if (tx_loop_cnt == 'h18)
+                if (tx_cnt_back == 'h8)
                     tx_state_next   =   MAC_TX_STATE_IDLE;
                 else
                     tx_state_next   =   MAC_TX_STATE_WAIT;
@@ -216,14 +222,11 @@ module mac_t_gmii_tte_v2(
 
     always @(posedge tx_master_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
-            tx_loop_cnt <=  'b0;
-            tx_byte_cnt <=  'b0;
-            tx_byte_en  <=  'b0;
+            tx_cnt_front    <=  'b0;
         end
         else begin
             if (tx_state == MAC_TX_STATE_IDLE) begin
                 tx_loop_cnt <=  'b0;
-                tx_byte_cnt <=  'b0;
             end
             else if (tx_state == MAC_TX_STATE_STA4) begin
                 tx_loop_cnt <=  tx_loop_cnt + 1'b1;
@@ -252,12 +255,12 @@ module mac_t_gmii_tte_v2(
         if (!rstn_mac) begin
             // upstream fifo read ctrl
             ptr_fifo_rd     <=  'b0;
-            data_fifo_rd    <=  'b0;
+            data_fifo_en    <=  'b0;
             tptr_fifo_rd    <=  'b0;
-            tdata_fifo_rd   <=  'b0;
+            tdata_fifo_en   <=  'b0;
             // tx internal ctrl
             tx_arb_dir  <=  'b0;
-            tx_byte_tgt <=  'b0;
+            tx_byte_cnt <=  'b0;
             crc_init    <=  'b0;
             crc_cal     <=  'b0;
             crc_dv      <=  'b0;
@@ -271,37 +274,39 @@ module mac_t_gmii_tte_v2(
             else if (tx_state_next == MAC_TX_STATE_STA2) begin
                 ptr_fifo_rd     <=  'b0;
                 tptr_fifo_rd    <=  'b0;
-                data_fifo_rd    <=  !tx_arb_dir;
-                tdata_fifo_rd   <=  tx_arb_dir;
-                tx_byte_tgt     <=  tx_ptr_in[10:0];
+                data_fifo_en    <=  !tx_arb_dir;
+                tdata_fifo_en   <=  tx_arb_dir;
             end
             else if (tx_state_next == MAC_TX_STATE_STA3) begin
+                tx_byte_cnt     <=  tx_ptr_in[10:0];
                 crc_init        <=  1'b1;
             end
-            else if (tx_state_next == MAC_TX_STATE_STA3) begin
+            else if (tx_state_next == MAC_TX_STATE_STA4) begin
                 crc_init        <=  1'b0;
             end
             else if (tx_state_next == MAC_TX_STATE_DATA) begin
                 crc_cal         <=  1'b1;
                 crc_dv          <=  1'b1;
             end
-            else if (tx_state == MAC_TX_STATE_CRCV) begin
+            else if (tx_state_next == MAC_TX_STATE_CRCV) begin
+                data_fifo_en    <=  'b0;
+                tdata_fifo_en   <=  'b0;
                 crc_cal         <=  1'b0;
             end
-            else if (tx_state == MAC_TX_STATE_WAIT) begin
+            else if (tx_state_next == MAC_TX_STATE_WAIT) begin
                 crc_dv          <=  1'b0;
             end
-            else begin
-                ptr_fifo_rd     <=  'b0;
-                data_fifo_rd    <=  'b0;
-                tptr_fifo_rd    <=  'b0;
-                tdata_fifo_rd   <=  'b0;
-                tx_arb_dir  <=  'b0;
-                tx_byte_tgt <=  'b0;
-                crc_init    <=  'b0;
-                crc_cal     <=  'b0;
-                crc_dv      <=  'b0;    
-            end
+            // else if (tx_state_next == MAC_TX_STATE_IDLE) begin
+                // ptr_fifo_rd     <=  'b0;
+                // data_fifo_rd    <=  'b0;
+                // tptr_fifo_rd    <=  'b0;
+                // tdata_fifo_rd   <=  'b0;
+                // tx_arb_dir  <=  'b0;
+                // tx_byte_tgt <=  'b0;
+                // crc_init    <=  'b0;
+                // crc_cal     <=  'b0;
+                // crc_dv      <=  'b0;    
+            // end
         end
     end
 
@@ -330,8 +335,6 @@ module mac_t_gmii_tte_v2(
             PTP_TX_STATE_FUP3: begin
                 
             end
-            default:
-                tx_state_next   =   tx_state;
         endcase
     end
 
@@ -349,30 +352,32 @@ module mac_t_gmii_tte_v2(
 
     wire    [ 7:0]  mii_d_in;
     assign          mii_d_in    =   (tx_state == MAC_TX_STATE_CRCV)     ?   crc_dout            :
-                                    (ptp_state == PTP_TX_STATE_FUP3)    ?   tx_buffer_cf[7:0]   :
+                                    // (ptp_state == PTP_TX_STATE_FUP3)    ?   tx_buffer_cf[7:0]   :
                                     tx_buffer[7:0];
 
     always @(posedge tx_master_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             tx_buffer   <=  {8'hd5, {7{8'h55}}, {4{8'b0}}};
+            tx_read_req <=  'b0;
             mii_d       <=  'b0;
             mii_dv      <=  'b0;
         end
         else begin  // initialize tx buffer
-            if (tx_state == MAC_TX_STATE_STA3) begin
+            if (tx_state == MAC_TX_STATE_STA4) begin
                 tx_buffer   <=  {tx_data_in, tx_buffer[95:8]};
                 mii_d       <=  'b0;
                 mii_dv      <=  'b0;
             end     // send tx buffer
             else if (tx_state == MAC_TX_STATE_PREA || tx_state == MAC_TX_STATE_DATA || tx_state == MAC_TX_STATE_CRCV) begin
-                if (speed[1] || tx_byte_en) begin
+                if (speed[1] || tx_read_req) begin
                     tx_buffer   <=  {tx_data_in, tx_buffer[95:8]};
                     mii_d       <=  mii_d_in;
                     mii_dv      <=  1'b1;
                 end
                 else begin
-                    mii_d   <=  mii_d >> 4;
-                    mii_dv  <=  1'b1;
+                    mii_d       <=  mii_d >> 4;
+                    mii_dv      <=  1'b1;
+                    tx_read_req <=  1'b1;
                 end
             end
             else begin
@@ -382,6 +387,9 @@ module mac_t_gmii_tte_v2(
             end
         end
     end
+
+    assign      gtx_d   =   mii_d;
+    assign      gtx_dv  =   mii_dv;
 
     crc32_8023 u_crc32_8023(
         .clk(tx_master_clk), 
