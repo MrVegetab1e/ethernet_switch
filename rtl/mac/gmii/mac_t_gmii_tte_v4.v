@@ -139,6 +139,7 @@ module mac_t_gmii_tte_v4(
 
     reg             tx_arb_dir;
     reg     [10:0]  tx_cnt_front;   // frontend count
+    reg     [10:0]  tx_cnt_front_1;
     reg     [10:0]  tx_cnt_back;    // backend count
     reg     [10:0]  tx_cnt_back_1;
     reg     [10:0]  tx_byte_cnt;    // total byte count
@@ -180,11 +181,12 @@ module mac_t_gmii_tte_v4(
 
     always @(*) begin
         case(tx_state)
-            'h01: tx_state_next = (!tptr_fifo_empty || !ptr_fifo_empty) ? 'h2 : 'h1;
-            'h02: tx_state_next = 'h4;
-            'h04: tx_state_next = 'h8;
-            'h08: tx_state_next = (tx_cnt_front == tx_byte_cnt) ? 'h16 : 'h8;
-            'h16: tx_state_next = (tx_cnt_back == 11'hFF8) ? 'h1 : 'h16;
+            'd01: tx_state_next = (!tptr_fifo_empty || !ptr_fifo_empty) ? 'd2 : 'd1;
+            'd02: tx_state_next = 'd4;
+            'd04: tx_state_next = 'd8;
+            'd08: tx_state_next = (tx_cnt_front == tx_byte_cnt) ? 'd16 : 'd8;
+            'd16: tx_state_next = (tx_cnt_back == 11'hFF8) ? 'd32 : 'd16;
+            'd32: tx_state_next = (tx_cnt_front_1 == 7) ? 'd1 : 'd32; 
         endcase
     end
 
@@ -200,6 +202,7 @@ module mac_t_gmii_tte_v4(
     always @(posedge tx_master_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             tx_cnt_front    <=  'b1;
+            tx_cnt_front_1  <=  'b0;
             tx_byte_valid   <=  'b0;
         end
         else begin
@@ -209,6 +212,14 @@ module mac_t_gmii_tte_v4(
             else if (tx_state_next == 1) begin
                 // tx_cnt_front    <=  speed[1];
                 tx_cnt_front    <=  'b1;
+            end
+            if (tx_state_next == 32) begin
+                if (speed[1] || tx_read_req) begin
+                    tx_cnt_front_1  <=  tx_cnt_front_1 + 1'b1;
+                end
+            end
+            else begin
+                tx_cnt_front_1  <=  'b0;
             end
             tx_byte_valid   <=  {tx_byte_valid[0], (data_fifo_rd || tdata_fifo_rd)};
         end
@@ -225,7 +236,7 @@ module mac_t_gmii_tte_v4(
             tx_read_req     <=  'b1;
         end        
         else begin
-            if (tx_state_next == 'h1) begin
+            if (tx_state_next == 1) begin
                 ptr_fifo_rd     <=  'b0;
                 tptr_fifo_rd    <=  'b0;
                 data_fifo_en    <=  'b0;
@@ -233,26 +244,29 @@ module mac_t_gmii_tte_v4(
                 tx_byte_cnt     <=  'b0;
                 tx_read_req     <=  'b1;
             end
-            else if (tx_state_next == 'h2) begin
+            else if (tx_state_next == 2) begin
                 tx_arb_dir      <=  !tptr_fifo_empty;
                 ptr_fifo_rd     <=  tptr_fifo_empty;
                 tptr_fifo_rd    <=  !tptr_fifo_empty;
                 tx_read_req     <=  !tx_read_req;
             end
-            else if (tx_state_next == 'h4) begin
+            else if (tx_state_next == 4) begin
                 ptr_fifo_rd     <=  'b0;
                 tptr_fifo_rd    <=  'b0;
                 data_fifo_en    <=  !tx_arb_dir;
                 tdata_fifo_en   <=  tx_arb_dir;
                 tx_read_req     <=  !tx_read_req;
             end
-            else if (tx_state_next == 'h8) begin
+            else if (tx_state_next == 8) begin
                 tx_byte_cnt     <=  tx_ptr_in[10:0] + !speed[1];
                 tx_read_req     <=  !tx_read_req;
             end
-            else if (tx_state_next == 'h16) begin
+            else if (tx_state_next == 16) begin
                 data_fifo_en    <=  'b0;
                 tdata_fifo_en   <=  'b0;
+                tx_read_req     <=  !tx_read_req;
+            end
+            else if (tx_state_next == 32) begin
                 tx_read_req     <=  !tx_read_req;
             end
         end

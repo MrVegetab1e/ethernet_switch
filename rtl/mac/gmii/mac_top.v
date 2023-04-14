@@ -22,7 +22,9 @@ module mac_top(
 
     output    [1:0]    led,
     output             link,
-                  
+
+    output              interface_clk,
+
     output             tx_data_fifo_rd,
     input     [7:0]    tx_data_fifo_dout,
     output             tx_ptr_fifo_rd,
@@ -72,12 +74,13 @@ mac_r_gmii_tte u_mac_r_gmii(
     .tteptr_fifo_empty(rx_tteptr_fifo_empty)
     );
 
-mac_t_gmii_tte_v2 u_mac_t_gmii(
+mac_t_gmii_tte_v4 u_mac_t_gmii(
     .sys_clk(clk),
     .rstn_sys(rstn_sys),
     .rstn_mac(rstn_mac),
     .tx_clk(MII_TX_CLK),
     .gtx_clk(clk_125),
+    .interface_clk(interface_clk),
     .gtx_dv(GMII_TX_EN),
     .gtx_d(GMII_TXD),
     .speed(speed),
@@ -90,7 +93,8 @@ mac_t_gmii_tte_v2 u_mac_t_gmii(
     .tdata_fifo_din(tx_tte_fifo_dout),
     .tptr_fifo_rd(tx_tteptr_fifo_rd),
     .tptr_fifo_din(tx_tteptr_fifo_dout),
-    .tptr_fifo_empty(tx_tteptr_fifo_empty)
+    .tptr_fifo_empty(tx_tteptr_fifo_empty),
+    .counter_ns('b0)
     );
 
 // mac_t_gmii_tte u_mac_t_gmii(
