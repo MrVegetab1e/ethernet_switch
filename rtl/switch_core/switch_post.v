@@ -3,18 +3,18 @@ module switch_post (
     input clk,
     input rstn,
 
-    input              o_cell_data_fifo_wr,
-    input      [127:0] o_cell_data_fifo_din,
-    input              o_cell_data_first,
-    input              o_cell_data_last,
-    output reg         o_cell_data_fifo_bp,
+    (*MARK_DEBUG="true"*) input              o_cell_data_fifo_wr,
+    (*MARK_DEBUG="true"*) input      [127:0] o_cell_data_fifo_din,
+    (*MARK_DEBUG="true"*) input              o_cell_data_first,
+    (*MARK_DEBUG="true"*) input              o_cell_data_last,
+    (*MARK_DEBUG="true"*) output reg         o_cell_data_fifo_bp,
 
-                          input         interface_clk,
-    (*MARK_DEBUG="true"*) input         ptr_fifo_rd,
-    (*MARK_DEBUG="true"*) output [15:0] ptr_fifo_dout,
-    (*MARK_DEBUG="true"*) output        ptr_fifo_empty,
-    (*MARK_DEBUG="true"*) input         data_fifo_rd,
-    (*MARK_DEBUG="true"*) output [ 7:0] data_fifo_dout
+    input         interface_clk,
+    input         ptr_fifo_rd,
+    output [15:0] ptr_fifo_dout,
+    output        ptr_fifo_empty,
+    input         data_fifo_rd,
+    output [ 7:0] data_fifo_dout
 );
 
     reg    o_cell_data_fifo_rd;
