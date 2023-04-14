@@ -41,13 +41,24 @@ input               tte_fifo_rd,
 output      [7:0]   tte_fifo_dout,
 input               tteptr_fifo_rd, 
 output      [15:0]  tteptr_fifo_dout,
-output              tteptr_fifo_empty
+output              tteptr_fifo_empty,
+input       [31:0]  counter_ns,
+input       [63:0]  counter_ns_tx_delay,
+input       [63:0]  counter_ns_gtx_delay
     );
 
 parameter DELAY=2;  
 parameter CRC_RESULT_VALUE=32'hc704dd7b;
 parameter TTE_VALUE=8'h92;
 parameter MTU=1500;
+parameter PTP_VALUE_HIGH=8'h88;
+parameter PTP_VALUE_LOWER=8'hf7;
+
+//============================================  
+//generte ptp message    
+//============================================ 
+wire    [63:0]  counter_ns_delay;
+assign  counter_ns_delay = speed[1]?counter_ns_gtx_delay:counter_ns_tx_delay;
 
 assign  gtx_clk = rx_clk & speed[1];
 //============================================  
@@ -221,6 +232,118 @@ dpsram_w8_d2k u_data_ram(
   .doutb(data_ram_dout)     // output wire [7 : 0] doutb
 );
 
+//============================================  
+//PTP_rx_state.   
+//============================================ 
+
+reg     [63:0]  ptp_messeage;
+reg     [3:0]   ptp_reg_state;
+
+always @(posedge rx_clk  or negedge rstn_mac)
+    if(!rstn_mac)begin
+        ptp_reg_state<=#DELAY 0;
+        ptp_messeage<=#DELAY 0;
+    end
+    else begin
+        case(ptp_reg_state)
+        0: begin
+            if(dv_sof)begin
+                if(!sfd) begin
+                    ptp_reg_state<=#DELAY 1;
+                    end
+                else begin
+                    ptp_reg_state<=#DELAY 2;
+                    end
+                end
+            end
+        1:begin
+            if(rx_dv_reg0)begin
+                if(sfd) begin
+                    ptp_reg_state<=#DELAY 2;
+                    end
+                end
+            else ptp_reg_state<=#DELAY 0;
+            end
+        2:begin
+            if(byte_cnt==12 & byte_dv)begin
+                if(data_ram_din==PTP_VALUE_HIGH)begin
+                    ptp_reg_state<=#DELAY 3;
+                end
+                else begin
+                    ptp_reg_state<=#DELAY 0;
+                end
+            end
+        end
+        3:begin
+            if(byte_cnt==13 & byte_dv)begin
+                if(data_ram_din==PTP_VALUE_LOWER)begin
+                    ptp_reg_state<=#DELAY 4;
+                end
+                else begin
+                    ptp_reg_state<=#DELAY 0;
+                end
+            end
+        end
+        4:begin
+            if(byte_cnt==14 & byte_dv)begin
+                if(data_ram_din[3:0]==4'b1001)begin
+                    ptp_reg_state<=#DELAY 5;
+                end
+                else begin
+                    ptp_reg_state<=#DELAY 0;
+                end
+            end
+        end
+        5:begin
+            if(byte_cnt==22 & byte_dv)begin
+                ptp_messeage[63:56]<=#DELAY data_ram_din;
+                ptp_reg_state<=#DELAY 6;
+            end
+        end
+        6:begin
+            if(byte_cnt==23 & byte_dv)begin
+                ptp_messeage[55:48]<=#DELAY data_ram_din;
+                ptp_reg_state<=#DELAY 7;
+            end
+        end
+        7:begin
+            if(byte_cnt==24 & byte_dv)begin
+                ptp_messeage[47:40]<=#DELAY data_ram_din;
+                ptp_reg_state<=#DELAY 8;
+            end
+        end
+        8:begin
+            if(byte_cnt==25 & byte_dv)begin
+                ptp_messeage[39:32]<=#DELAY data_ram_din;
+                ptp_reg_state<=#DELAY 9;
+            end
+        end
+        9:begin
+            if(byte_cnt==26 & byte_dv)begin
+                ptp_messeage[31:24]<=#DELAY data_ram_din;
+                ptp_reg_state<=#DELAY 10;
+            end
+        end
+        10:begin
+            if(byte_cnt==27 & byte_dv)begin
+                ptp_messeage[23:16]<=#DELAY data_ram_din;
+                ptp_reg_state<=#DELAY 11;
+            end
+        end
+        11:begin
+            if(byte_cnt==28 & byte_dv)begin
+                ptp_messeage[15:8]<=#DELAY data_ram_din;
+                ptp_reg_state<=#DELAY 12;
+            end
+        end
+        12:begin
+            if(byte_cnt==29 & byte_dv)begin
+                ptp_messeage[7:0]<=#DELAY data_ram_din;
+                ptp_reg_state<=#DELAY 0;
+            end
+        end
+        endcase
+    end
 
 //============================================  
 //crc signal.   
@@ -257,7 +380,7 @@ crc32_8023 u_crc32_8023(
 //============================================  
 reg     [12:0]  ram_nibble_be;
 wire    [12:0]  ram_cnt_be;
-reg     [7:0]	data_fifo_din;
+reg     [7:0]	data_fifo_din_reg;
 reg             data_fifo_wr;
 reg             data_fifo_wr_reg;
 wire            data_fifo_wr_dv;
@@ -281,10 +404,10 @@ always @(posedge rx_clk or negedge rstn_mac)
 
 always @(posedge rx_clk or negedge rstn_mac)
     if(!rstn_mac)begin
-        data_fifo_din<=#DELAY 0;
+        data_fifo_din_reg<=#DELAY 0;
         end
     else begin
-        data_fifo_din<=#DELAY data_ram_dout;
+        data_fifo_din_reg<=#DELAY data_ram_dout;
         end
 
 wire    bp;
@@ -341,6 +464,268 @@ always @(posedge rx_clk  or negedge rstn_mac)
         end
         endcase
         end
+
+
+//============================================  
+//PTP rx_state.   
+//============================================ 
+reg     [7:0]   ptp_data; 
+reg             ptp_sel;
+reg     [5:0]   ptp_state;
+reg     [31:0]  counter_ns_reg;
+reg     [63:0]  ptp_message_pad;
+
+always @(posedge rx_clk  or negedge rstn_mac)
+    if(!rstn_mac)begin
+        ptp_state<=#DELAY 0;
+        ptp_sel<=#DELAY 0;
+        ptp_data<=#DELAY 0;
+        counter_ns_reg<=#DELAY 0;
+        ptp_message_pad<=#DELAY 0;
+    end
+    else begin
+        case(ptp_state)
+        0: begin
+            if(ram_cnt_be==13)begin //mii
+                if(data_ram_dout==PTP_VALUE_HIGH)begin
+                    ptp_state<=#DELAY 1;
+                end
+            end
+            else if(ram_cnt_be==14)begin //gmii
+                if(data_ram_dout==PTP_VALUE_HIGH)begin
+                    ptp_state<=#DELAY 8;
+                end
+            end
+        end
+        1:begin
+            if(ram_cnt_be==14)begin
+                if(data_ram_dout==PTP_VALUE_LOWER)begin
+                    ptp_state<=#DELAY 2;
+                end
+                else begin
+                    ptp_state<=#DELAY 0;
+                end
+            end
+        end
+        2:begin
+            if(ram_cnt_be==15)begin
+                if(data_ram_dout[3:1]==0)begin
+                    ptp_state<=#DELAY 3;
+                end
+                else if(data_ram_dout[3:0]==4'b1001)begin
+                    ptp_state<=#DELAY 15;
+                end
+                else begin
+                    ptp_state<=#DELAY 0;
+                end
+            end
+        end
+        3:begin
+            if(ram_cnt_be==30 & data_fifo_wr_dv)begin
+                counter_ns_reg<=#DELAY counter_ns;
+                ptp_data<=#DELAY counter_ns[31:24];
+                ptp_sel<=#DELAY 1;
+                ptp_state<=#DELAY 4;
+            end
+        end
+        4:begin
+            if(ram_cnt_be==31 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY counter_ns_reg[23:16];
+                ptp_state<=#DELAY 5;
+            end
+        end
+        5:begin
+            if(ram_cnt_be==32 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY counter_ns_reg[15:8];
+                ptp_state<=#DELAY 6;
+            end
+        end
+        6:begin
+            if(ram_cnt_be==33 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY counter_ns_reg[7:0];
+                ptp_state<=#DELAY 7;
+            end
+        end
+        7:begin
+            if(ram_cnt_be==34 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY 0;
+                ptp_state<=#DELAY 0;
+                ptp_sel<=#DELAY 0;
+            end
+        end
+        8:begin
+            if(ram_cnt_be==15)begin
+                if(data_ram_dout==PTP_VALUE_LOWER)begin
+                    ptp_state<=#DELAY 9;
+                end
+                else begin
+                    ptp_state<=#DELAY 0;
+                end
+            end
+        end
+        9:begin
+            if(ram_cnt_be==16)begin
+                if(data_ram_dout[3:1]==0)begin
+                    ptp_state<=#DELAY 10;
+                end
+                else if(data_ram_dout[3:0]==4'b1001)begin
+                    ptp_message_pad<=#DELAY ptp_messeage+counter_ns_delay;
+                    ptp_state<=#DELAY 24;
+                end
+                else begin
+                    ptp_state<=#DELAY 0;
+                end
+            end
+        end
+        10:begin
+            if(ram_cnt_be==32 & data_fifo_wr_dv)begin
+                counter_ns_reg<=#DELAY counter_ns;
+                ptp_data<=#DELAY counter_ns[31:24];
+                ptp_sel<=#DELAY 1;
+                ptp_state<=#DELAY 11;
+            end
+        end
+        11:begin
+            if(ram_cnt_be==33 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY counter_ns_reg[23:16];
+                ptp_state<=#DELAY 12;
+            end
+        end
+        12:begin
+            if(ram_cnt_be==34 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY counter_ns_reg[15:8];
+                ptp_state<=#DELAY 13;
+            end
+        end
+        13:begin
+            if(ram_cnt_be==35 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY counter_ns_reg[7:0];
+                ptp_state<=#DELAY 14;
+            end
+        end
+        14:begin
+            if(ram_cnt_be==36 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY 0;
+                ptp_state<=#DELAY 0;
+                ptp_sel<=#DELAY 0;
+            end
+        end
+        15:begin
+            if(ram_cnt_be==22 & data_fifo_wr_dv)begin
+                ptp_message_pad<=#DELAY ptp_messeage+counter_ns_delay;
+                ptp_data<=#DELAY ptp_messeage[63:56];
+                ptp_sel<=#DELAY 1;
+                ptp_state<=#DELAY 16;
+            end
+        end
+        16:begin
+            if(ram_cnt_be==23 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[55:48];
+                ptp_state<=#DELAY 17;
+            end
+        end
+        17:begin
+            if(ram_cnt_be==24 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[47:40];
+                ptp_state<=#DELAY 18;
+            end
+        end
+        18:begin
+            if(ram_cnt_be==25 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[39:32];
+                ptp_state<=#DELAY 19;
+            end
+        end
+        19:begin
+            if(ram_cnt_be==26 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[31:24];
+                ptp_state<=#DELAY 20;
+            end
+        end
+        20:begin
+            if(ram_cnt_be==27 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[23:16];
+                ptp_state<=#DELAY 21;
+            end
+        end
+        21:begin
+            if(ram_cnt_be==28 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[15:8];
+                ptp_state<=#DELAY 22;
+            end
+        end
+        22:begin
+            if(ram_cnt_be==29 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[7:0];
+                ptp_state<=#DELAY 23;
+            end
+        end
+        23:begin
+            if(ram_cnt_be==30 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY 0;
+                ptp_state<=#DELAY 0;
+                ptp_sel<=#DELAY 0;
+            end
+        end
+        24:begin
+            if(ram_cnt_be==24 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[63:56];
+                ptp_sel<=#DELAY 1;
+                ptp_state<=#DELAY 25;
+            end
+        end
+        25:begin
+            if(ram_cnt_be==25 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[55:48];
+                ptp_state<=#DELAY 26;
+            end
+        end
+        26:begin
+            if(ram_cnt_be==26 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[47:40];
+                ptp_state<=#DELAY 27;
+            end
+        end
+        27:begin
+            if(ram_cnt_be==27 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[39:32];
+                ptp_state<=#DELAY 28;
+            end
+        end
+        28:begin
+            if(ram_cnt_be==28 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[31:24];
+                ptp_state<=#DELAY 29;
+            end
+        end
+        29:begin
+            if(ram_cnt_be==29 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[23:16];
+                ptp_state<=#DELAY 30;
+            end
+        end
+        30:begin
+            if(ram_cnt_be==30 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[15:8];
+                ptp_state<=#DELAY 31;
+            end
+        end
+        31:begin
+            if(ram_cnt_be==31 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY ptp_message_pad[7:0];
+                ptp_state<=#DELAY 32;
+            end
+        end
+        32:begin
+            if(ram_cnt_be==32 & data_fifo_wr_dv)begin
+                ptp_data<=#DELAY 0;
+                ptp_state<=#DELAY 0;
+                ptp_sel<=#DELAY 0;
+            end
+        end
+        endcase
+    end
+
 
 
 //============================================  
@@ -433,9 +818,14 @@ always @(posedge rx_clk  or negedge rstn_mac)
         endcase
         end
 
+wire    [7:0]   data_fifo_din;
+
 assign  data_ram_addrb = ram_cnt_be[10:0] | ram_cnt_tte[10:0] ;
 assign  calc = data_fifo_wr_dv | tte_fifo_wr_dv;
 assign  d_valid = data_fifo_wr_dv | tte_fifo_wr_dv;
+
+assign  data_fifo_din = (ptp_sel==1)?ptp_data:data_fifo_din_reg;
+
 //============================================  
 //fifo used. 
 //============================================  
