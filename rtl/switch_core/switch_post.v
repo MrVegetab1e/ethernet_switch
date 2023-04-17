@@ -39,13 +39,16 @@ module switch_post (
 
     reg   [15:0] ptr_fifo_din;
     wire   ptr_fifo_full;
-    wire   data_fifo_wr;
+    (*MARK_DEBUG="true"*) wire   data_fifo_wr;
     reg   [7:0]  data_fifo_din;
     wire  [11:0] data_fifo_depth;
+    // wire  [13:0] data_fifo_depth;
     reg    bp;
-    always @(posedge clk) bp <= #2 (data_fifo_depth > 2578) | ptr_fifo_full;
+    // always @(posedge clk) bp <= #2 (data_fifo_depth > 2578) | ptr_fifo_full;
+    always @(posedge clk) bp <= #2 (data_fifo_depth >= 2560) || ptr_fifo_full;
+    // always @(posedge clk) bp <= #2 (data_fifo_depth >= 14'h3A00) || ptr_fifo_full;
 
-    reg    ptr_fifo_wr;
+    (*MARK_DEBUG="true"*) reg    ptr_fifo_wr;
     reg   [4:0]  mstate;
     reg   [11:0] byte_cnt;
     reg    byte_dv;
@@ -171,10 +174,15 @@ module switch_post (
                 end
             endcase
         end
-    assign data_fifo_wr = byte_dv & (byte_cnt < frame_len);
+    // assign data_fifo_wr = byte_dv & (byte_cnt < frame_len);
+    assign data_fifo_wr = byte_dv && (byte_cnt[11:6] !== frame_len[11:6] || byte_cnt[5:0] < frame_len[5:0]);
 
     (*MARK_DEBUG="true"*) wire dbg_data_empty;
+    (*MARK_DEBUG="true"*) wire dbg_data_of;
+    (*MARK_DEBUG="true"*) wire dbg_data_uf;
+
     afifo_reg_w8_d4k u_data_fifo (
+    // afifo_reg_w8_d16k u_data_fifo (
         .rst(!rstn),
         .wr_clk(clk),
         .rd_clk(interface_clk),
@@ -184,10 +192,15 @@ module switch_post (
         .dout(data_fifo_dout[7:0]),
         .full(),
         .empty(dbg_data_empty),
-        .wr_data_count(data_fifo_depth[11:0])
+        .wr_data_count(data_fifo_depth[11:0]),
+        // .wr_data_count(data_fifo_depth[13:0]),
+        .rd_data_count(),
+        .overflow(dbg_data_of),
+        .underflow(dbg_data_uf)
     );
 
     afifo_w16_d32 u_ptr_fifo (
+    // afifo_w16_d128 u_ptr_fifo (
         .rst(!rstn),
         .wr_clk(clk),
         .rd_clk(interface_clk),

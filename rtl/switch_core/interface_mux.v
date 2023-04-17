@@ -91,8 +91,9 @@ always@(posedge clk or negedge rstn)begin
 				end
 			end
         1:begin
-            if(RR==2'B11) RR<=#2 0;
-            else  RR<=#2 RR+1;
+            // if(RR==2'B11) RR<=#2 0;
+            // else  RR<=#2 RR+1;
+            RR<=sel+1;
             rx_ptr_fifo_rd<=#2 0;
             state<=#2 2;
             end

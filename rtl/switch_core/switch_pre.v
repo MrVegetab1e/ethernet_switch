@@ -2,9 +2,9 @@
 module switch_pre(
 input					clk,
 input					rstn,
-input					sof,
-input					dv,
-input		  	[7:0]	din,
+(*MARK_DEBUG="true"*) input					sof,
+(*MARK_DEBUG="true"*) input					dv,
+(*MARK_DEBUG="true"*) input		  	[7:0]	din,
 output	reg		[127:0]	i_cell_data_fifo_dout,
 output	reg		 		i_cell_data_fifo_wr,
 output	reg		[15:0]	i_cell_ptr_fifo_dout,
