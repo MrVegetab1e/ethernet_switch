@@ -3,8 +3,8 @@
 module frame_process_retime(
 input                	clk,
 input                   rstn,
-(*MARK_DEBUG="true"*) output  reg             sfifo_rd,
-(*MARK_DEBUG="true"*) input        [7:0]      sfifo_dout,
+output  reg             sfifo_rd,
+input        [7:0]      sfifo_dout,
 output  reg             ptr_sfifo_rd,
 input        [15:0]     ptr_sfifo_dout,
 input                   ptr_sfifo_empty,
@@ -30,7 +30,7 @@ output  reg  [7:0]      data
 reg     [47:0]     source_mac;
 reg     [47:0]     desti_mac;
 reg     [15:0]     length_type; 
-(*MARK_DEBUG="true"*) reg     [5:0]      state;
+reg     [5:0]      state;
 reg     [10:0]     cnt;
 reg     [3:0]      egress_portmap;
 reg     [11:0]     length;

@@ -40,8 +40,8 @@ reg  [15:0]		FQ_din;
 reg				FQ_wr;
 reg				FQ_rd;
 reg  [9:0]		FQ_dout;
-(*MARK_DEBUG="true"*) wire [9:0]		FQ_count;
-(*MARK_DEBUG="true"*) wire			FQ_alloc;				//check FQ depth before initiate writing
+wire [9:0]		FQ_count;
+wire			FQ_alloc;				//check FQ depth before initiate writing
 assign 			FQ_alloc = |(FQ_count[9:6]) || (i_cell_ptr_fifo_dout[5:0] > FQ_count[5:0]);
 
 reg	 [1:0]		sram_cnt_a;	
@@ -54,7 +54,7 @@ reg				sram_rd_dv;
  
 
 
-(*MARK_DEBUG="true"*) reg  [3:0]		wr_state;		
+reg  [3:0]		wr_state;		
 reg  [3:0]		qc_wr_ptr_wr_en;
 wire			qc_ptr_full0;
 wire			qc_ptr_full1;
@@ -206,12 +206,12 @@ assign	sram_din_a=i_cell_data_fifo_dout[127:0];
 assign MC_ram_addra= {2'b0,FQ_dout[9:0]};
 assign MC_ram_dina = qc_portmap[0]+qc_portmap[1]+qc_portmap[2]+qc_portmap[3];
 
-(*MARK_DEBUG="true"*) reg  [3:0]		rd_state;
+reg  [3:0]		rd_state;
 wire [15:0]		qc_rd_ptr_dout0,qc_rd_ptr_dout1,
                 qc_rd_ptr_dout2,qc_rd_ptr_dout3;
 reg  [1:0]		RR;
 reg  [3:0]		ptr_ack;
-(*MARK_DEBUG="true"*) wire [3:0]		ptr_rd_req_pre;
+wire [3:0]		ptr_rd_req_pre;
 
 wire			ptr_rdy0,ptr_rdy1,ptr_rdy2,ptr_rdy3;		
 wire			ptr_ack0,ptr_ack1,ptr_ack2,ptr_ack3;

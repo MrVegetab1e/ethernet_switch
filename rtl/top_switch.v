@@ -74,11 +74,11 @@ module top_switch (
     wire       clk;
     wire       clk_125;
 
-    (*MARK_DEBUG="true"*)wire       locked;
+    wire       locked;
     // (*MARK_DEBUG="true"*) wire				rstn_pll;
-    (*MARK_DEBUG="true"*)wire       rstn_sys;
-    (*MARK_DEBUG="true"*)wire       rstn_mac;
-    (*MARK_DEBUG="true"*)wire       rstn_phy;
+    wire       rstn_sys;
+    wire       rstn_mac;
+    wire       rstn_phy;
 
     assign led = led_r0 & led_r1 & led_r2 & led_r3;
     //interface of interface mux and  switch_pos
@@ -188,6 +188,34 @@ module top_switch (
 
     // wire                 clk;
 
+    wire [ 6:0] port0_addr;
+    wire [15:0] port0_din;
+    wire        port0_req;
+    wire        port0_ack;
+
+    wire [ 6:0] port1_addr;
+    wire [15:0] port1_din;
+    wire        port1_req;
+    wire        port1_ack;
+
+    wire [ 6:0] port2_addr;
+    wire [15:0] port2_din;
+    wire        port2_req;
+    wire        port2_ack;
+
+    wire [ 6:0] port3_addr;
+    wire [15:0] port3_din;
+    wire        port3_req;
+    wire        port3_ack;
+
+    wire [31:0] counter_ns;
+
+    counter counter_inst (
+        .clk       (clk),
+        .rst_n     (rstn_sys),
+        .counter_ns(counter_ns)
+    );
+
     mac_top u_mac_top_0 (
         .clk(clk),
         .clk_125(clk_125),
@@ -235,7 +263,13 @@ module top_switch (
         .tx_tte_fifo_dout(emac0_tx_tte_fifo_dout),
         .tx_tteptr_fifo_rd(emac0_tx_tteptr_fifo_rd),
         .tx_tteptr_fifo_dout(emac0_tx_tteptr_fifo_dout),
-        .tx_tteptr_fifo_empty(emac0_tx_tteptr_fifo_empty)
+        .tx_tteptr_fifo_empty(emac0_tx_tteptr_fifo_empty),
+
+        .port_addr (port0_addr),
+        .port_din  (port0_din),
+        .port_req  (port0_req),
+        .port_ack  (port0_ack),
+        .counter_ns(counter_ns)
     );
 
     mac_top u_mac_top_1 (
@@ -285,7 +319,14 @@ module top_switch (
         .tx_tte_fifo_dout(emac1_tx_tte_fifo_dout),
         .tx_tteptr_fifo_rd(emac1_tx_tteptr_fifo_rd),
         .tx_tteptr_fifo_dout(emac1_tx_tteptr_fifo_dout),
-        .tx_tteptr_fifo_empty(emac1_tx_tteptr_fifo_empty)
+        .tx_tteptr_fifo_empty(emac1_tx_tteptr_fifo_empty),
+
+        .port_addr (port1_addr),
+        .port_din  (port1_din),
+        .port_req  (port1_req),
+        .port_ack  (port1_ack),
+        .counter_ns(counter_ns)
+
     );
 
     mac_top u_mac_top_2 (
@@ -335,7 +376,14 @@ module top_switch (
         .tx_tte_fifo_dout(emac2_tx_tte_fifo_dout),
         .tx_tteptr_fifo_rd(emac2_tx_tteptr_fifo_rd),
         .tx_tteptr_fifo_dout(emac2_tx_tteptr_fifo_dout),
-        .tx_tteptr_fifo_empty(emac2_tx_tteptr_fifo_empty)
+        .tx_tteptr_fifo_empty(emac2_tx_tteptr_fifo_empty),
+
+        .port_addr (port2_addr),
+        .port_din  (port2_din),
+        .port_req  (port2_req),
+        .port_ack  (port2_ack),
+        .counter_ns(counter_ns)
+
     );
 
     mac_top u_mac_top_3 (
@@ -385,7 +433,14 @@ module top_switch (
         .tx_tte_fifo_dout(emac3_tx_tte_fifo_dout),
         .tx_tteptr_fifo_rd(emac3_tx_tteptr_fifo_rd),
         .tx_tteptr_fifo_dout(emac3_tx_tteptr_fifo_dout),
-        .tx_tteptr_fifo_empty(emac3_tx_tteptr_fifo_empty)
+        .tx_tteptr_fifo_empty(emac3_tx_tteptr_fifo_empty),
+
+        .port_addr (port3_addr),
+        .port_din  (port3_din),
+        .port_req  (port3_req),
+        .port_ack  (port3_ack),
+        .counter_ns(counter_ns)
+
     );
 
 
@@ -538,10 +593,10 @@ module top_switch (
         .dv (dv),
         .din(data),
 
-		.interface_clk0(emac0_interface_clk),
-		.interface_clk1(emac1_interface_clk),
-		.interface_clk2(emac2_interface_clk),
-		.interface_clk3(emac3_interface_clk),
+        .interface_clk0(emac0_interface_clk),
+        .interface_clk1(emac1_interface_clk),
+        .interface_clk2(emac2_interface_clk),
+        .interface_clk3(emac3_interface_clk),
         .ptr_fifo_rd0(emac0_tx_ptr_fifo_rd),
         .ptr_fifo_rd1(emac1_tx_ptr_fifo_rd),
         .ptr_fifo_rd2(emac2_tx_ptr_fifo_rd),

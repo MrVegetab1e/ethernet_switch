@@ -42,6 +42,7 @@ begin
   end
 end
 
-assign  counter_ns = (counter<<2)+counter; // counter_ns=counter*5
+// assign  counter_ns = (counter<<2)+counter; // counter_ns=counter*5
+assign  counter_ns = (counter << 2);
 
 endmodule

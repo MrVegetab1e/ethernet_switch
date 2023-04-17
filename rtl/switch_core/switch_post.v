@@ -3,11 +3,11 @@ module switch_post (
     input clk,
     input rstn,
 
-    (*MARK_DEBUG="true"*) input              o_cell_data_fifo_wr,
-    (*MARK_DEBUG="true"*) input      [127:0] o_cell_data_fifo_din,
-    (*MARK_DEBUG="true"*) input              o_cell_data_first,
-    (*MARK_DEBUG="true"*) input              o_cell_data_last,
-    (*MARK_DEBUG="true"*) output reg         o_cell_data_fifo_bp,
+    input              o_cell_data_fifo_wr,
+    input      [127:0] o_cell_data_fifo_din,
+    input              o_cell_data_first,
+    input              o_cell_data_last,
+    output reg         o_cell_data_fifo_bp,
 
     input         interface_clk,
     input         ptr_fifo_rd,
@@ -39,7 +39,7 @@ module switch_post (
 
     reg   [15:0] ptr_fifo_din;
     wire   ptr_fifo_full;
-    (*MARK_DEBUG="true"*) wire   data_fifo_wr;
+    wire   data_fifo_wr;
     reg   [7:0]  data_fifo_din;
     wire  [11:0] data_fifo_depth;
     // wire  [13:0] data_fifo_depth;
@@ -48,11 +48,11 @@ module switch_post (
     always @(posedge clk) bp <= #2 (data_fifo_depth >= 2560) || ptr_fifo_full;
     // always @(posedge clk) bp <= #2 (data_fifo_depth >= 14'h3A00) || ptr_fifo_full;
 
-    (*MARK_DEBUG="true"*) reg    ptr_fifo_wr;
+    reg    ptr_fifo_wr;
     reg   [4:0]  mstate;
-    reg   [11:0] byte_cnt;
+    (*MARK_DEBUG="true"*) reg   [11:0] byte_cnt;
     reg    byte_dv;
-    reg   [11:0] frame_len;
+    (*MARK_DEBUG="true"*) reg   [11:0] frame_len;
     reg   [11:0] frame_len_with_pad;
 
     always @(posedge clk or negedge rstn)
@@ -174,8 +174,8 @@ module switch_post (
                 end
             endcase
         end
-    // assign data_fifo_wr = byte_dv & (byte_cnt < frame_len);
-    assign data_fifo_wr = byte_dv && (byte_cnt[11:6] !== frame_len[11:6] || byte_cnt[5:0] < frame_len[5:0]);
+    assign data_fifo_wr = byte_dv & (byte_cnt < frame_len);
+    // assign data_fifo_wr = byte_dv && (byte_cnt[11:6] !== frame_len[11:6] || byte_cnt[5:0] < frame_len[5:0]);
 
     (*MARK_DEBUG="true"*) wire dbg_data_empty;
     (*MARK_DEBUG="true"*) wire dbg_data_of;

@@ -34,17 +34,17 @@ module mac_t_gmii_tte_v4(
     // normal dataflow
     output          data_fifo_rd,
     input   [ 7:0]  data_fifo_din,  // registered output, better timing
-    (*MARK_DEBUG="true"*) input           data_fifo_empty,
+    input           data_fifo_empty,
     output reg      ptr_fifo_rd, 
     input   [15:0]  ptr_fifo_din,
-    (*MARK_DEBUG="true"*) input           ptr_fifo_empty,
+    input           ptr_fifo_empty,
     // tte dataflow
     output          tdata_fifo_rd,
     input   [ 7:0]  tdata_fifo_din,
-    (*MARK_DEBUG="true"*) input           tdata_fifo_empty,
+    input           tdata_fifo_empty,
     output reg      tptr_fifo_rd,
     input   [15:0]  tptr_fifo_din,
-    (*MARK_DEBUG="true"*) input           tptr_fifo_empty,
+    input           tptr_fifo_empty,
     // 1588 interface
     input   [31:0]  counter_ns,         // current time
     output  [63:0]  counter_delay       // broadcast slave-master delay to rx port, update delay_resp
@@ -132,7 +132,7 @@ module mac_t_gmii_tte_v4(
     assign  tx_master_clk   =   (tx_clk_en_reg_n && tx_clk) || (gtx_clk_en_reg_n && gtx_clk);
     assign  interface_clk   =   tx_master_clk;
 
-    (*MARK_DEBUG="true"*) reg     [ 5:0]  tx_state, tx_state_next;
+    reg     [ 5:0]  tx_state, tx_state_next;
     reg     [95:0]  tx_buffer;      // extended buffer for PTP operations
     reg     [ 3:0]  tx_buf_rdy;     // ready when buffer is filled
     reg     [47:0]  tx_buf_cf;      // high 48 bit of correctionField
@@ -273,7 +273,7 @@ module mac_t_gmii_tte_v4(
         end
     end
 
-    reg     [15:0]  ptp_state, ptp_state_next;
+    (*MARK_DEBUG="true"*) reg     [15:0]  ptp_state, ptp_state_next;
     
     always @(*) begin
         case(ptp_state)
@@ -368,6 +368,7 @@ module mac_t_gmii_tte_v4(
             ptp_time_req_mac[1] <=  ptp_time_req_mac[0];
             ptp_time_rdy_mac    <=  {ptp_time_rdy_mac[0], ptp_time_rdy_sys[1]};
             ptp_time_now        <=  (ptp_time_req_mac == 2'b10) ? ptp_time_now_sys : ptp_time_now;
+            // ptp_time_now        <=  (ptp_time_req_mac[0] && ptp_time_rdy_mac[1]) ? ptp_time_now_sys : ptp_time_now;
         end
     end
 
@@ -383,11 +384,14 @@ module mac_t_gmii_tte_v4(
         end
         else if (speed[1] || !tx_read_req) begin
             if (ptp_state == PTP_TX_STATE_SYNC) begin
-                if (tx_cnt_front == 32) begin
+                if (tx_cnt_front == 30) begin
                     ptp_time_req    <=  'b1;
                 end
-                else if (tx_cnt_front == 33) begin
+                else if (tx_cnt_front == 31) begin
                     ptp_time_req    <=  'b0;
+                end
+                else if (tx_cnt_front == 33) begin
+                    // ptp_time_req    <=  'b0;
                     ptp_time_ts     <=  {ptp_time_ts[23:0], tx_data_in};
                 end
                 else if (tx_cnt_front == 34) begin
@@ -410,11 +414,14 @@ module mac_t_gmii_tte_v4(
                 // end
             end
             else if (ptp_state == PTP_TX_STATE_DYRQ) begin
-                if (tx_cnt_front == 32) begin
+                if (tx_cnt_front == 30) begin
                     ptp_time_req    <=  'b1;
                 end
-                else if (tx_cnt_front == 33) begin
+                else if (tx_cnt_front == 31) begin
                     ptp_time_req    <=  'b0;
+                end
+                else if (tx_cnt_front == 33) begin
+                    // ptp_time_req    <=  'b0;
                     ptp_time_ts     <=  {ptp_time_ts[23:0], tx_data_in};
                 end
                 else if (tx_cnt_front == 34) begin
@@ -487,8 +494,9 @@ module mac_t_gmii_tte_v4(
 
     assign  {ptp_carry, ptp_cf_add}         =   tx_buf_cf[47:40] + ptp_delay_sync[7:0] + ptp_carry_reg;
     assign  {ptp_carry_1, ptp_cf_add_1}     =   tx_buf_cf[47:40] + ptp_carry_reg;
+    assign  counter_delay   =   {16'b0, ptp_delay_req, 16'b0};
 
-    (*MARK_DEBUG="true"*) reg     [ 3:0]  mii_state, mii_state_next;
+    reg     [ 3:0]  mii_state, mii_state_next;
 
     reg     [ 7:0]  mii_d;
     reg             mii_dv;
