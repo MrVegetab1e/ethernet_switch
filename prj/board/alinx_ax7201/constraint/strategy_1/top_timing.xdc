@@ -34,19 +34,54 @@ create_generated_clock -name MDC_2 -source [get_pins u_pll/inst/mmcm_adv_inst/CL
 
 create_generated_clock -name MDC_3 -source [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0] -divide_by 400 [get_ports MDC_3]
 ############## create clock constrain##############
-set_false_path -reset_path -from [get_clocks sys_clk_p] -to [get_clocks GMII_RX_CLK_0]
-set_false_path -reset_path -from [get_clocks sys_clk_p] -to [get_clocks GMII_RX_CLK_1]
-set_false_path -reset_path -from [get_clocks sys_clk_p] -to [get_clocks GMII_RX_CLK_2]
-set_false_path -reset_path -from [get_clocks sys_clk_p] -to [get_clocks GMII_RX_CLK_3]
-set_false_path -reset_path -from [get_clocks sys_clk_p] -to [get_clocks MII_TX_CLK_0]
-set_false_path -reset_path -from [get_clocks sys_clk_p] -to [get_clocks MII_TX_CLK_1]
-set_false_path -reset_path -from [get_clocks sys_clk_p] -to [get_clocks MII_TX_CLK_2]
-set_false_path -reset_path -from [get_clocks sys_clk_p] -to [get_clocks MII_TX_CLK_3]
+set_false_path -from [get_clocks sys_clk_p] -to [get_clocks GMII_RX_CLK_0]
+set_false_path -from [get_clocks sys_clk_p] -to [get_clocks GMII_RX_CLK_1]
+set_false_path -from [get_clocks sys_clk_p] -to [get_clocks GMII_RX_CLK_2]
+set_false_path -from [get_clocks sys_clk_p] -to [get_clocks GMII_RX_CLK_3]
+set_false_path -from [get_clocks sys_clk_p] -to [get_clocks MII_TX_CLK_0]
+set_false_path -from [get_clocks sys_clk_p] -to [get_clocks MII_TX_CLK_1]
+set_false_path -from [get_clocks sys_clk_p] -to [get_clocks MII_TX_CLK_2]
+set_false_path -from [get_clocks sys_clk_p] -to [get_clocks MII_TX_CLK_3]
 
-set_false_path -reset_path -from [get_clocks GMII_RX_CLK_0] -to [get_clocks MII_TX_CLK_0]
-set_false_path -reset_path -from [get_clocks GMII_RX_CLK_1] -to [get_clocks MII_TX_CLK_1]
-set_false_path -reset_path -from [get_clocks GMII_RX_CLK_2] -to [get_clocks MII_TX_CLK_2]
-set_false_path -reset_path -from [get_clocks GMII_RX_CLK_3] -to [get_clocks MII_TX_CLK_3]
+set_false_path -from [get_clocks GMII_RX_CLK_0] -to [get_clocks MII_TX_CLK_0]
+set_false_path -from [get_clocks GMII_RX_CLK_1] -to [get_clocks MII_TX_CLK_1]
+set_false_path -from [get_clocks GMII_RX_CLK_2] -to [get_clocks MII_TX_CLK_2]
+set_false_path -from [get_clocks GMII_RX_CLK_3] -to [get_clocks MII_TX_CLK_3]
+
+set_false_path -from [get_clocks GMII_RX_CLK_0] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]]
+set_false_path -from [get_clocks GMII_RX_CLK_1] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]]
+set_false_path -from [get_clocks GMII_RX_CLK_2] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]]
+set_false_path -from [get_clocks GMII_RX_CLK_3] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]]
+
+set_false_path -from [get_clocks MII_TX_CLK_0] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]]
+set_false_path -from [get_clocks MII_TX_CLK_1] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]]
+set_false_path -from [get_clocks MII_TX_CLK_2] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]]
+set_false_path -from [get_clocks MII_TX_CLK_3] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]]
+
+set_false_path -from [get_clocks MII_TX_CLK_0] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT1]]
+set_false_path -from [get_clocks MII_TX_CLK_1] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT1]]
+set_false_path -from [get_clocks MII_TX_CLK_2] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT1]]
+set_false_path -from [get_clocks MII_TX_CLK_3] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT1]]
+
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]] -to [get_clocks GMII_RX_CLK_0]
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]] -to [get_clocks GMII_RX_CLK_1]
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]] -to [get_clocks GMII_RX_CLK_2]
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]] -to [get_clocks GMII_RX_CLK_3]
+
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]] -to [get_clocks MII_TX_CLK_0]
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]] -to [get_clocks MII_TX_CLK_1]
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]] -to [get_clocks MII_TX_CLK_2]
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]] -to [get_clocks MII_TX_CLK_3]
+
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT1]] -to [get_clocks MII_TX_CLK_0]
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT1]] -to [get_clocks MII_TX_CLK_1]
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT1]] -to [get_clocks MII_TX_CLK_2]
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT1]] -to [get_clocks MII_TX_CLK_3]
+
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT1]]
+set_false_path -from [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT1]] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]]
+
+set_false_path -from [get_clocks sys_clk_p] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]]
 
 set_false_path -from [get_clocks GMII_RX_CLK_0] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]]
 set_false_path -from [get_clocks GMII_RX_CLK_1] -to [get_clocks -of_objects [get_pins u_pll/inst/mmcm_adv_inst/CLKOUT0]]
