@@ -50,17 +50,19 @@ module switch_post (
 
     reg    ptr_fifo_wr;
     reg   [4:0]  mstate;
-    (*MARK_DEBUG="true"*) reg   [11:0] byte_cnt;
+    reg   [11:0] byte_cnt;
     reg    byte_dv;
-    (*MARK_DEBUG="true"*) reg   [11:0] frame_len;
-    reg   [11:0] frame_len_with_pad;
+    reg   [11:0] frame_len;
+    reg   [11:0] frame_len_1;
+    reg   [ 7:0] frame_len_with_pad;
 
     always @(posedge clk or negedge rstn)
         if (!rstn) begin
             mstate <= #2 0;
-            byte_cnt <= #2 0;
+            byte_cnt <= #2 2;
             byte_dv <= #2 0;
             frame_len <= #2 0;
+            frame_len_1 <= #2 0;
             frame_len_with_pad <= #2 0;
             o_cell_data_fifo_rd <= #2 0;
             data_fifo_din <= #2 0;
@@ -73,13 +75,16 @@ module switch_post (
             case (mstate)
                 0: begin
                     byte_dv  <= #2 0;
-                    byte_cnt <= #2 0;
+                    byte_cnt <= #2 2;
                     if (!o_cell_data_fifo_empty & o_cell_data_fifo_dout[143] & !bp) begin
                         frame_len <= #2{
                             o_cell_data_fifo_dout[127:124], o_cell_data_fifo_dout[119:112]
                         };
+                        // frame_len_with_pad <= #2{
+                        //     o_cell_data_fifo_dout[127:124], o_cell_data_fifo_dout[119:112],
+                        // };
                         frame_len_with_pad <= #2{
-                            o_cell_data_fifo_dout[127:124], o_cell_data_fifo_dout[119:112]
+                            o_cell_data_fifo_dout[127:124], o_cell_data_fifo_dout[119:118], 2'b0
                         };
                         mstate <= #2 1;
                     end else if (!o_cell_data_fifo_empty & !bp) begin
@@ -87,9 +92,11 @@ module switch_post (
                     end
                 end
                 1: begin
-                    if (frame_len_with_pad[5:0] !== 6'b0)
-                        frame_len_with_pad <= #2{frame_len_with_pad[11:6], 6'b0} + 64;
-                    frame_len <= #2 frame_len - 2;
+                    // if (frame_len_with_pad[5:0] !== 6'b0)
+                    //     frame_len_with_pad <= #2{frame_len_with_pad[11:6], 6'b0} + 64;
+                    if (frame_len[5:0] != 6'b0)
+                        frame_len_with_pad <= #2 frame_len_with_pad + 4;
+                    frame_len_1 <= #2 frame_len - 2;
                     byte_dv <= #2 1;
                     data_fifo_din <= #2 o_cell_data_fifo_dout[111:104];
                     mstate <= #2 5;
@@ -153,8 +160,10 @@ module switch_post (
                 16: begin
                     data_fifo_din <= #2 o_cell_data_fifo_dout[15:8];
                     o_cell_data_fifo_rd <= #2 1;
-                    if (frame_len_with_pad > 16) begin
-                        frame_len_with_pad <= #2 frame_len_with_pad - 16;
+                    // if (frame_len_with_pad > 16) begin
+                    //     frame_len_with_pad <= #2 frame_len_with_pad - 16;
+                    if (frame_len_with_pad > 1) begin
+                        frame_len_with_pad <= #2 frame_len_with_pad - 1;
                         mstate <= #2 17;
                     end else mstate <= #2 18;
                 end
@@ -164,7 +173,7 @@ module switch_post (
                 end
                 18: begin
                     data_fifo_din <= #2 o_cell_data_fifo_dout[7:0];
-                    ptr_fifo_din <= #2{4'b0, frame_len[11:0]};
+                    ptr_fifo_din <= #2{4'b0, frame_len_1[11:0]};
                     ptr_fifo_wr <= #2 1;
                     mstate <= #2 0;
                 end
@@ -174,8 +183,8 @@ module switch_post (
                 end
             endcase
         end
-    assign data_fifo_wr = byte_dv & (byte_cnt < frame_len);
-    // assign data_fifo_wr = byte_dv && (byte_cnt[11:6] !== frame_len[11:6] || byte_cnt[5:0] < frame_len[5:0]);
+    // assign data_fifo_wr = byte_dv & (byte_cnt < frame_len);
+    assign data_fifo_wr = byte_dv && (byte_cnt[11:6] !== frame_len[11:6] || byte_cnt[5:0] < frame_len[5:0]);
 
     (*MARK_DEBUG="true"*) wire dbg_data_empty;
     (*MARK_DEBUG="true"*) wire dbg_data_of;
