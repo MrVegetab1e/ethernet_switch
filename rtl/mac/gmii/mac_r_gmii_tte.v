@@ -131,7 +131,7 @@ wire    byte_dv;
 assign  byte_dv=nib_cnt[0] | speed[1];
 
 wire    byte_bp;
-assign  byte_bp=(byte_cnt>=(MTU+18));
+assign  byte_bp=(byte_cnt>(MTU+18));
 //============================================  
 //short-term rx_state.   
 //============================================ 
@@ -412,6 +412,18 @@ always @(posedge rx_clk or negedge rstn_mac)
 
 wire    bp;
 assign  bp=(data_fifo_depth>2564) | ptr_fifo_full;
+
+(*MARK_DEBUG="true"*)   reg [31:0] dbg_mac_r_fifo_bp;
+always @(posedge rx_clk or negedge rstn_mac) begin
+    if (!rstn_mac) begin
+        dbg_mac_r_fifo_bp   <=  'b0;
+    end
+    else begin
+        if (load_be && bp) begin
+            dbg_mac_r_fifo_bp   <=  dbg_mac_r_fifo_bp + 1'b1;
+        end
+    end
+end
 
 reg     [2:0]   be_state;
 always @(posedge rx_clk  or negedge rstn_mac)
@@ -830,7 +842,8 @@ assign  data_fifo_din = (ptp_sel==1)?ptp_data:data_fifo_din_reg;
 //fifo used. 
 //============================================  
 
-(*MARK_DEBUG="true"*)wire dbg_data_empty;
+(*MARK_DEBUG="true"*) wire dbg_data_empty;
+(*MARK_DEBUG="true"*) wire [11:0] dbg_data_count;
 
 afifo_w8_d4k u_data_fifo (
   .rst(!rstn_sys),                  // input rst

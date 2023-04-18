@@ -11,12 +11,12 @@ input               clk,
 input               rstn,
 //port se signals.
 input               se_source,
-(*MARK_DEBUG="true"*) input       [47:0]  se_mac,
+input       [47:0]  se_mac,
 input       [15:0]  se_portmap,
 input       [9:0]   se_hash,        
-(*MARK_DEBUG="true"*) input               se_req,
-(*MARK_DEBUG="true"*) output  reg         se_ack,
-(*MARK_DEBUG="true"*) output  reg         se_nak,
+input               se_req,
+output  reg         se_ack,
+output  reg         se_nak,
 output  reg [15:0]  se_result,
 input               aging_req,  
 output  reg         aging_ack   
@@ -26,10 +26,10 @@ parameter   LIVE_TH=10'd150;
 //======================================
 //              main state.
 //======================================
-(*MARK_DEBUG="true"*) reg     [3:0]   state;
+reg     [3:0]   state;
 reg             clear_op;
-(*MARK_DEBUG="true"*) reg     [2:0]   hit0;
-(*MARK_DEBUG="true"*) reg     [2:0]   hit1;
+reg     [2:0]   hit0;
+reg     [2:0]   hit1;
 reg             hit0_0, hit0_1;
 reg             hit1_0, hit1_1;
 //======================================
@@ -46,12 +46,12 @@ wire            not_outlive_1;
 reg             ram_wr_0;
 reg     [9:0]   ram_addr_0;     //input [11 : 0] addra
 reg     [79:0]  ram_din_0;      //input [95 : 0] dina
-(*MARK_DEBUG="true"*) wire    [79:0]  ram_dout_0;     //output [95 : 0] douta
+wire    [79:0]  ram_dout_0;     //output [95 : 0] douta
 reg     [79:0]  ram_dout_0_reg; //output [95 : 0] douta
 reg             ram_wr_1;
 reg     [9:0]   ram_addr_1;     //input [11 : 0] addra
 reg     [79:0]  ram_din_1;      //input [95 : 0] dina
-(*MARK_DEBUG="true"*) wire    [79:0]  ram_dout_1;     //output [95 : 0] douta
+wire    [79:0]  ram_dout_1;     //output [95 : 0] douta
 reg     [79:0]  ram_dout_1_reg; //output [95 : 0] douta
 reg     [9:0]   aging_addr;
 // reg     [47:0]  hit_mac;
@@ -286,8 +286,8 @@ always @(*)begin
     hit1_0=(hit_mac_1[0+:24]==ram_dout_1[16+:24]);
     hit1_1=(hit_mac_1[24+:24]==ram_dout_1[40+:24]);
     end
-(*MARK_DEBUG="true"*) assign item_valid0=ram_dout_0_reg[79];
-(*MARK_DEBUG="true"*) assign item_valid1=ram_dout_1_reg[79];
+assign item_valid0=ram_dout_0_reg[79];
+assign item_valid1=ram_dout_1_reg[79];
 assign live_time0=ram_dout_0_reg[73:64];
 assign live_time1=ram_dout_1_reg[73:64];
 assign not_outlive_0=(live_time0>0)?1:0;
