@@ -22,7 +22,9 @@ module mac_top(
 
     output    [1:0]    led,
     output             link,
-                  
+
+    output              interface_clk,
+
     output             tx_data_fifo_rd,
     input     [7:0]    tx_data_fifo_dout,
     output             tx_ptr_fifo_rd,
@@ -45,10 +47,26 @@ module mac_top(
     output    [7:0]   rx_tte_fifo_dout,
     input             rx_tteptr_fifo_rd,
 	output    [15:0]  rx_tteptr_fifo_dout,
-    output            rx_tteptr_fifo_empty
+    output            rx_tteptr_fifo_empty,
+
+    output    [6:0]   port_addr,
+    output    [15:0]  port_din,
+    output            port_req,
+    input             port_ack,
+
+    input     [31:0]  counter_ns
+
     );
 
-wire    [1:0]   speed;
+parameter   PORT_RX_ADDR = 7'h10;
+parameter   PORT_TX_ADDR = 7'h11;
+parameter   PORT_ER_ADDR = 7'h12;
+parameter   INIT = 0;
+
+wire            time_rst;
+wire    [ 1:0]  speed;
+wire    [63:0]  counter_delay;
+
 assign          GMII_TX_CLK =   clk_125;        
 
 mac_r_gmii_tte u_mac_r_gmii(
@@ -69,15 +87,19 @@ mac_r_gmii_tte u_mac_r_gmii(
     .tte_fifo_dout(rx_tte_fifo_dout),
     .tteptr_fifo_rd(rx_tteptr_fifo_rd),
     .tteptr_fifo_dout(rx_tteptr_fifo_dout),
-    .tteptr_fifo_empty(rx_tteptr_fifo_empty)
+    .tteptr_fifo_empty(rx_tteptr_fifo_empty),
+    .counter_ns(counter_ns),
+    .counter_ns_tx_delay(counter_delay),
+    .counter_ns_gtx_delay(counter_delay)
     );
 
-mac_t_gmii_tte_v2 u_mac_t_gmii(
+mac_t_gmii_tte_v4 u_mac_t_gmii(
     .sys_clk(clk),
     .rstn_sys(rstn_sys),
     .rstn_mac(rstn_mac),
     .tx_clk(MII_TX_CLK),
     .gtx_clk(clk_125),
+    .interface_clk(interface_clk),
     .gtx_dv(GMII_TX_EN),
     .gtx_d(GMII_TXD),
     .speed(speed),
@@ -90,7 +112,9 @@ mac_t_gmii_tte_v2 u_mac_t_gmii(
     .tdata_fifo_din(tx_tte_fifo_dout),
     .tptr_fifo_rd(tx_tteptr_fifo_rd),
     .tptr_fifo_din(tx_tteptr_fifo_dout),
-    .tptr_fifo_empty(tx_tteptr_fifo_empty)
+    .tptr_fifo_empty(tx_tteptr_fifo_empty),
+    .counter_ns(counter_ns),
+    .counter_delay(counter_delay)
     );
 
 // mac_t_gmii_tte u_mac_t_gmii(
@@ -127,5 +151,6 @@ smi_config_inst
 .link                   (link                   ),
 .speed                  (speed                  ),
 .led                    (led                    )    
-);  
+);
+
 endmodule
