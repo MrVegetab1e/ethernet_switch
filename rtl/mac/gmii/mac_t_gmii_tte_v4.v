@@ -185,7 +185,8 @@ module mac_t_gmii_tte_v4(
             'd02: tx_state_next = 'd4;
             'd04: tx_state_next = 'd8;
             'd08: tx_state_next = (tx_cnt_front == tx_byte_cnt) ? 'd16 : 'd8;
-            'd16: tx_state_next = (tx_cnt_back == 12'hFF8) ? 'd32 : 'd16;
+            // 'd16: tx_state_next = (tx_cnt_back == 12'hFF8) ? 'd32 : 'd16;
+            'd16: tx_state_next = (tx_cnt_back_1 == 12'hFFA) ? 'd32 : 'd16;
             'd32: tx_state_next = (tx_cnt_front_1 == 7) ? 'd1 : 'd32; 
             default: tx_state_next = tx_state;
         endcase
@@ -568,13 +569,13 @@ module mac_t_gmii_tte_v4(
         if (!rstn_mac) begin
             tx_buffer       <=  {8'hd5, {7{8'h55}}, {4{8'b0}}};
             // tx_buf_cf       <=  'b0;
-            tx_cnt_back     <=  12'hFF8;
-            tx_cnt_back_1   <=  12'hFF9;
+            // tx_cnt_back     <=  12'hFF8;
+            tx_cnt_back_1   <=  12'hFFA;
             mii_d           <=  'b0;
             mii_dv          <=  'b0;
         end
         else begin  // initialize tx buffer
-            if (tx_state_next == 1) begin
+            if (tx_state == 1) begin
                 tx_buffer   <=  {8'hd5, {7{8'h55}}, {4{8'b0}}};
             end
             else if (tx_byte_valid[1]) begin
@@ -584,11 +585,11 @@ module mac_t_gmii_tte_v4(
                 tx_buffer   <=  {tx_data_in, tx_buffer[95:8]};
             end
             if (mii_state_next != 1) begin
-                if ((speed[1] || tx_read_req)) begin
+                if (speed[1] || tx_read_req) begin
                     mii_d           <=  mii_d_in;
                     mii_dv          <=  1'b1;
-                    tx_cnt_back     <=  tx_cnt_back_1;
-                    tx_cnt_back_1   <=  tx_cnt_back_1 + 1'b1;
+                    // tx_cnt_back     <=  tx_cnt_back_1;
+                    // tx_cnt_back_1   <=  tx_cnt_back_1 + 1'b1;
                 end
                 else begin
                     mii_d           <=  mii_d >> 4;
@@ -596,8 +597,16 @@ module mac_t_gmii_tte_v4(
             end
             else begin
                 mii_dv          <=  'b0;
-                tx_cnt_back     <=  12'hFF8;
-                tx_cnt_back_1   <=  12'hFF9;
+                // tx_cnt_back     <=  12'hFF8;
+                // tx_cnt_back_1   <=  12'hFF9;
+            end
+            if (mii_state != 1) begin
+                if (speed[1] || tx_read_req) begin
+                    tx_cnt_back_1   <=  tx_cnt_back_1 + 1'b1;
+                end
+            end
+            else begin
+                tx_cnt_back_1   <=  12'hFFA;
             end
             // if (!tx_buf_rdy[3] && tx_byte_valid[1]) begin
             //     tx_buffer       <=  {tx_data_in, tx_buffer[95:8]};

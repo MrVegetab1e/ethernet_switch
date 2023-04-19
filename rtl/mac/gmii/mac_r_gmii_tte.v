@@ -384,7 +384,7 @@ reg     [7:0]	data_fifo_din_reg;
 reg             data_fifo_wr;
 reg             data_fifo_wr_reg;
 wire            data_fifo_wr_dv;
-wire    [11:0]  data_fifo_depth;
+(*MARK_DEBUG="true"*) wire    [11:0]  data_fifo_depth;
 reg     [15:0]  ptr_fifo_din;
 reg             ptr_fifo_wr;
 wire            ptr_fifo_full;
@@ -413,19 +413,25 @@ always @(posedge rx_clk or negedge rstn_mac)
 wire    bp;
 assign  bp=(data_fifo_depth>2564) | ptr_fifo_full;
 
-(*MARK_DEBUG="true"*)   reg [31:0] dbg_mac_r_fifo_bp;
+reg     [2:0]   be_state;
+
+(*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_fifo_bp;
+(*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_busy_bp;
 always @(posedge rx_clk or negedge rstn_mac) begin
     if (!rstn_mac) begin
         dbg_mac_r_fifo_bp   <=  'b0;
+        dbg_mac_r_busy_bp   <=  'b0;
     end
     else begin
-        if (load_be && bp) begin
+        if (load_be && be_state == 0 && bp) begin
             dbg_mac_r_fifo_bp   <=  dbg_mac_r_fifo_bp + 1'b1;
+        end
+        if (load_be && be_state != 0) begin
+            dbg_mac_r_busy_bp   <=  dbg_mac_r_busy_bp + 1'b1;
         end
     end
 end
 
-reg     [2:0]   be_state;
 always @(posedge rx_clk  or negedge rstn_mac)
     if(!rstn_mac)begin
         be_state<=#DELAY 0;
@@ -843,7 +849,6 @@ assign  data_fifo_din = (ptp_sel==1)?ptp_data:data_fifo_din_reg;
 //============================================  
 
 (*MARK_DEBUG="true"*) wire dbg_data_empty;
-(*MARK_DEBUG="true"*) wire [11:0] dbg_data_count;
 
 afifo_w8_d4k u_data_fifo (
   .rst(!rstn_sys),                  // input rst
