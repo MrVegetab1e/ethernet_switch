@@ -759,6 +759,10 @@ module top_switch (
         .dv (tte_dv),
         .din(tte_data),
 
+        .interface_clk0(emac0_interface_clk),
+        .interface_clk1(emac1_interface_clk),
+        .interface_clk2(emac2_interface_clk),
+        .interface_clk3(emac3_interface_clk),
         .ptr_fifo_rd0(emac0_tx_tteptr_fifo_rd),
         .ptr_fifo_rd1(emac1_tx_tteptr_fifo_rd),
         .ptr_fifo_rd2(emac2_tx_tteptr_fifo_rd),
