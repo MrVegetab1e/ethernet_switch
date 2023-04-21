@@ -4,8 +4,8 @@
 // Engineer: Athlon
 // 
 // Create Date: 2022/05/11 16:43:39
-// Design Name: GMII TX interface, version 3
-// Module Name: mac_t_gmii_tte_v3
+// Design Name: GMII TX interface, version 4
+// Module Name: mac_t_gmii_tte_v4
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -14,7 +14,7 @@
 // Dependencies: 
 // 
 // Revision:
-// Revision 0.01 - File Created
+// Revision 1.01 - Functionality Test Passed, mgnt function added
 // Additional Comments:
 // Only 2 step clock support available now, need refinement
 //////////////////////////////////////////////////////////////////////////////////
@@ -48,6 +48,8 @@ module mac_t_gmii_tte_v4(
     // 1588 interface
     input   [31:0]  counter_ns,         // current time
     output  [63:0]  counter_delay       // broadcast slave-master delay to rx port, update delay_resp
+    // mgnt interface
+
 );
 
     localparam  PTP_VALUE_HI        =   8'h88;  // high byte of ptp ethertype
