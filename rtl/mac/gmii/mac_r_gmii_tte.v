@@ -415,23 +415,6 @@ assign  bp=(data_fifo_depth>2564) | ptr_fifo_full;
 
 reg     [2:0]   be_state;
 
-(*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_fifo_bp;
-(*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_busy_bp;
-always @(posedge rx_clk or negedge rstn_mac) begin
-    if (!rstn_mac) begin
-        dbg_mac_r_fifo_bp   <=  'b0;
-        dbg_mac_r_busy_bp   <=  'b0;
-    end
-    else begin
-        if (load_be && be_state == 0 && bp) begin
-            dbg_mac_r_fifo_bp   <=  dbg_mac_r_fifo_bp + 1'b1;
-        end
-        if (load_be && be_state != 0) begin
-            dbg_mac_r_busy_bp   <=  dbg_mac_r_busy_bp + 1'b1;
-        end
-    end
-end
-
 always @(posedge rx_clk  or negedge rstn_mac)
     if(!rstn_mac)begin
         be_state<=#DELAY 0;
@@ -796,7 +779,8 @@ always @(posedge rx_clk  or negedge rstn_mac)
     else begin
         case(tte_state)
         0: begin
-            if(load_tte & !bp)begin
+            // if(load_tte & !bp)begin
+            if(load_tte & !tte_bp) begin
                 ram_nibble_tte<=#DELAY ram_nibble_tte+1;
                 tte_state<=#DELAY 1;
                 end
@@ -900,4 +884,54 @@ afifo_w16_d32 u_tteptr_fifo (
   .full(tteptr_fifo_full),          // output full
   .empty(tteptr_fifo_empty)         // output empty
 );
+
+// (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_pkt_be;
+// (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_bp_fifo_be;
+// (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_bp_busy_be;
+(*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_pkt_tte;
+(*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_bp_fifo_tte;
+(*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_bp_busy_tte;
+
+// always @(posedge rx_clk or negedge rstn_mac) begin
+//     if (!rstn_mac) begin
+//         dbg_mac_r_pkt_be        <=  'b0;
+//         dbg_mac_r_bp_fifo_be    <=  'b0;
+//         dbg_mac_r_bp_busy_be    <=  'b0;
+//     end
+//     else begin
+//         if (load_be) begin
+//             if (be_state == 0 && !bp) begin
+//                 dbg_mac_r_pkt_be    <=  dbg_mac_r_pkt_be + 1'b1;
+//             end
+//             else if (be_state == 0 && bp) begin
+//                 dbg_mac_r_bp_fifo_be    <=  dbg_mac_r_bp_fifo_be + 1'b1;
+//             end
+//             else if (be_state != 0) begin
+//                 dbg_mac_r_bp_busy_be    <=  dbg_mac_r_bp_busy_be + 1'b1;
+//             end
+//         end
+//     end
+// end
+
+always @(posedge rx_clk or negedge rstn_mac) begin
+    if (!rstn_mac) begin
+        dbg_mac_r_pkt_tte       <=  'b0;
+        dbg_mac_r_bp_fifo_tte   <=  'b0;
+        dbg_mac_r_bp_busy_tte   <=  'b0;
+    end
+    else begin
+        if (load_tte) begin
+            if (tte_state == 0 && !tte_bp) begin
+                dbg_mac_r_pkt_tte       <=  dbg_mac_r_pkt_tte + 1'b1;
+            end
+            else if (tte_state == 0 && tte_bp) begin
+                dbg_mac_r_bp_fifo_tte   <=  dbg_mac_r_bp_fifo_tte + 1'b1;
+            end
+            else if (tte_state != 0) begin
+                dbg_mac_r_bp_busy_tte   <=  dbg_mac_r_bp_busy_tte + 1'b1;
+            end
+        end
+    end
+end
+
 endmodule

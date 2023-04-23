@@ -654,4 +654,20 @@ module mac_t_gmii_tte_v4(
         .crc(crc_dout)
     );
 
+    // (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_t_pkt_be;
+    (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_t_pkt_tte;
+
+    always @(posedge tx_master_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            // dbg_mac_t_pkt_be    <=  'b0;
+            dbg_mac_t_pkt_tte   <=  'b0;
+        end
+        else begin
+                // dbg_mac_t_pkt_be    <=  !tx_arb_dir ? dbg_mac_t_pkt_be + 1'b1 : dbg_mac_t_pkt_be;
+            if (tptr_fifo_rd) begin
+                dbg_mac_t_pkt_tte   <=  tx_arb_dir ? dbg_mac_t_pkt_tte + 1'b1 : dbg_mac_t_pkt_tte;
+            end
+        end
+    end
+
 endmodule

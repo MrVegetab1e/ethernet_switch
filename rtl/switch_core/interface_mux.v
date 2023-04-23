@@ -47,6 +47,32 @@ reg          rx_data_fifo_rd;
 reg   [12:0]  cnt;
 reg   [1:0]   sel;
 reg   [1:0]   RR;
+
+(*MARK_DEBUG="TRUE"*)   reg [15:0] dbg_ifmux_pkt;
+(*MARK_DEBUG="TRUE"*)   reg [15:0] dbg_ifmux_bp_ptr;
+(*MARK_DEBUG="TRUE"*)   reg [15:0] dbg_ifmux_bp_data;
+
+always @(posedge clk or negedge rstn) begin
+    if (!rstn) begin
+        dbg_ifmux_pkt       <=  'b0;
+        dbg_ifmux_bp_ptr    <=  'b0;
+        dbg_ifmux_bp_data   <=  'b0;
+    end
+    else begin
+        if ({rx_ptr_fifo_empty3, rx_ptr_fifo_empty2, rx_ptr_fifo_empty1, rx_ptr_fifo_empty0} != 'b0) begin
+            if (ptr_sfifo_full) begin
+                dbg_ifmux_bp_ptr    <=  dbg_ifmux_bp_ptr + 1'b1;
+            end
+            if (sfifo_cnt>14866) begin
+                dbg_ifmux_bp_data   <=  dbg_ifmux_bp_data + 1'b1;
+            end
+        end
+        if (ptr_sfifo_wr) begin
+            dbg_ifmux_pkt   <=  dbg_ifmux_pkt + 1'b1;
+        end
+    end
+end
+
 always@(posedge clk or negedge rstn)begin
     if(!rstn)begin
         state<=#2 0;
@@ -173,7 +199,7 @@ sfifo_reg_w8_d16k    u_sfifo(
     .underflow(dbg_data_uf),
     .overflow(dbg_data_of)	
     );
-sfifo_w16_d32   u_ptr_sfifo(
+sfifo_w16_d128   u_ptr_sfifo(
     .clk(clk),
     .rst(!rstn),
     .din(ptr_sfifo_din),
