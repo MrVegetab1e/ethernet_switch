@@ -49,10 +49,16 @@ module mac_top(
 	output    [15:0]  rx_tteptr_fifo_dout,
     output            rx_tteptr_fifo_empty,
 
-    output    [6:0]   port_addr,
-    output    [15:0]  port_din,
-    output            port_req,
-    input             port_ack,
+    // output    [6:0]   port_addr,
+    // output    [15:0]  port_din,
+    // output            port_req,
+    // input             port_ack,
+
+    input               sys_req_valid,
+    input               sys_req_wr,
+    input   [ 7:0]      sys_req_addr,
+    output              sys_resp_valid,
+    output  [ 7:0]      sys_resp_data,
 
     input     [31:0]  counter_ns
 
@@ -66,6 +72,13 @@ parameter   INIT = 0;
 wire            time_rst;
 wire    [ 1:0]  speed;
 wire    [63:0]  counter_delay;
+
+wire            rx_mgnt_valid;
+wire            rx_mgnt_resp;
+wire    [19:0]  rx_mgnt_data;
+wire            tx_mgnt_valid;
+wire            tx_mgnt_resp;
+wire    [15:0]  tx_mgnt_data;
 
 assign          GMII_TX_CLK =   clk_125;        
 
@@ -90,7 +103,10 @@ mac_r_gmii_tte u_mac_r_gmii(
     .tteptr_fifo_empty(rx_tteptr_fifo_empty),
     .counter_ns(counter_ns),
     .counter_ns_tx_delay(counter_delay),
-    .counter_ns_gtx_delay(counter_delay)
+    .counter_ns_gtx_delay(counter_delay),
+    .rx_mgnt_valid(rx_mgnt_valid),
+    .rx_mgnt_resp(rx_mgnt_resp),
+    .rx_mgnt_data(rx_mgnt_data)
     );
 
 mac_t_gmii_tte_v4 u_mac_t_gmii(
@@ -114,7 +130,10 @@ mac_t_gmii_tte_v4 u_mac_t_gmii(
     .tptr_fifo_din(tx_tteptr_fifo_dout),
     .tptr_fifo_empty(tx_tteptr_fifo_empty),
     .counter_ns(counter_ns),
-    .counter_delay(counter_delay)
+    .counter_delay(counter_delay),
+    .tx_mgnt_valid(tx_mgnt_valid),
+    .tx_mgnt_resp(tx_mgnt_resp),
+    .tx_mgnt_data(tx_mgnt_data)
     );
 
 // mac_t_gmii_tte u_mac_t_gmii(
@@ -151,6 +170,25 @@ smi_config_inst
 .link                   (link                   ),
 .speed                  (speed                  ),
 .led                    (led                    )    
+);
+
+mac_ctrl #(
+    .MGNT_REG_WIDTH  (16                     )
+) mac_ctrl_inst (
+    .clk_if          ( clk                    ),
+    .rst_if          ( rstn_sys               ),
+    .rx_mgnt_valid   ( rx_mgnt_valid          ),
+    .rx_mgnt_data    ( rx_mgnt_data    [19:0] ),
+    .tx_mgnt_valid   ( tx_mgnt_valid          ),
+    .tx_mgnt_data    ( tx_mgnt_data    [15:0] ),
+    .sys_req_valid   ( sys_req_valid          ),
+    .sys_req_wr      ( sys_req_wr             ),
+    .sys_req_addr    ( sys_req_addr    [ 7:0] ),
+
+    .rx_mgnt_resp    ( rx_mgnt_resp           ),
+    .tx_mgnt_resp    ( tx_mgnt_resp           ),
+    .sys_resp_valid  ( sys_resp_valid         ),
+    .sys_resp_data   ( sys_resp_data   [ 7:0] )
 );
 
 endmodule

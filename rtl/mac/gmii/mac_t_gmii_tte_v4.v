@@ -47,9 +47,11 @@ module mac_t_gmii_tte_v4(
     input           tptr_fifo_empty,
     // 1588 interface
     input   [31:0]  counter_ns,         // current time
-    output  [63:0]  counter_delay       // broadcast slave-master delay to rx port, update delay_resp
+    output  [63:0]  counter_delay,      // broadcast slave-master delay to rx port, update delay_resp
     // mgnt interface
-
+    output          tx_mgnt_valid,
+    output  [19:0]  tx_mgnt_data,
+    input           tx_mgnt_resp
 );
 
     localparam  PTP_VALUE_HI        =   8'h88;  // high byte of ptp ethertype
@@ -654,20 +656,59 @@ module mac_t_gmii_tte_v4(
         .crc(crc_dout)
     );
 
-    // (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_t_pkt_be;
-    (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_t_pkt_tte;
+    reg [15:0]  mgnt_state, mgnt_state_next;
+    reg [11:0]  mgnt_cnt;
+    reg [ 3:0]  mgnt_flag;
+
+    always @(*) begin
+        case(mgnt_state)
+            1: mgnt_state_next =    (tx_state == 2) ? 2 : 1;
+            2: mgnt_state_next =    4;
+            4: mgnt_state_next =    tx_mgnt_resp ? 1 : 4;
+        endcase
+    end
 
     always @(posedge tx_master_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
-            // dbg_mac_t_pkt_be    <=  'b0;
-            dbg_mac_t_pkt_tte   <=  'b0;
+            mgnt_state  <=  1;
         end
         else begin
-                // dbg_mac_t_pkt_be    <=  !tx_arb_dir ? dbg_mac_t_pkt_be + 1'b1 : dbg_mac_t_pkt_be;
-            if (tptr_fifo_rd) begin
-                dbg_mac_t_pkt_tte   <=  tx_arb_dir ? dbg_mac_t_pkt_tte + 1'b1 : dbg_mac_t_pkt_tte;
-            end
+            mgnt_state  <=  mgnt_state_next;
         end
     end
+
+    always @(posedge tx_master_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            mgnt_cnt    <=  'b0;
+            mgnt_flag   <=  'b0;
+        end
+        else begin
+            if (mgnt_state == 1 && tx_state == 2) begin
+                mgnt_flag[3]    <=  tx_arb_dir;
+            end
+            if (mgnt_state == 2) begin
+                mgnt_cnt        <=  tx_ptr_in[11:0];
+            end 
+        end
+    end
+
+    assign  tx_mgnt_valid   =   (mgnt_state == 4);
+    assign  tx_mgnt_data    =   {mgnt_flag, mgnt_cnt};
+
+    // (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_t_pkt_be;
+    // (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_t_pkt_tte;
+
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    //     if (!rstn_mac) begin
+    //         dbg_mac_t_pkt_be    <=  'b0;
+    //         dbg_mac_t_pkt_tte   <=  'b0;
+    //     end
+    //     else begin
+    //         dbg_mac_t_pkt_be    <=  !tx_arb_dir ? dbg_mac_t_pkt_be + 1'b1 : dbg_mac_t_pkt_be;
+    //         if (tptr_fifo_rd) begin
+    //             dbg_mac_t_pkt_tte   <=  tx_arb_dir ? dbg_mac_t_pkt_tte + 1'b1 : dbg_mac_t_pkt_tte;
+    //         end
+    //     end
+    // end
 
 endmodule

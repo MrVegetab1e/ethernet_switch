@@ -26,17 +26,20 @@
 // [15:12] : frame flags
 // [11: 0] : frame length
 
-module mac_ctrl (
+module mac_ctrl #(
+    parameter   MGNT_REG_WIDTH      =   32,
+    localparam  MGNT_REG_WIDTH_L2   =   $clog2(MGNT_REG_WIDTH/8)
+) (
     input           clk_if,
     input           rst_if,
     // rx side interface
-    input           rx_mgnt_valid,
-    output reg      rx_mgnt_resp,
-    input   [19:0]  rx_mgnt_data,
+    (*MARK_DEBUG="TRUE"*) input           rx_mgnt_valid,
+    (*MARK_DEBUG="TRUE"*) output reg      rx_mgnt_resp,
+    (*MARK_DEBUG="TRUE"*) input   [19:0]  rx_mgnt_data,
     // tx side interface
-    input           tx_mgnt_valid,
-    output reg      tx_mgnt_resp,
-    input   [15:0]  tx_mgnt_data,
+    (*MARK_DEBUG="TRUE"*) input           tx_mgnt_valid,
+    (*MARK_DEBUG="TRUE"*) output reg      tx_mgnt_resp,
+    (*MARK_DEBUG="TRUE"*) input   [15:0]  tx_mgnt_data,
     // sys side interface
     input           sys_req_valid,
     input           sys_req_wr,
@@ -80,7 +83,7 @@ module mac_ctrl (
     // reg     [31:0]  mgnt_reg_rx_err_jabber;
     // reg     [31:0]  mgnt_reg_rx_err_bp;
 
-    reg     [31:0]  mgnt_reg_rx [ 9:0];
+    reg     [MGNT_REG_WIDTH-1:0]    mgnt_reg_rx [ 9: 0];
 
     // reg     [31:0]  mgnt_reg_tx_pkt;
     // reg     [31:0]  mgnt_reg_tx_byte;
@@ -89,17 +92,17 @@ module mac_ctrl (
     // reg     [31:0]  mgnt_reg_tx_pkt_vlan;
     // reg     [31:0]  mgnt_reg_tx_pkt_fc;
 
-    reg     [31:0]  mgnt_reg_tx [ 5:0];
+    reg     [MGNT_REG_WIDTH-1:0]    mgnt_reg_tx [21:16];
 
-    reg     [ 7:0]  mgnt_rx_state, mgnt_rx_state_next;
+    reg     [ 2:0]  mgnt_rx_state, mgnt_rx_state_next;
     reg     [ 3:0]  mgnt_buf_rx_valid;
     reg     [19:0]  mgnt_buf_rx_data;
-    reg     [ 7:0]  mgnt_tx_state, mgnt_tx_state_next;
+    reg     [ 2:0]  mgnt_tx_state, mgnt_tx_state_next;
     reg     [ 3:0]  mgnt_buf_tx_valid;
     reg     [15:0]  mgnt_buf_tx_data;
 
     always @(posedge clk_if) begin
-        if (rst_if) begin
+        if (!rst_if) begin
             mgnt_buf_rx_valid   <=  'b0;
             mgnt_buf_tx_valid   <=  'b0;
             rx_mgnt_resp        <=  'b0;
@@ -109,7 +112,7 @@ module mac_ctrl (
             mgnt_buf_rx_valid   <=  {mgnt_buf_rx_valid[2:0], rx_mgnt_valid};
             mgnt_buf_tx_valid   <=  {mgnt_buf_tx_valid[2:0], tx_mgnt_valid};
             rx_mgnt_resp        <=  (mgnt_rx_state == 4);
-            rx_mgnt_resp        <=  (mgnt_tx_state == 4);
+            tx_mgnt_resp        <=  (mgnt_tx_state == 4);
         end
     end
 
@@ -138,7 +141,7 @@ module mac_ctrl (
     end
 
     always @(posedge clk_if) begin
-        if (rst_if) begin
+        if (!rst_if) begin
             mgnt_rx_state   <=  1;
             mgnt_tx_state   <=  1;
         end
@@ -148,52 +151,54 @@ module mac_ctrl (
         end
     end
 
-    reg     [15:0]  mgnt_state, mgnt_state_next;
+    reg     [ 4:0]  mgnt_state, mgnt_state_next;
     reg             mgnt_reg_req_wr;
     reg     [ 7:0]  mgnt_reg_req_addr;
     reg             mgnt_reg_resp_valid;
-    reg     [31:0]  mgnt_reg_resp_data;
-    reg     [ 1:0]  mgnt_cnt;
+    reg     [MGNT_REG_WIDTH-1:0]    mgnt_reg_resp_data;
+    reg     [MGNT_REG_WIDTH_L2-1:0] mgnt_cnt;
 
     always @(posedge clk_if) begin
-        if (rst_if) begin
+        if (!rst_if) begin
             mgnt_reg_req_wr     <=  'b0;
             mgnt_reg_req_addr   <=  'b0;
             mgnt_reg_resp_valid <=  'b0;
             mgnt_reg_resp_data  <=  'b0;
-            mgnt_cnt            <=  'b0;
+            mgnt_cnt            <=  'b1;
         end
         else begin
             if (sys_req_valid) begin
                 mgnt_reg_req_wr     <=  sys_req_wr;
                 mgnt_reg_req_addr   <=  sys_req_addr;
             end
-            if (mgnt_state_next == 08) begin
+            if (mgnt_state == 04) begin
                 mgnt_reg_resp_valid <=  1'b1;
                 mgnt_reg_resp_data  <=  mgnt_reg_req_addr[4] ? mgnt_reg_tx[mgnt_reg_req_addr] : mgnt_reg_rx[mgnt_reg_req_addr];
             end
             else if (mgnt_state == 08) begin
+                if (mgnt_cnt == {MGNT_REG_WIDTH_L2{1'b1}}) mgnt_reg_resp_valid <=  1'b0;
                 mgnt_cnt            <=  mgnt_cnt + 1'b1;
                 mgnt_reg_resp_data  <=  mgnt_reg_resp_data << 8;
             end
-            else if (mgnt_state_next == 01) begin
-                mgnt_reg_resp_valid <=  1'b0;
-            end
+            // else if (mgnt_state_next == 01) begin
+                // mgnt_reg_resp_valid <=  1'b0;
+            // end
         end
     end
 
     always @(*) begin
         case(mgnt_state)
-            01: mgnt_state_next =   sys_req_valid       ?  2 :  1;  // idle
-            02: mgnt_state_next =   mgnt_reg_req_wr     ? 16 :  4;  // dir
-            04: mgnt_state_next =                          8 ;      // rd
-            08: mgnt_state_next =   (mgnt_cnt == 2'b11) ?  1 :  8;  // rd loop
-            16: mgnt_state_next =                          1 ;      // wr
+            01: mgnt_state_next =   sys_req_valid                           ?  2 :  1;  // idle
+            02: mgnt_state_next =   mgnt_reg_req_wr                         ? 16 :  4;  // dir
+            04: mgnt_state_next =                                              8 ;      // rd
+            08: mgnt_state_next =   (mgnt_cnt == {MGNT_REG_WIDTH_L2{1'b1}}) ?  1 :  8;  // rd loop
+            16: mgnt_state_next =                                              1 ;      // wr
+            default: mgnt_state_next = mgnt_state;
         endcase
     end
 
     always @(posedge clk_if) begin
-        if (rst_if) begin
+        if (!rst_if) begin
             mgnt_state  <=  1;
         end
         else begin
@@ -202,7 +207,7 @@ module mac_ctrl (
     end
 
     always @(posedge clk_if) begin
-        if (rst_if || (mgnt_state == 16 && mgnt_reg_req_addr == 'h0F)) begin
+        if (!rst_if || (mgnt_state == 16 && mgnt_reg_req_addr == 'h0F)) begin
             for (i = 0; i < 10; i = i + 1) begin
                 mgnt_reg_rx[i]  <=  'b0;
             end
@@ -240,16 +245,16 @@ module mac_ctrl (
     end
 
     always @(posedge clk_if) begin
-        if (rst_if || (mgnt_state == 16 && mgnt_reg_req_addr == 'h1F)) begin
+        if (!rst_if || (mgnt_state == 16 && mgnt_reg_req_addr == 'h1F)) begin
             for (i = 0; i < 6; i = i + 1) begin
-                mgnt_reg_tx[i]  <=  'b0;
+                mgnt_reg_tx[i+16]  <=  'b0;
             end
         end
         else if (mgnt_tx_state == 2) begin
-            if (mgnt_buf_tx_data[19:16] == 'b0) begin
+            // if (mgnt_buf_tx_data[19:16] == 'b0) begin
                 mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT]   <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT] + 1'b1;
                 mgnt_reg_tx[MGNT_MAC_TX_ADDR_BYTE]  <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_BYTE] + mgnt_buf_tx_data[11:0];
-            end
+            // end
             if (mgnt_buf_tx_data[15]) begin
                 mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_TTE]   <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_TTE] + 1'b1;
             end
@@ -264,6 +269,9 @@ module mac_ctrl (
             end
         end
     end
+
+    assign  sys_resp_valid  =   mgnt_reg_resp_valid;
+    assign  sys_resp_data   =   mgnt_reg_resp_data[(MGNT_REG_WIDTH-1)-:8];
 
 // mgnt_reg_rx_pkt         <=  'b0;
 // mgnt_reg_rx_byte        <=  'b0;

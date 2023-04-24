@@ -188,25 +188,45 @@ module top_switch (
 
     // wire                 clk;
 
-    wire [ 6:0] port0_addr;
-    wire [15:0] port0_din;
-    wire        port0_req;
-    wire        port0_ack;
+    // wire [ 6:0] port0_addr;
+    // wire [15:0] port0_din;
+    // wire        port0_req;
+    // wire        port0_ack;
 
-    wire [ 6:0] port1_addr;
-    wire [15:0] port1_din;
-    wire        port1_req;
-    wire        port1_ack;
+    // wire [ 6:0] port1_addr;
+    // wire [15:0] port1_din;
+    // wire        port1_req;
+    // wire        port1_ack;
 
-    wire [ 6:0] port2_addr;
-    wire [15:0] port2_din;
-    wire        port2_req;
-    wire        port2_ack;
+    // wire [ 6:0] port2_addr;
+    // wire [15:0] port2_din;
+    // wire        port2_req;
+    // wire        port2_ack;
 
-    wire [ 6:0] port3_addr;
-    wire [15:0] port3_din;
-    wire        port3_req;
-    wire        port3_ack;
+    // wire [ 6:0] port3_addr;
+    // wire [15:0] port3_din;
+    // wire        port3_req;
+    // wire        port3_ack;
+
+    wire    [ 5:0]  sys_req_valid;
+    wire            sys_req_wr;
+    wire    [ 7:0]  sys_req_addr;
+    wire            sys_resp_valid;
+    wire    [ 7:0]  sys_resp_data;
+    wire            sys_resp_valid_p0;
+    wire    [ 7:0]  sys_resp_data_p0;
+    wire            sys_resp_valid_p1;
+    wire    [ 7:0]  sys_resp_data_p1;
+    wire            sys_resp_valid_p2;
+    wire    [ 7:0]  sys_resp_data_p2;
+    wire            sys_resp_valid_p3;
+    wire    [ 7:0]  sys_resp_data_p3;
+
+    assign  sys_resp_valid  =   sys_resp_valid_p0 || sys_resp_valid_p1 || sys_resp_valid_p2 || sys_resp_valid_p3;
+    assign  sys_resp_data   =   (sys_resp_valid_p0) ? sys_resp_data_p0 :
+                                (sys_resp_valid_p1) ? sys_resp_data_p1 :
+                                (sys_resp_valid_p2) ? sys_resp_data_p2 :
+                                sys_resp_data_p3;
 
     wire [31:0] counter_ns;
 
@@ -265,10 +285,12 @@ module top_switch (
         .tx_tteptr_fifo_dout(emac0_tx_tteptr_fifo_dout),
         .tx_tteptr_fifo_empty(emac0_tx_tteptr_fifo_empty),
 
-        .port_addr (port0_addr),
-        .port_din  (port0_din),
-        .port_req  (port0_req),
-        .port_ack  (port0_ack),
+        .sys_req_valid  (sys_req_valid[0]),
+        .sys_req_wr     (sys_req_wr),
+        .sys_req_addr   (sys_req_addr),
+        .sys_resp_valid (sys_resp_valid_p0),
+        .sys_resp_data  (sys_resp_data_p0),
+
         .counter_ns(counter_ns)
     );
 
@@ -321,10 +343,12 @@ module top_switch (
         .tx_tteptr_fifo_dout(emac1_tx_tteptr_fifo_dout),
         .tx_tteptr_fifo_empty(emac1_tx_tteptr_fifo_empty),
 
-        .port_addr (port1_addr),
-        .port_din  (port1_din),
-        .port_req  (port1_req),
-        .port_ack  (port1_ack),
+        .sys_req_valid  (sys_req_valid[1]),
+        .sys_req_wr     (sys_req_wr),
+        .sys_req_addr   (sys_req_addr),
+        .sys_resp_valid (sys_resp_valid_p1),
+        .sys_resp_data  (sys_resp_data_p1),
+
         .counter_ns(counter_ns)
 
     );
@@ -378,10 +402,12 @@ module top_switch (
         .tx_tteptr_fifo_dout(emac2_tx_tteptr_fifo_dout),
         .tx_tteptr_fifo_empty(emac2_tx_tteptr_fifo_empty),
 
-        .port_addr (port2_addr),
-        .port_din  (port2_din),
-        .port_req  (port2_req),
-        .port_ack  (port2_ack),
+        .sys_req_valid  (sys_req_valid[2]),
+        .sys_req_wr     (sys_req_wr),
+        .sys_req_addr   (sys_req_addr),
+        .sys_resp_valid (sys_resp_valid_p2),
+        .sys_resp_data  (sys_resp_data_p2),
+
         .counter_ns(counter_ns)
 
     );
@@ -435,10 +461,12 @@ module top_switch (
         .tx_tteptr_fifo_dout(emac3_tx_tteptr_fifo_dout),
         .tx_tteptr_fifo_empty(emac3_tx_tteptr_fifo_empty),
 
-        .port_addr (port3_addr),
-        .port_din  (port3_din),
-        .port_req  (port3_req),
-        .port_ack  (port3_ack),
+        .sys_req_valid  (sys_req_valid[3]),
+        .sys_req_wr     (sys_req_wr),
+        .sys_req_addr   (sys_req_addr),
+        .sys_resp_valid (sys_resp_valid_p3),
+        .sys_resp_data  (sys_resp_data_p3),
+
         .counter_ns(counter_ns)
 
     );
@@ -687,28 +715,28 @@ module top_switch (
         .reg_rst(reg_rst)
     );
 
-    wire [127:0] flow_mux;
-    wire [11:0] hash_mux;
-    wire r_hash_clear;
-    wire r_hash_update;
-    wire ttehash_req;
-    wire ttehash_ack;
+    // wire [127:0] flow_mux;
+    // wire [11:0] hash_mux;
+    // wire r_hash_clear;
+    // wire r_hash_update;
+    // wire ttehash_req;
+    // wire ttehash_ack;
 
-    bus2ttehash bus2ttehashinst (
-        .clk(clk),
-        .rstn(rstn_sys),
-        .flow_mux(flow_mux[119:0]),
-        .hash_mux(hash_mux),
-        .flow(flow),
-        .hash(hash),
-        .hash_clear(hash_clear),
-        .hash_update(hash_update),
-        .r_hash_clear(r_hash_clear),
-        .r_hash_update(r_hash_update),
-        .reg_rst(reg_rst),
-        .ttehash_req(ttehash_req),
-        .ttehash_ack(ttehash_ack)
-    );
+    // bus2ttehash bus2ttehashinst (
+    //     .clk(clk),
+    //     .rstn(rstn_sys),
+    //     .flow_mux(flow_mux[119:0]),
+    //     .hash_mux(hash_mux),
+    //     .flow(flow),
+    //     .hash(hash),
+    //     .hash_clear(hash_clear),
+    //     .hash_update(hash_update),
+    //     .r_hash_clear(r_hash_clear),
+    //     .r_hash_update(r_hash_update),
+    //     .reg_rst(reg_rst),
+    //     .ttehash_req(ttehash_req),
+    //     .ttehash_ack(ttehash_ack)
+    // );
 
 
 
@@ -720,20 +748,41 @@ module top_switch (
     wire    [15:0]  spi_dout;
 
 
-    reg_ctrl reg_ctrl_inst (
+    // reg_ctrl reg_ctrl_inst (
+    //     .clk(clk),
+    //     .rst_n(rstn_sys),
+    //     .spi_req(spi_req),
+    //     .spi_ack(spi_ack),
+    //     .ttehash_req(ttehash_req),
+    //     .ttehash_ack(ttehash_ack),
+    //     .spi_addr(spi_addr),
+    //     .spi_din(spi_din),
+    //     .spi_dout(spi_dout),
+    //     .r_hash_clear(r_hash_clear),
+    //     .r_hash_update(r_hash_update),
+    //     .r_flow_mux(flow_mux),
+    //     .r_hash(hash_mux)
+    // );
+
+    register_v2 #(
+        .MGNT_REG_WIDTH(16)
+    ) reg_v2_inst (
         .clk(clk),
-        .rst_n(rstn_sys),
-        .spi_req(spi_req),
-        .spi_ack(spi_ack),
-        .ttehash_req(ttehash_req),
-        .ttehash_ack(ttehash_ack),
-        .spi_addr(spi_addr),
+        .rst(rstn_sys),
+        .spi_wr(spi_req),
+        .spi_op(spi_addr),
         .spi_din(spi_din),
+        .spi_ack(spi_ack),
         .spi_dout(spi_dout),
-        .r_hash_clear(r_hash_clear),
-        .r_hash_update(r_hash_update),
-        .r_flow_mux(flow_mux),
-        .r_hash(hash_mux)
+        .sys_resp_valid          ( sys_resp_valid          ),
+        .sys_resp_data           ( sys_resp_data   [ 7:0]  ),
+        .sys_req_valid           ( sys_req_valid   [ 5:0]  ),
+        .sys_req_wr              ( sys_req_wr              ),
+        .sys_req_addr            ( sys_req_addr    [ 7:0]  ),
+        .ft_clear                ( hash_clear              ),
+        .ft_update               ( hash_update             ),
+        .flow                    ( flow            [119:0] ),
+        .hash                    ( hash            [11:0]  )
     );
 
     spi_process spi_process_inst (

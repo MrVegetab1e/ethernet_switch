@@ -48,30 +48,30 @@ reg   [12:0]  cnt;
 reg   [1:0]   sel;
 reg   [1:0]   RR;
 
-(*MARK_DEBUG="TRUE"*)   reg [15:0] dbg_ifmux_pkt;
-(*MARK_DEBUG="TRUE"*)   reg [15:0] dbg_ifmux_bp_ptr;
-(*MARK_DEBUG="TRUE"*)   reg [15:0] dbg_ifmux_bp_data;
+// (*MARK_DEBUG="TRUE"*)   reg [15:0] dbg_ifmux_pkt;
+// (*MARK_DEBUG="TRUE"*)   reg [15:0] dbg_ifmux_bp_ptr;
+// (*MARK_DEBUG="TRUE"*)   reg [15:0] dbg_ifmux_bp_data;
 
-always @(posedge clk or negedge rstn) begin
-    if (!rstn) begin
-        dbg_ifmux_pkt       <=  'b0;
-        dbg_ifmux_bp_ptr    <=  'b0;
-        dbg_ifmux_bp_data   <=  'b0;
-    end
-    else begin
-        if ({rx_ptr_fifo_empty3, rx_ptr_fifo_empty2, rx_ptr_fifo_empty1, rx_ptr_fifo_empty0} != 'b0) begin
-            if (ptr_sfifo_full) begin
-                dbg_ifmux_bp_ptr    <=  dbg_ifmux_bp_ptr + 1'b1;
-            end
-            if (sfifo_cnt>14866) begin
-                dbg_ifmux_bp_data   <=  dbg_ifmux_bp_data + 1'b1;
-            end
-        end
-        if (ptr_sfifo_wr) begin
-            dbg_ifmux_pkt   <=  dbg_ifmux_pkt + 1'b1;
-        end
-    end
-end
+// always @(posedge clk or negedge rstn) begin
+//     if (!rstn) begin
+//         dbg_ifmux_pkt       <=  'b0;
+//         dbg_ifmux_bp_ptr    <=  'b0;
+//         dbg_ifmux_bp_data   <=  'b0;
+//     end
+//     else begin
+//         if ({rx_ptr_fifo_empty3, rx_ptr_fifo_empty2, rx_ptr_fifo_empty1, rx_ptr_fifo_empty0} != 'b0) begin
+//             if (ptr_sfifo_full) begin
+//                 dbg_ifmux_bp_ptr    <=  dbg_ifmux_bp_ptr + 1'b1;
+//             end
+//             if (sfifo_cnt>14866) begin
+//                 dbg_ifmux_bp_data   <=  dbg_ifmux_bp_data + 1'b1;
+//             end
+//         end
+//         if (ptr_sfifo_wr) begin
+//             dbg_ifmux_pkt   <=  dbg_ifmux_pkt + 1'b1;
+//         end
+//     end
+// end
 
 always@(posedge clk or negedge rstn)begin
     if(!rstn)begin
@@ -125,7 +125,7 @@ always@(posedge clk or negedge rstn)begin
             end
 		2:begin
             cnt<=#2 rx_ptr_fifo_dout[12:0];
-            error<=#2 rx_ptr_fifo_dout[14]|rx_ptr_fifo_dout[15];
+            error<=#2 rx_ptr_fifo_dout[13]|rx_ptr_fifo_dout[14]|rx_ptr_fifo_dout[15];
             rx_data_fifo_rd<=#2 1;
             state<=#2 3;
             end

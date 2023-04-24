@@ -42,9 +42,14 @@ output      [7:0]   tte_fifo_dout,
 input               tteptr_fifo_rd, 
 output      [15:0]  tteptr_fifo_dout,
 output              tteptr_fifo_empty,
+
 input       [31:0]  counter_ns,
 input       [63:0]  counter_ns_tx_delay,
-input       [63:0]  counter_ns_gtx_delay
+input       [63:0]  counter_ns_gtx_delay,
+
+output              rx_mgnt_valid,
+output      [19:0]  rx_mgnt_data,
+input               rx_mgnt_resp
     );
 
 parameter DELAY=2;  
@@ -451,10 +456,16 @@ always @(posedge rx_clk  or negedge rstn_mac)
         end
         4:begin
             ptr_fifo_din[12:0]<=#DELAY ram_cnt_be-1;
-            if((ram_cnt_be<65) | (ram_cnt_be>1519)) ptr_fifo_din[14]<=#DELAY 1;
+            // if((ram_cnt_be<65) | (ram_cnt_be>1519)) ptr_fifo_din[14]<=#DELAY 1;
+            // else ptr_fifo_din[14]<=#DELAY 0;
+            // if(crc_result==CRC_RESULT_VALUE) ptr_fifo_din[15]<=#DELAY 1'b0;
+            // else ptr_fifo_din[15]<=#DELAY 1'b1;
+            if(ram_cnt_be<65) ptr_fifo_din[14]<=#DELAY 1;
             else ptr_fifo_din[14]<=#DELAY 0;
-            if(crc_result==CRC_RESULT_VALUE) ptr_fifo_din[15]<=#DELAY 1'b0;
-            else ptr_fifo_din[15]<=#DELAY 1'b1;
+            if(ram_cnt_be>1519) ptr_fifo_din[15]<=#DELAY 1;
+            else ptr_fifo_din[15]<=#DELAY 0;
+            if(crc_result==CRC_RESULT_VALUE) ptr_fifo_din[13]<=#DELAY 1'b0;
+            else ptr_fifo_din[13]<=#DELAY 1'b1;
             ptr_fifo_wr<=#DELAY 1;
             be_state<=#DELAY 5;
         end
@@ -805,10 +816,16 @@ always @(posedge rx_clk  or negedge rstn_mac)
         end
         4:begin
             tteptr_fifo_din[12:0]<=#DELAY ram_cnt_tte-1;
-            if((ram_cnt_tte<65) | (ram_cnt_tte>1519)) tteptr_fifo_din[14]<=#DELAY 1;
+            // if((ram_cnt_tte<65) | (ram_cnt_tte>1519)) tteptr_fifo_din[14]<=#DELAY 1;
+            // else tteptr_fifo_din[14]<=#DELAY 0;
+            // if(crc_result==CRC_RESULT_VALUE) tteptr_fifo_din[15]<=#DELAY 1'b0;
+            // else tteptr_fifo_din[15]<=#DELAY 1'b1;
+            if(ram_cnt_tte<65) tteptr_fifo_din[14]<=#DELAY 1;
             else tteptr_fifo_din[14]<=#DELAY 0;
-            if(crc_result==CRC_RESULT_VALUE) tteptr_fifo_din[15]<=#DELAY 1'b0;
-            else tteptr_fifo_din[15]<=#DELAY 1'b1;
+            if(ram_cnt_tte>1519) tteptr_fifo_din[15]<=#DELAY 1;
+            else tteptr_fifo_din[15]<=#DELAY 0;
+            if(crc_result==CRC_RESULT_VALUE) tteptr_fifo_din[13]<=#DELAY 1'b0;
+            else tteptr_fifo_din[13]<=#DELAY 1'b1;
             tteptr_fifo_wr<=#DELAY 1;
             tte_state<=#DELAY 5;
         end
@@ -885,12 +902,81 @@ afifo_w16_d32 u_tteptr_fifo (
   .empty(tteptr_fifo_empty)         // output empty
 );
 
+reg [15:0] mgnt_state, mgnt_state_next;
+reg [11:0] mgnt_cnt;
+reg [ 7:0] mgnt_flag;
+
+always @(*) begin
+    case(mgnt_state)
+        01: begin
+            if (load_be) begin
+                if (!bp) mgnt_state_next = 2;
+                else mgnt_state_next = 8;
+            end
+            else if (load_tte) begin
+                if (!tte_bp) mgnt_state_next = 4;
+                else mgnt_state_next = 8;
+            end
+            else begin
+                mgnt_state_next = 1;
+            end
+        end
+        02: mgnt_state_next  =   ptr_fifo_wr ? 8 : 2;
+        04: mgnt_state_next  =   tteptr_fifo_wr ? 8 : 4;
+        08: mgnt_state_next  =   rx_mgnt_resp ? 1 : 8;
+        default: mgnt_state_next    =   1;
+    endcase
+end
+
+always @(posedge rx_clk or negedge rstn_mac) begin
+    if (!rstn_mac) begin
+        mgnt_state  <=  1;
+    end
+    else begin
+        mgnt_state  <=  mgnt_state_next;
+    end
+end
+
+always @(posedge rx_clk or negedge rstn_mac) begin
+    if (!rstn_mac) begin
+        mgnt_flag   <=  'b0;
+        mgnt_cnt    <=  'b0;
+    end
+    else begin
+        if (mgnt_state == 1) begin
+            if (load_be && !bp) begin
+                mgnt_flag[7]    <=  'b0;
+                mgnt_flag[3]    <=  'b0;
+            end
+            else if (load_tte && !tte_bp) begin
+                mgnt_flag[7]    <=  'b0;
+                mgnt_flag[3]    <=  'b1;
+            end
+            else if ((load_be && bp) || (load_tte && tte_bp)) begin
+                mgnt_flag[7]    <=  'b1;
+                mgnt_flag[3]    <=  'b0;
+            end
+        end
+        else if (mgnt_state == 2 && ptr_fifo_wr) begin
+            mgnt_cnt        <=  ptr_fifo_din[11:0];
+            mgnt_flag[6:4]  <=  ptr_fifo_din[15:13];
+        end
+        else if (mgnt_state == 16 && tteptr_fifo_wr) begin
+            mgnt_cnt        <=  tteptr_fifo_din[11:0];
+            mgnt_flag[6:4]  <=  tteptr_fifo_din[15:13];
+        end
+    end
+end
+
+assign  rx_mgnt_data    =   {mgnt_flag, mgnt_cnt};
+assign  rx_mgnt_valid   =   (mgnt_state == 8);
+
 // (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_pkt_be;
 // (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_bp_fifo_be;
 // (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_bp_busy_be;
-(*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_pkt_tte;
-(*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_bp_fifo_tte;
-(*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_bp_busy_tte;
+// (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_pkt_tte;
+// (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_bp_fifo_tte;
+// (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_r_bp_busy_tte;
 
 // always @(posedge rx_clk or negedge rstn_mac) begin
 //     if (!rstn_mac) begin
@@ -913,25 +999,25 @@ afifo_w16_d32 u_tteptr_fifo (
 //     end
 // end
 
-always @(posedge rx_clk or negedge rstn_mac) begin
-    if (!rstn_mac) begin
-        dbg_mac_r_pkt_tte       <=  'b0;
-        dbg_mac_r_bp_fifo_tte   <=  'b0;
-        dbg_mac_r_bp_busy_tte   <=  'b0;
-    end
-    else begin
-        if (load_tte) begin
-            if (tte_state == 0 && !tte_bp) begin
-                dbg_mac_r_pkt_tte       <=  dbg_mac_r_pkt_tte + 1'b1;
-            end
-            else if (tte_state == 0 && tte_bp) begin
-                dbg_mac_r_bp_fifo_tte   <=  dbg_mac_r_bp_fifo_tte + 1'b1;
-            end
-            else if (tte_state != 0) begin
-                dbg_mac_r_bp_busy_tte   <=  dbg_mac_r_bp_busy_tte + 1'b1;
-            end
-        end
-    end
-end
+// always @(posedge rx_clk or negedge rstn_mac) begin
+//     if (!rstn_mac) begin
+//         dbg_mac_r_pkt_tte       <=  'b0;
+//         dbg_mac_r_bp_fifo_tte   <=  'b0;
+//         dbg_mac_r_bp_busy_tte   <=  'b0;
+//     end
+//     else begin
+//         if (load_tte) begin
+//             if (tte_state == 0 && !tte_bp) begin
+//                 dbg_mac_r_pkt_tte       <=  dbg_mac_r_pkt_tte + 1'b1;
+//             end
+//             else if (tte_state == 0 && tte_bp) begin
+//                 dbg_mac_r_bp_fifo_tte   <=  dbg_mac_r_bp_fifo_tte + 1'b1;
+//             end
+//             else if (tte_state != 0) begin
+//                 dbg_mac_r_bp_busy_tte   <=  dbg_mac_r_bp_busy_tte + 1'b1;
+//             end
+//         end
+//     end
+// end
 
 endmodule

@@ -409,41 +409,41 @@ dpsram_w128_d2k u_data_ram (
   .doutb(sram_dout_b) 	
 );
 
-(*MARK_DEBUG="TRUE"*)	reg [15:0] dbg_swcore_fnt_pkt;
-(*MARK_DEBUG="TRUE"*) 	reg [15:0] dbg_swcore_fnt_bp_ptr;
-(*MARK_DEBUG="TRUE"*)	reg [15:0] dbg_swcore_fnt_bp_fq;
-(*MARK_DEBUG="TRUE"*)	reg [15:0] dbg_swcore_bak_pkt;
-(*MARK_DEBUG="TRUE"*)	reg [15:0] dbg_swcore_bak_bp;
+// (*MARK_DEBUG="TRUE"*)	reg [15:0] dbg_swcore_fnt_pkt;
+// (*MARK_DEBUG="TRUE"*) 	reg [15:0] dbg_swcore_fnt_bp_ptr;
+// (*MARK_DEBUG="TRUE"*)	reg [15:0] dbg_swcore_fnt_bp_fq;
+// (*MARK_DEBUG="TRUE"*)	reg [15:0] dbg_swcore_bak_pkt;
+// (*MARK_DEBUG="TRUE"*)	reg [15:0] dbg_swcore_bak_bp;
 
-always @(posedge clk or negedge rstn) begin
-	if (!rstn) begin
-		dbg_swcore_fnt_pkt 		<= 	'b0;
-		dbg_swcore_fnt_bp_fq 	<= 	'b0;
-		dbg_swcore_fnt_bp_ptr 	<= 	'b0;
-		dbg_swcore_bak_pkt 		<= 	'b0;
-		dbg_swcore_bak_bp 		<= 	'b0;
-	end
-	else begin
-		if (wr_state == 0 && !i_cell_ptr_fifo_empty && FQ_act) begin
-			if (FQ_alloc && qc_ptr_full) begin
-				dbg_swcore_fnt_pkt 		<= 	dbg_swcore_fnt_pkt + 1'b1;
-			end
-			if (!FQ_alloc) begin
-				dbg_swcore_fnt_bp_fq 	<= 	dbg_swcore_fnt_bp_fq + 1'b1;
-			end
-			if (qc_ptr_full) begin
-				dbg_swcore_fnt_bp_ptr 	<= 	dbg_swcore_fnt_bp_ptr + 1'b1;
-			end
-		end
-		if (rd_state == 0) begin
-			if (ptr_rd_req_pre) begin
-				dbg_swcore_bak_pkt 	<= 	dbg_swcore_bak_pkt + 1'b1;
-			end
-			else if ({ptr_rdy3,ptr_rdy2,ptr_rdy1,ptr_rdy0} != 'b0 && !ptr_rd_req_pre) begin
-				dbg_swcore_bak_bp 	<= 	dbg_swcore_bak_bp + 1'b1;
-			end
-		end
-	end
-end
+// always @(posedge clk or negedge rstn) begin
+// 	if (!rstn) begin
+// 		dbg_swcore_fnt_pkt 		<= 	'b0;
+// 		dbg_swcore_fnt_bp_fq 	<= 	'b0;
+// 		dbg_swcore_fnt_bp_ptr 	<= 	'b0;
+// 		dbg_swcore_bak_pkt 		<= 	'b0;
+// 		dbg_swcore_bak_bp 		<= 	'b0;
+// 	end
+// 	else begin
+// 		if (wr_state == 0 && !i_cell_ptr_fifo_empty && FQ_act) begin
+// 			if (FQ_alloc && qc_ptr_full) begin
+// 				dbg_swcore_fnt_pkt 		<= 	dbg_swcore_fnt_pkt + 1'b1;
+// 			end
+// 			if (!FQ_alloc) begin
+// 				dbg_swcore_fnt_bp_fq 	<= 	dbg_swcore_fnt_bp_fq + 1'b1;
+// 			end
+// 			if (qc_ptr_full) begin
+// 				dbg_swcore_fnt_bp_ptr 	<= 	dbg_swcore_fnt_bp_ptr + 1'b1;
+// 			end
+// 		end
+// 		if (rd_state == 0) begin
+// 			if (ptr_rd_req_pre) begin
+// 				dbg_swcore_bak_pkt 	<= 	dbg_swcore_bak_pkt + 1'b1;
+// 			end
+// 			else if ({ptr_rdy3,ptr_rdy2,ptr_rdy1,ptr_rdy0} != 'b0 && !ptr_rd_req_pre) begin
+// 				dbg_swcore_bak_bp 	<= 	dbg_swcore_bak_bp + 1'b1;
+// 			end
+// 		end
+// 	end
+// end
 
 endmodule
