@@ -42,10 +42,11 @@ module interface_mux_v2 (
     reg     [ 1:0]  cnt_1;
     reg     [12:0]  cnt_tgt;
 
-    reg     [ 2:0]  sfifo_wr;
+    reg     [ 1:0]  sfifo_wr;
     reg             sfifo_en;
     reg     [ 7:0]  sfifo_din;
-    wire    [13:0]  sfifo_cnt;
+    // wire    [13:0]  sfifo_cnt;
+    wire    [11:0]  sfifo_cnt;
     reg             ptr_sfifo_wr;
     reg     [15:0]  ptr_sfifo_din;
     wire            ptr_sfifo_full;
@@ -100,7 +101,8 @@ module interface_mux_v2 (
             ifmux_sel_bin   <=  'b0;
         end
         else begin
-            if (ifmux_state_next == 2) begin
+            // if (ifmux_state_next == 2) begin
+            if (ifmux_state_next[1]) begin
                 ifmux_rndrb     <=  ifmux_rr_bin_out + 1'b1;
                 ifmux_sel       <=  ifmux_rr_vec_out;
                 ifmux_sel_bin   <=  ifmux_rr_bin_out;
@@ -122,51 +124,62 @@ module interface_mux_v2 (
         end
         else begin
             // cnt block ctrl
-            if (rx_data_fifo_rd != 0) begin
+            // if (rx_data_fifo_rd != 0) begin
+            if (!ifmux_state[0]) begin
                 cnt     <=  cnt + 1'b1;
             end
             else begin
                 cnt     <=  'b1;
             end
-            if (ifmux_state == 32) begin
+            // if (ifmux_state == 32) begin
+            if (ifmux_state[5]) begin
                 cnt_1   <=  cnt_1 + 1'b1;
             end
             else begin
                 cnt_1   <=  'b0;
             end
             // rx data read
-            if (ifmux_state_next == 2) begin
+            // if (ifmux_state_next == 2) begin
+            if (ifmux_state_next[1]) begin
                 rx_data_fifo_rd <=  ifmux_rr_vec_out;
             end
-            else if (ifmux_state_next == 1) begin
+            // else if (ifmux_state_next == 1) begin
+            else if (ifmux_state_next[0]) begin
                 rx_data_fifo_rd <=  'b0;
             end
             // rx ptr read
-            if (ifmux_state_next == 2) begin
+            // if (ifmux_state_next == 2) begin
+            if (ifmux_state_next[1]) begin
                 rx_ptr_fifo_rd  <=  ifmux_rr_vec_out;
             end
-            else if (ifmux_state_next == 4) begin
+            // else if (ifmux_state_next == 4) begin
+            else if (ifmux_state[1]) begin
                 rx_ptr_fifo_rd  <=  'b0;
             end
             // sfifo valid
-            if (ifmux_state_next == 2) begin
+            // if (ifmux_state_next == 2) begin
+            if (ifmux_state[1]) begin
                 sfifo_en        <=  'b1;
             end
-            else if (ifmux_state_next == 32) begin
+            // else if (ifmux_state_next == 32) begin
+            else if (ifmux_state[5]) begin
                 sfifo_en        <=  'b0;
             end 
             // other ctrl signal
-            if (ifmux_state == 4) begin
+            // if (ifmux_state == 4) begin
+            if (ifmux_state[2]) begin
                 cnt_tgt         <=  rx_ptr_fifo_dout[12:0];
                 error           <=  rx_ptr_fifo_dout[15] || rx_ptr_fifo_dout[14] || rx_ptr_fifo_dout[13];
             end
-            if (ifmux_state != 1) begin
+            // if (ifmux_state != 1) begin
+            if (!ifmux_state[0]) begin
                 // sfifo_wr        <=  !error;
-                sfifo_wr        <=  {sfifo_wr, !error && sfifo_en};
+                sfifo_wr        <=  {sfifo_wr[0], !error && sfifo_en};
                 // sfifo_din       <=  rx_data_fifo_dout;
                 sfifo_din       <=  rx_data_fifo_dout;
             end
-            if (ifmux_state == 8) begin
+            // if (ifmux_state == 8) begin
+            if (ifmux_state[3]) begin
                 ptr_sfifo_wr    <=  !error;
                 ptr_sfifo_din   <=  {1'b0, ifmux_sel, cnt_tgt[10:0]};
             end
@@ -181,7 +194,8 @@ module interface_mux_v2 (
             bp  <=  'b1;
         end
         else begin
-            if (sfifo_cnt[13:8] >= 'h3A || ptr_sfifo_full) begin
+            // if (sfifo_cnt[13:8] >= 'h3A || ptr_sfifo_full) begin
+            if (sfifo_cnt[11:8] >= 'h0A || ptr_sfifo_full) begin
                 bp  <=  'b1;
             end
             else begin
@@ -198,13 +212,13 @@ module interface_mux_v2 (
     assign  rx_ptr_fifo_rd1     =   rx_ptr_fifo_rd[1];
     assign  rx_ptr_fifo_rd2     =   rx_ptr_fifo_rd[2];
     assign  rx_ptr_fifo_rd3     =   rx_ptr_fifo_rd[3];
-    assign  rx_ptr_fifo_dout    =   (ifmux_sel_bin==0)  ?   rx_ptr_fifo_dout0   :
-                                    (ifmux_sel_bin==1)  ?   rx_ptr_fifo_dout1   :
-                                    (ifmux_sel_bin==2)  ?   rx_ptr_fifo_dout2   :
+    assign  rx_ptr_fifo_dout    =   (ifmux_sel[0])  ?   rx_ptr_fifo_dout0   :
+                                    (ifmux_sel[1])  ?   rx_ptr_fifo_dout1   :
+                                    (ifmux_sel[2])  ?   rx_ptr_fifo_dout2   :
                                     rx_ptr_fifo_dout3;    
-    assign  rx_data_fifo_dout   =   (ifmux_sel_bin==0)  ?   rx_data_fifo_dout0  :
-                                    (ifmux_sel_bin==1)  ?   rx_data_fifo_dout1  :
-                                    (ifmux_sel_bin==2)  ?   rx_data_fifo_dout2  :
+    assign  rx_data_fifo_dout   =   (ifmux_sel[0])  ?   rx_data_fifo_dout0  :
+                                    (ifmux_sel[1])  ?   rx_data_fifo_dout1  :
+                                    (ifmux_sel[2])  ?   rx_data_fifo_dout2  :
                                     rx_data_fifo_dout3; 
 
     (*MARK_DEBUG="true"*) wire  dbg_data_of;
@@ -212,11 +226,11 @@ module interface_mux_v2 (
     (*MARK_DEBUG="true"*) wire  dbg_ptr_of;
     (*MARK_DEBUG="true"*) wire  dbg_ptr_uf;
 
-    sfifo_reg_w8_d16k    u_sfifo(
+    sfifo_reg_w8_d4k    u_sfifo(
         .clk(clk_sys),
         .rst(!rstn_sys),
         .din(sfifo_din),
-        .wr_en(sfifo_wr[2]),
+        .wr_en(sfifo_wr[1]),
         .rd_en(sfifo_rd),
         .dout(sfifo_dout),
         .full(), 							
@@ -225,7 +239,7 @@ module interface_mux_v2 (
         .underflow(dbg_data_uf),
         .overflow(dbg_data_of)	
         );
-    sfifo_w16_d128   u_ptr_sfifo(
+    sfifo_w16_d32   u_ptr_sfifo(
         .clk(clk_sys),
         .rst(!rstn_sys),
         .din(ptr_sfifo_din),
