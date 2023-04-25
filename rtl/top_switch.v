@@ -477,9 +477,9 @@ module top_switch (
     wire        ptr_sfifo_rd;
     wire [15:0] ptr_sfifo_dout;
     wire        ptr_sfifo_empty;
-    interface_mux u_interface_mux (
-        .clk(clk),
-        .rstn(rstn_sys),
+    interface_mux_v2 u_interface_mux (
+        .clk_sys(clk),
+        .rstn_sys(rstn_sys),
         .rx_data_fifo_dout0(emac0_rx_data_fifo_dout),
         .rx_data_fifo_rd0(emac0_rx_data_fifo_rd),
         .rx_ptr_fifo_dout0(emac0_rx_ptr_fifo_dout),
@@ -516,9 +516,9 @@ module top_switch (
     wire        tteptr_sfifo_rd;
     wire [15:0] tteptr_sfifo_dout;
     wire        tteptr_sfifo_empty;
-    interface_mux u_tteinterface_mux (
-        .clk(clk),
-        .rstn(rstn_sys),
+    interface_mux_v2 u_tteinterface_mux (
+        .clk_sys(clk),
+        .rstn_sys(rstn_sys),
         .rx_data_fifo_dout0(emac0_rx_tte_fifo_dout),
         .rx_data_fifo_rd0(emac0_rx_tte_fifo_rd),
         .rx_ptr_fifo_dout0(emac0_rx_tteptr_fifo_dout),

@@ -455,7 +455,8 @@ always @(posedge rx_clk  or negedge rstn_mac)
             be_state<=#DELAY 4;
         end
         4:begin
-            ptr_fifo_din[12:0]<=#DELAY ram_cnt_be-1;
+            // ptr_fifo_din[12:0]<=#DELAY ram_cnt_be-1;
+            ptr_fifo_din[12:0]<=#DELAY ram_cnt_be-5;
             // if((ram_cnt_be<65) | (ram_cnt_be>1519)) ptr_fifo_din[14]<=#DELAY 1;
             // else ptr_fifo_din[14]<=#DELAY 0;
             // if(crc_result==CRC_RESULT_VALUE) ptr_fifo_din[15]<=#DELAY 1'b0;
@@ -815,7 +816,8 @@ always @(posedge rx_clk  or negedge rstn_mac)
             tte_state<=#DELAY 4;
         end
         4:begin
-            tteptr_fifo_din[12:0]<=#DELAY ram_cnt_tte-1;
+            // tteptr_fifo_din[12:0]<=#DELAY ram_cnt_tte-1;
+            tteptr_fifo_din[12:0]<=#DELAY ram_cnt_tte-5;
             // if((ram_cnt_tte<65) | (ram_cnt_tte>1519)) tteptr_fifo_din[14]<=#DELAY 1;
             // else tteptr_fifo_din[14]<=#DELAY 0;
             // if(crc_result==CRC_RESULT_VALUE) tteptr_fifo_din[15]<=#DELAY 1'b0;
@@ -851,7 +853,7 @@ assign  data_fifo_din = (ptp_sel==1)?ptp_data:data_fifo_din_reg;
 
 (*MARK_DEBUG="true"*) wire dbg_data_empty;
 
-afifo_w8_d4k u_data_fifo (
+afifo_reg_w8_d4k u_data_fifo (
   .rst(!rstn_sys),                  // input rst
   .wr_clk(rx_clk),                  // input wr_clk
   .rd_clk(clk),                     // input rd_clk
@@ -876,7 +878,7 @@ afifo_w16_d32 u_ptr_fifo (
   .full(ptr_fifo_full),             // output full
   .empty(ptr_fifo_empty)            // output empty
 );
-afifo_w8_d4k u_tte_fifo (
+afifo_reg_w8_d4k u_tte_fifo (
   .rst(!rstn_sys),                  // input rst
   .wr_clk(rx_clk),                  // input wr_clk
   .rd_clk(clk),                     // input rd_clk

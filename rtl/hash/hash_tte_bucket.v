@@ -48,7 +48,8 @@ output  reg         reg_rst    ////插入流表成功后返回1
 
 reg     [2:0]   state;
 reg             clear_op;
-reg             hit;
+// reg             hit;
+reg     [1:0]   hit_0, hit_1;
 wire            item_valid;
 //======================================
 //              one cycle for state1.
@@ -58,7 +59,7 @@ reg             count;
 reg     [47:0]  hit_dmac;
 reg     [47:0]  hit_smac;
 
-reg             init;
+// reg             init;
 reg                 ram_wr;
 reg     [11:0]      ram_addr;     //input  [11 : 0] addra
 reg     [119:0]     ram_din;      //input  [119 : 0] dina
@@ -81,16 +82,18 @@ parameter   HASH_VALID1 = 8'b10000000;
 always @(posedge clk or negedge rstn)
     if(!rstn) begin
         state <=#2 0;
-        init <=#2 0;
+        // init <=#2 0;
         clear_op<=#2 1;
         ram_wr<=#2 0;
         ram_addr<=#2 0; 
-        ram_din<=#2 0;     
+        // ram_din<=#2 0;     
         se_ack<=#2 0;
         se_nak<=#2 0;
-        se_result<=#2 0;
-        hit_dmac<=#2 0;
-        hit_smac<=#2 0;
+        // se_result<=#2 0;
+        // hit_dmac<=#2 0;
+        // hit_smac<=#2 0;
+        hit_0<=#2 0;
+        hit_1<=#2 0;
         count<=#2 0;
         reg_rst<=#2 0;
         end
@@ -100,6 +103,7 @@ always @(posedge clk or negedge rstn)
         se_ack<=#2 0;
         se_nak<=#2 0;
         reg_rst<=#2 0;
+        // ram_din<=#2 flow; 
         case(state)
             0:begin
                 if(hash_clear | clear_op)begin
@@ -121,25 +125,29 @@ always @(posedge clk or negedge rstn)
                     count     <=#2 0;
                     state   <=#2 1;
                 end
-                else if(init) begin
-                    ram_addr<=#2 HASH0;   
-                    ram_wr<=#2 1;
-                    ram_din<=#2 {HASH_VALID0,SOURCE_MAC0,DEST_MAC0,HASH_PORT0};
-                    state<=#2 7; 
-                end
+                // else if(init) begin
+                //     ram_addr<=#2 HASH0;   
+                //     ram_wr<=#2 1;
+                //     ram_din<=#2 {HASH_VALID0,SOURCE_MAC0,DEST_MAC0,HASH_PORT0};
+                //     state<=#2 7; 
+                // end
             end
             1:begin
                 count <=#2 1;
                 if(count) state<=#2 2;
             end
             2:begin
+                hit_0<={hit_dmac[0+:24]==ram_dout_reg[16+:24], hit_dmac[24+:24]==ram_dout_reg[40+:24]};
+                hit_1<={hit_smac[0+:24]==ram_dout_reg[64+:24], hit_smac[24+:24]==ram_dout_reg[88+:24]};
+                se_result<=#2 ram_dout_reg[15:0];
                 state<=#2 3;
             end
             3:begin
-                if(hit)begin
+                // if(hit)begin
+                if((hit_0 == 2'b11) && (hit_1 == 2'b11) && item_valid) begin
                     se_nak<=#2 0;
                     se_ack<=#2 1;
-                    se_result<=#2 ram_dout_reg[15:0];
+                    // se_result<=#2 ram_dout_reg[15:0];
                 end
                 else begin
                     se_ack<=#2 0;
@@ -167,19 +175,19 @@ always @(posedge clk or negedge rstn)
                     state<=#2 0;
                 end
             end
-            7:begin
-                ram_addr<=#2 HASH1;   
-                ram_wr<=#2 1;
-                ram_din<=#2 {HASH_VALID1,SOURCE_MAC1,DEST_MAC1,HASH_PORT1};
-                init <=#2 0;
-                state<=#2 0;
-            end
+            // 7:begin
+            //     ram_addr<=#2 HASH1;   
+            //     ram_wr<=#2 1;
+            //     ram_din<=#2 {HASH_VALID1,SOURCE_MAC1,DEST_MAC1,HASH_PORT1};
+            //     init <=#2 0;
+            //     state<=#2 0;
+            // end
         endcase
     end 
 
-always @(*)begin
-    hit=(hit_dmac==ram_dout_reg[63:16])&(hit_smac==ram_dout_reg[111:64])&item_valid;                   
-    end
+// always @(*)begin
+//     hit=(hit_dmac==ram_dout_reg[63:16])&(hit_smac==ram_dout_reg[111:64])&item_valid;                   
+//     end
 assign item_valid=ram_dout_reg[119];
 
 
