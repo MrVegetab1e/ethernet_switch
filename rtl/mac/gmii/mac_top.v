@@ -158,13 +158,13 @@ mac_t_gmii_tte_v4 u_mac_t_gmii(
 //     );
 
 smi_config  #(
-.REF_CLK                 (200                   ),        
+.REF_CLK                 (125                   ),        
 .MDC_CLK                 (500                   )
 )
 smi_config_inst
 (
-.clk                    (clk                    ),
-.rst_n                  (rstn_sys               ),         
+.clk                    (clk_125                ),
+.rst_n                  (rstn_mac               ),         
 .mdc                    (MDC                    ),
 .mdio                   (MDIO                   ),
 .link                   (link                   ),

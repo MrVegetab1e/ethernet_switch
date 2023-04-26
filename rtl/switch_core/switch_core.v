@@ -9,8 +9,8 @@ input		  [15:0]	i_cell_ptr_fifo_din,
 input		 			i_cell_ptr_fifo_wr,					
 output	reg				i_cell_bp,
 
-output	reg				o_cell_fifo_wr,
-output	reg  [3:0]		o_cell_fifo_sel,
+output	reg	 [3:0]		o_cell_fifo_wr,
+// output	reg  [3:0]		o_cell_fifo_sel,
 output	     [127:0]	o_cell_fifo_din,
 output					o_cell_first,
 output					o_cell_last,
@@ -87,7 +87,7 @@ always@(posedge clk)
 					qc_ptr_full0}==4'b0)?0:1;
 
 
-sfifo_ft_w128_d256 u_i_cell_fifo(
+sfifo_ft_reg_w128_d256 u_i_cell_fifo(
   .clk(clk), 
   .rst(!rstn), 
   .din(i_cell_data_fifo_din[127:0]), 
@@ -216,6 +216,8 @@ wire [3:0]		ptr_rd_req_pre;
 wire			ptr_rdy0,ptr_rdy1,ptr_rdy2,ptr_rdy3;		
 wire			ptr_ack0,ptr_ack1,ptr_ack2,ptr_ack3;
 
+reg  [3:0]		o_cell_fifo_sel;
+
 assign	ptr_rd_req_pre={ptr_rdy3,ptr_rdy2,ptr_rdy1,ptr_rdy0} & (~o_cell_bp);
 assign	{ptr_ack3,ptr_ack2,ptr_ack1,ptr_ack0}=ptr_ack;
 assign	sram_addr_b={FQ_din[9:0],sram_cnt_b[1:0]};
@@ -243,7 +245,8 @@ always@(posedge clk or negedge rstn)
 		FQ_wr<=#2  0;
 		MC_ram_wrb<=#2  0;
 		sram_rd_dv <= #2 sram_rd;
-		o_cell_fifo_wr<=#2 sram_rd_dv;
+		// o_cell_fifo_wr<=#2 sram_rd_dv;
+		o_cell_fifo_wr<=#2 sram_rd_dv ? o_cell_fifo_sel : 0;
 		case(rd_state)
 		0:begin
 			sram_rd<=#2  0;

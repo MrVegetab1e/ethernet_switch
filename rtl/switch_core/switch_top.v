@@ -40,8 +40,8 @@ module switch_top (
     wire         i_cell_bp;
 
 
-    wire         o_cell_fifo_wr;
-    wire [  3:0] o_cell_fifo_sel;
+    wire [  3:0] o_cell_fifo_wr;
+    // wire [  3:0] o_cell_fifo_sel;
     wire         o_cell_first;
     wire         o_cell_last;
     wire [127:0] o_cell_fifo_din;
@@ -75,7 +75,7 @@ module switch_top (
         .i_cell_bp(i_cell_bp),
 
         .o_cell_fifo_wr(o_cell_fifo_wr),
-        .o_cell_fifo_sel(o_cell_fifo_sel),
+        // .o_cell_fifo_sel(o_cell_fifo_sel),
         .o_cell_fifo_din(o_cell_fifo_din),
         .o_cell_first(o_cell_first),
         .o_cell_last(o_cell_last),
@@ -87,7 +87,7 @@ module switch_top (
         .rstn(rstn),
 
         .o_cell_fifo_wr(o_cell_fifo_wr),
-        .o_cell_fifo_sel(o_cell_fifo_sel),
+        // .o_cell_fifo_sel(o_cell_fifo_sel),
         .o_cell_fifo_din(o_cell_fifo_din),
         .o_cell_first(o_cell_first),
         .o_cell_last(o_cell_last),

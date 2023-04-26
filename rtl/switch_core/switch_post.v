@@ -22,7 +22,7 @@ module switch_post (
     wire   o_cell_data_fifo_empty;
     wire  [8:0]  o_cell_data_fifo_depth;
 
-    sfifo_ft_w144_d256 u_o_cell_fifo (
+    sfifo_ft_reg_w144_d256 u_o_cell_fifo (
         .clk(clk),
         .rst(!rstn),
         .din({o_cell_data_first, o_cell_data_last, 14'b0, o_cell_data_fifo_din[127:0]}),

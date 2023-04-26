@@ -3,8 +3,8 @@ module switch_post_top (
     input clk,
     input rstn,
 
-    input          o_cell_fifo_wr,
-    input  [  3:0] o_cell_fifo_sel,
+    input  [  3:0] o_cell_fifo_wr,
+    // input  [  3:0] o_cell_fifo_sel,
     input  [127:0] o_cell_fifo_din,
     input          o_cell_first,
     input          o_cell_last,
@@ -51,7 +51,8 @@ module switch_post_top (
         .clk (clk),
         .rstn(rstn),
 
-        .o_cell_data_fifo_wr(o_cell_fifo_wr && o_cell_fifo_sel[0]),
+        // .o_cell_data_fifo_wr(o_cell_fifo_wr && o_cell_fifo_sel[0]),
+        .o_cell_data_fifo_wr(o_cell_fifo_wr[0]),
         .o_cell_data_fifo_din(o_cell_fifo_din),
         .o_cell_data_first(o_cell_first),
         .o_cell_data_last(o_cell_last),
@@ -70,7 +71,8 @@ module switch_post_top (
         .clk (clk),
         .rstn(rstn),
 
-        .o_cell_data_fifo_wr(o_cell_fifo_wr && o_cell_fifo_sel[1]),
+        // .o_cell_data_fifo_wr(o_cell_fifo_wr && o_cell_fifo_sel[1]),
+        .o_cell_data_fifo_wr(o_cell_fifo_wr[1]),
         .o_cell_data_fifo_din(o_cell_fifo_din),
         .o_cell_data_first(o_cell_first),
         .o_cell_data_last(o_cell_last),
@@ -88,7 +90,8 @@ module switch_post_top (
         .clk (clk),
         .rstn(rstn),
 
-        .o_cell_data_fifo_wr(o_cell_fifo_wr && o_cell_fifo_sel[2]),
+        // .o_cell_data_fifo_wr(o_cell_fifo_wr && o_cell_fifo_sel[2]),
+        .o_cell_data_fifo_wr(o_cell_fifo_wr[2]),
         .o_cell_data_fifo_din(o_cell_fifo_din),
         .o_cell_data_first(o_cell_first),
         .o_cell_data_last(o_cell_last),
@@ -106,7 +109,8 @@ module switch_post_top (
         .clk (clk),
         .rstn(rstn),
 
-        .o_cell_data_fifo_wr(o_cell_fifo_wr && o_cell_fifo_sel[3]),
+        // .o_cell_data_fifo_wr(o_cell_fifo_wr && o_cell_fifo_sel[3]),
+        .o_cell_data_fifo_wr(o_cell_fifo_wr[3]),
         .o_cell_data_fifo_din(o_cell_fifo_din),
         .o_cell_data_first(o_cell_first),
         .o_cell_data_last(o_cell_last),

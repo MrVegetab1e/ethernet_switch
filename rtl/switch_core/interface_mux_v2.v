@@ -112,10 +112,10 @@ module interface_mux_v2 (
 
     always @(posedge clk_sys or negedge rstn_sys) begin
         if (!rstn_sys) begin
-            cnt             <=  'b1;
-            cnt_1           <=  'b0;
-            cnt_tgt         <=  'b0;
-            error           <=  'b0;
+            // cnt             <=  'b1;
+            // cnt_1           <=  'b0;
+            // cnt_tgt         <=  'b0;
+            // error           <=  'b0;
             sfifo_en        <=  'b0;
             sfifo_wr        <=  'b0;
             ptr_sfifo_wr    <=  'b0;

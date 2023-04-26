@@ -54,7 +54,7 @@ wire            item_valid;
 //======================================
 //              one cycle for state1.
 //======================================
-reg             count;
+reg     [ 1:0]  count;
 
 reg     [47:0]  hit_dmac;
 reg     [47:0]  hit_smac;
@@ -64,7 +64,7 @@ reg                 ram_wr;
 reg     [11:0]      ram_addr;     //input  [11 : 0] addra
 reg     [119:0]     ram_din;      //input  [119 : 0] dina
 wire    [119:0]     ram_dout;     //output [119 : 0] douta
-reg     [119:0]     ram_dout_reg; //output [119 : 0] douta
+// reg     [119:0]     ram_dout_reg; //output [119 : 0] douta
 
 
 parameter   HASH0 = 12'b0110_1000_1110;
@@ -98,7 +98,7 @@ always @(posedge clk or negedge rstn)
         reg_rst<=#2 0;
         end
     else begin
-        ram_dout_reg<=#2 ram_dout;
+        // ram_dout_reg<=#2 ram_dout;
         ram_wr<=#2 0;
         se_ack<=#2 0;
         se_nak<=#2 0;
@@ -133,13 +133,15 @@ always @(posedge clk or negedge rstn)
                 // end
             end
             1:begin
-                count <=#2 1;
-                if(count) state<=#2 2;
+                // count <=#2 1;
+                // if(count) state<=#2 2;
+                count <=#2 {count, 1'b1};
+                if(count[1]) state<=#2 2;
             end
             2:begin
-                hit_0<={hit_dmac[0+:24]==ram_dout_reg[16+:24], hit_dmac[24+:24]==ram_dout_reg[40+:24]};
-                hit_1<={hit_smac[0+:24]==ram_dout_reg[64+:24], hit_smac[24+:24]==ram_dout_reg[88+:24]};
-                se_result<=#2 ram_dout_reg[15:0];
+                hit_0<={hit_dmac[0+:24]==ram_dout[16+:24], hit_dmac[24+:24]==ram_dout[40+:24]};
+                hit_1<={hit_smac[0+:24]==ram_dout[64+:24], hit_smac[24+:24]==ram_dout[88+:24]};
+                se_result<=#2 ram_dout[15:0];
                 state<=#2 3;
             end
             3:begin
@@ -188,10 +190,10 @@ always @(posedge clk or negedge rstn)
 // always @(*)begin
 //     hit=(hit_dmac==ram_dout_reg[63:16])&(hit_smac==ram_dout_reg[111:64])&item_valid;                   
 //     end
-assign item_valid=ram_dout_reg[119];
+//assign item_valid=ram_dout_reg[119];
+assign item_valid = ram_dout[119];
 
-
-sram_w120_d4k u_sram_0 (
+sram_reg2_w120_d4k u_sram_0 (
   .clka(clk),           // input clka
   .wea(ram_wr),       // input  [0 : 0] wea
   .addra(ram_addr),   // input  [11 : 0] addra

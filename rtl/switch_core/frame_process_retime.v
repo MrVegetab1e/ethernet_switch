@@ -40,17 +40,17 @@ always@(posedge clk or negedge rstn)begin
     if(!rstn)begin
         sfifo_rd<=#2 0;
         ptr_sfifo_rd<=#2 0;
-        se_mac<=#2 0;
-        se_hash<=#2 0;
+        // se_mac<=#2 0;
+        // se_hash<=#2 0;
         se_req<=#2 0;
-        source_portmap<=#2 0;
+        // source_portmap<=#2 0;
         sof<=#2 0;
         dv<=#2 0;
-        data<=#2 0;
+        // data<=#2 0;
         state<=#2 0;
-        cnt<=#2 0;
-		se_source<=#2 0;
-		broadcast<=#2 0;
+        // cnt<=#2 0;
+		// se_source<=#2 0;
+		// broadcast<=#2 0;
         end
     else  begin
         case(state)
