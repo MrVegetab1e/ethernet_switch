@@ -34,16 +34,16 @@ module register_v2 #(
     output                  spi_ack,
     output      [15:0]      spi_dout,
     // sys mgnt side interface
-    (*MARK_DEBUG="TRUE"*) output reg  [ 5:0]      sys_req_valid,
-    (*MARK_DEBUG="TRUE"*) output reg              sys_req_wr,
-    (*MARK_DEBUG="TRUE"*) output      [ 7:0]      sys_req_addr,
-    (*MARK_DEBUG="TRUE"*) input                   sys_resp_valid,
-    (*MARK_DEBUG="TRUE"*) input       [ 7:0]      sys_resp_data,
+    output reg  [ 5:0]      sys_req_valid,
+    output reg              sys_req_wr,
+    output      [ 7:0]      sys_req_addr,
+    input                   sys_resp_valid,
+    input       [ 7:0]      sys_resp_data,
     // flow table side interface
-    (*MARK_DEBUG="TRUE"*) output reg              ft_clear,
-    (*MARK_DEBUG="TRUE"*) output reg              ft_update,
+    output reg              ft_clear,
+    output reg              ft_update,
     output      [119:0]     flow,
-    (*MARK_DEBUG="TRUE"*) output      [11:0]      hash
+    output      [11:0]      hash
 );
 
     localparam  PORT0_ADDR      =   7'h00;
@@ -64,7 +64,7 @@ module register_v2 #(
     parameter   TABLE_ST7_ADDR  =   7'h37;
     
     // spi reg operation
-    (*MARK_DEBUG="TRUE"*) reg     [3:0]  reg_state, reg_state_next;
+    reg     [3:0]  reg_state, reg_state_next;
     reg     [15:0]  reg_ptr;
     reg     [MGNT_REG_WIDTH_L2-1:0]     reg_cnt;
     reg     [MGNT_REG_WIDTH-1:0]    reg_data;

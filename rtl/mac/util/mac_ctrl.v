@@ -33,13 +33,13 @@ module mac_ctrl #(
     input           clk_if,
     input           rst_if,
     // rx side interface
-    (*MARK_DEBUG="TRUE"*) input           rx_mgnt_valid,
-    (*MARK_DEBUG="TRUE"*) output reg      rx_mgnt_resp,
-    (*MARK_DEBUG="TRUE"*) input   [19:0]  rx_mgnt_data,
+    input           rx_mgnt_valid,
+    output reg      rx_mgnt_resp,
+    input   [19:0]  rx_mgnt_data,
     // tx side interface
-    (*MARK_DEBUG="TRUE"*) input           tx_mgnt_valid,
-    (*MARK_DEBUG="TRUE"*) output reg      tx_mgnt_resp,
-    (*MARK_DEBUG="TRUE"*) input   [15:0]  tx_mgnt_data,
+    input           tx_mgnt_valid,
+    output reg      tx_mgnt_resp,
+    input   [15:0]  tx_mgnt_data,
     // sys side interface
     input           sys_req_valid,
     input           sys_req_wr,

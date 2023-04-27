@@ -29,8 +29,9 @@ parameter   LIVE_TH=10'd150;
 //======================================
 reg     [3:0]   state;
 reg             clear_op;
-reg     [2:0]   hit0;
-reg     [2:0]   hit1;
+// reg     [2:0]   hit0;
+// reg     [2:0]   hit1;
+reg             hit0, hit1;
 reg             hit0_0, hit0_1;
 reg             hit1_0, hit1_1;
 //======================================
@@ -146,16 +147,18 @@ always @(posedge clk or negedge rstn)
         2:begin
             if(se_source) state<=#2 3;
             else state<=#2 6;
-            hit0<=#2 {ram_dout_tag_0[15], hit0_0, hit0_1};
-            hit1<=#2 {ram_dout_tag_1[15], hit1_0, hit1_1};
+            // hit0<=#2 {ram_dout_tag_0[15], hit0_0, hit0_1};
+            // hit1<=#2 {ram_dout_tag_1[15], hit1_0, hit1_1};
+            hit0<=#2 (ram_dout_tag_0[15] && hit0_0 && hit0_1);
+            hit1<=#2 (ram_dout_tag_1[15] && hit1_0 && hit1_1);
             end
         3:begin
             //=====================================================
             //if no entry is matched(still valid), should add new 
             //entry.
             //=====================================================
-            // if({hit1,hit0}==2'b00) state<=#2 4;
-            if({&(hit1), &(hit0)}==2'b0) state<=#2 4;
+            if({hit1,hit0}==2'b00) state<=#2 4;
+            // if({&(hit1), &(hit0)}==2'b0) state<=#2 4;
             //=====================================================
             //if an entry is existed and old entry should be refreshed.
             //=====================================================
@@ -193,8 +196,8 @@ always @(posedge clk or negedge rstn)
             end
         5:begin
             state<=#2 14;
-            // case({hit1,hit0})
-            case({&(hit1), &(hit0)})
+            case({hit1,hit0})
+            // case({&(hit1), &(hit0)})
             2'b01: begin
                 se_nak<=#2 0;
                 se_ack<=#2 1;
@@ -223,8 +226,8 @@ always @(posedge clk or negedge rstn)
             end
         6:begin
             state<=#2 14;
-            // case({hit1,hit0})
-            case({&(hit1), &(hit0)})
+            case({hit1,hit0})
+            // case({&(hit1), &(hit0)})
             2'b00: begin
                 se_ack<=#2 0;
                 se_nak<=#2 1;
@@ -256,9 +259,9 @@ always @(posedge clk or negedge rstn)
         9:state<=#2 10;
         10:begin
             state<=#2 14;
-            ram_din_tag_0<=#2 {not_outlive_0, 5'b0, live_time0-1'b1};
+            ram_din_tag_0<=#2 {item_valid0 && not_outlive_0, 5'b0, live_time0-1'b1};
             ram_wr_tag_0<=#2 1;
-            ram_din_tag_1<=#2 {not_outlive_1, 5'b0, live_time1-1'b1};
+            ram_din_tag_1<=#2 {item_valid1 && not_outlive_1, 5'b0, live_time1-1'b1};
             ram_wr_tag_1<=#2 1;
             // if(not_outlive_0)begin
             //     // ram_din_0[79]<=#2 1'b1;

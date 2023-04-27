@@ -389,7 +389,7 @@ reg     [7:0]	data_fifo_din_reg;
 reg             data_fifo_wr;
 reg             data_fifo_wr_reg;
 wire            data_fifo_wr_dv;
-(*MARK_DEBUG="true"*) wire    [11:0]  data_fifo_depth;
+wire    [11:0]  data_fifo_depth;
 reg     [15:0]  ptr_fifo_din;
 reg             ptr_fifo_wr;
 wire            ptr_fifo_full;
@@ -963,7 +963,7 @@ always @(posedge rx_clk or negedge rstn_mac) begin
             mgnt_cnt        <=  ptr_fifo_din[11:0];
             mgnt_flag[6:4]  <=  ptr_fifo_din[15:13];
         end
-        else if (mgnt_state == 16 && tteptr_fifo_wr) begin
+        else if (mgnt_state == 4 && tteptr_fifo_wr) begin
             mgnt_cnt        <=  tteptr_fifo_din[11:0];
             mgnt_flag[6:4]  <=  tteptr_fifo_din[15:13];
         end
