@@ -129,7 +129,7 @@ module interface_mux_v2 (
                 cnt     <=  cnt + 1'b1;
             end
             else begin
-                cnt     <=  'b1;
+                cnt     <=  'h3;
             end
             // if (ifmux_state == 32) begin
             if (ifmux_state[5]) begin
