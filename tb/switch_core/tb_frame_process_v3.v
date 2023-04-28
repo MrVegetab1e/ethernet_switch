@@ -13,7 +13,7 @@ module tb_frame_process_v3;
     reg   rstn                                 = 0 ;
 
     reg   [ 3:0]  link                         = 4'hF ;
-    reg   i_cell_bp                            = 0 ;
+    reg   [ 3:0]  o_cell_bp                    = 4'h0 ;
 
     // frame_process_v2 Outputs
     wire  sfifo_rd                             ;
@@ -36,6 +36,13 @@ module tb_frame_process_v3;
     wire  i_cell_data_fifo_wr                  ;
     wire  [ 15:0]  i_cell_ptr_fifo_dout        ;
     wire  i_cell_ptr_fifo_wr                   ;
+    wire  i_cell_bp                            ;
+
+    wire  [3:0]  o_cell_fifo_wr                ;
+    wire  [127:0]  o_cell_fifo_din             ;
+    wire  o_cell_first                         ;
+    wire  o_cell_last                          ;
+
 
     initial
     begin
@@ -90,6 +97,22 @@ module tb_frame_process_v3;
         .aging_ack               ( aging_ack          )
     );
 
+    switch_core_v2  u_switch_core_v2 (
+        .clk                     ( clk                           ),
+        .rstn                    ( rstn                          ),
+        .i_cell_data_fifo_din    ( i_cell_data_fifo_dout [127:0] ),
+        .i_cell_data_fifo_wr     ( i_cell_data_fifo_wr           ),
+        .i_cell_ptr_fifo_din     ( i_cell_ptr_fifo_dout  [15:0]  ),
+        .i_cell_ptr_fifo_wr      ( i_cell_ptr_fifo_wr            ),
+        .o_cell_bp               ( o_cell_bp             [3:0]   ),
+
+        .i_cell_bp               ( i_cell_bp                     ),
+        .o_cell_fifo_wr          ( o_cell_fifo_wr        [3:0]   ),
+        .o_cell_fifo_din         ( o_cell_fifo_din       [127:0] ),
+        .o_cell_first            ( o_cell_first                  ),
+        .o_cell_last             ( o_cell_last                   )
+    );
+
     reg  [ 7:0] sfifo_din       =   0;
     reg         sfifo_wr        =   0;
     wire [11:0] sfifo_cnt;
@@ -127,8 +150,8 @@ module tb_frame_process_v3;
 
     initial
     begin
-        send_frame(60);
-        send_frame(60);
+        send_frame(62);
+        send_frame(63);
         send_frame(62);
         send_frame(63);
         send_frame(1514);

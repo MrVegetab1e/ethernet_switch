@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-module switch_core(
+module switch_core_v2(
 input					clk,
 input					rstn,
 
@@ -22,9 +22,10 @@ wire 	[127:0]	sram_din_a;
 wire 	[127:0]	sram_dout_b;			
 wire 	[11:0]	sram_addr_a;			
 wire 	[11:0]	sram_addr_b;			
-wire			sram_wr_a;				
+// wire			sram_wr_a;
+(*MARK_DEBUG="TRUE"*) reg  			sram_wr_a;			
 		
-reg  			i_cell_data_fifo_rd;	
+(*MARK_DEBUG="TRUE"*) reg  			i_cell_data_fifo_rd;	
 wire [127:0]	i_cell_data_fifo_dout;	
 wire [8:0]		i_cell_data_fifo_depth;	
 
@@ -32,7 +33,10 @@ reg				i_cell_ptr_fifo_rd;
 wire [15:0]		i_cell_ptr_fifo_dout;
 wire			i_cell_ptr_fifo_full;
 wire			i_cell_ptr_fifo_empty;
-reg	 [5:0]		cell_number;
+reg	 [ 7:0]		cell_number;
+reg  [ 5:0]		pad_number;
+reg  [ 7:0]		cell_count;
+reg  [ 5:0]		pad_count;
 reg				i_cell_last;
 reg				i_cell_first;
 			
@@ -54,7 +58,7 @@ reg				sram_rd_dv;
  
 
 
-reg  [3:0]		wr_state;		
+(*MARK_DEBUG="TRUE"*) reg  [3:0]		wr_state;		
 reg  [3:0]		qc_wr_ptr_wr_en;
 wire			qc_ptr_full0;
 wire			qc_ptr_full1;
@@ -87,7 +91,7 @@ always@(posedge clk)
 					qc_ptr_full0}==4'b0)?0:1;
 
 
-sfifo_ft_w128_d256 u_i_cell_fifo(
+sfifo_ft_reg_w128_d256 u_i_cell_fifo(
   .clk(clk), 
   .rst(!rstn), 
   .din(i_cell_data_fifo_din[127:0]), 
@@ -148,19 +152,23 @@ always@(posedge clk or negedge rstn)
 			// if(!i_cell_ptr_fifo_empty & !qc_ptr_full & !FQ_empty & FQ_act)begin
 			// bug fixed version, check for FQ depth before continue
 			if(!i_cell_ptr_fifo_empty && !qc_ptr_full && FQ_alloc && FQ_act)begin
-				i_cell_data_fifo_rd<=#2  1;
+				// i_cell_data_fifo_rd<=#2  1;
 				i_cell_ptr_fifo_rd<=#2  1;
 				qc_portmap<=#2 i_cell_ptr_fifo_dout[11:8];
 				FQ_rd<=#2  1;
 				FQ_dout<=#2  ptr_dout_s;
-				cell_number[5:0]<=#2 i_cell_ptr_fifo_dout[5:0];
+				// cell_number[5:0]<=#2 i_cell_ptr_fifo_dout[5:0];
+				cell_number[7:0]<=#2 i_cell_ptr_fifo_dout[7:0];
+				pad_count[5:0]<=#2 (i_cell_ptr_fifo_dout[1:0] == 2'b0) ? i_cell_ptr_fifo_dout[7:2] : i_cell_ptr_fifo_dout[7:2] + 1'b1;
 				i_cell_first<=#2  1;
-				if(i_cell_ptr_fifo_dout[5:0]==6'b1) i_cell_last<=#2 1;
+				// if(i_cell_ptr_fifo_dout[5:0]==6'b1) i_cell_last<=#2 1;
+				if(i_cell_ptr_fifo_dout[7:0]==8'h4) i_cell_last<=#2 1;
 				wr_state<=#2 1;
 				end
 			end
 		1:begin			
-			cell_number<=#2 cell_number-1;
+			// cell_number<=#2 cell_number-1;
+			pad_count<=#2 pad_count-1;
 			sram_cnt_a<=#2 1;
 			qc_wr_ptr_din<=#2  {i_cell_last,i_cell_first,4'b0,FQ_dout};
 			if(qc_portmap[0])qc_wr_ptr_wr_en[0]<=#2  1;
@@ -180,18 +188,26 @@ always@(posedge clk or negedge rstn)
 		  end
 		4:begin
 			i_cell_first<=#2  0;
-			if(cell_number) begin
-				if(!FQ_empty)begin
-					FQ_rd		<=#2  1;
-					FQ_dout		<=#2  ptr_dout_s;
-					sram_cnt_a	<=#2  0;	
-					wr_state	<=#2  1;
-					if(cell_number==1) i_cell_last<=#2 1;
-					else i_cell_last<=#2 0;
-					end
-				end
+			// if(cell_number) begin
+			if(pad_count) begin
+				FQ_rd		<=#2  1;
+				FQ_dout		<=#2  ptr_dout_s;
+				sram_cnt_a	<=#2  0;	
+				wr_state	<=#2  1;
+				if(pad_count==1) i_cell_last<=#2 1;
+				else i_cell_last<=#2 0;
+				// if(!FQ_empty)begin
+				// 	FQ_rd		<=#2  1;
+				// 	FQ_dout		<=#2  ptr_dout_s;
+				// 	sram_cnt_a	<=#2  0;	
+				// 	wr_state	<=#2  1;
+				// 	if(cell_number==1) i_cell_last<=#2 1;
+				// 	else i_cell_last<=#2 0;
+				// 	end
+				// end
+			end
 			else begin
-				i_cell_data_fifo_rd<=#2 0;
+				// i_cell_data_fifo_rd<=#2 0;
 				wr_state	<=#2 0;
 				end
 			end
@@ -199,7 +215,33 @@ always@(posedge clk or negedge rstn)
 		endcase
 		end
 
-assign  sram_wr_a=i_cell_data_fifo_rd;
+always @(posedge clk or negedge rstn) begin
+	if (!rstn) begin
+		cell_count 	<= 	'b1;
+		sram_wr_a 	<= 	'b0;
+		i_cell_data_fifo_rd	<= 	'b0;
+	end
+	else begin
+		if (wr_state == 0) begin
+			cell_count	<= 	'b1;
+			// sram_wr_a 	<= 	'b0;
+		end
+		else begin
+			cell_count 	<= 	cell_count + 1'b1;
+			// sram_wr_a 	<= 	'b1;
+		end
+		if (wr_state == 0 && !i_cell_ptr_fifo_empty && !qc_ptr_full && FQ_alloc && FQ_act) begin
+			sram_wr_a	<= 	'b1;
+			i_cell_data_fifo_rd	<=	'b1;
+		end
+		else if (wr_state != 0 && cell_count == cell_number) begin
+			sram_wr_a	<= 	'b0;
+			i_cell_data_fifo_rd	<=	'b0;
+		end
+	end
+end
+
+// assign  sram_wr_a=i_cell_data_fifo_rd;
 assign	sram_addr_a={FQ_dout[9:0],sram_cnt_a[1:0]};
 assign	sram_din_a=i_cell_data_fifo_dout[127:0];		
 

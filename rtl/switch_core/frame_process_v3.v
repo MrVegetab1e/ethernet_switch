@@ -46,16 +46,16 @@ module frame_process_v3 (
 
     // output reg [143:16] i_cell_data_fifo_dout,
     output     [127:0]  i_cell_data_fifo_dout,
-    output reg          i_cell_data_fifo_wr,
-    output reg [ 15:0]  i_cell_ptr_fifo_dout,
-    output reg          i_cell_ptr_fifo_wr,
+    (*MARK_DEBUG="TRUE"*) output reg          i_cell_data_fifo_wr,
+    (*MARK_DEBUG="TRUE"*) output reg [ 15:0]  i_cell_ptr_fifo_dout,
+    (*MARK_DEBUG="TRUE"*) output reg          i_cell_ptr_fifo_wr,
     input               i_cell_bp
 
 );
 
     // reg     [ 15:0]     frp_state, frp_state_next;
-    reg     [ 15:0]     frp_fnt_state, frp_fnt_state_next;
-    reg     [ 15:0]     frp_bak_state, frp_bak_state_next;
+    reg     [  4:0]     frp_fnt_state, frp_fnt_state_next;
+    reg     [  1:0]     frp_bak_state, frp_bak_state_next;
 
     reg     [127:0]     frp_buf;
     reg     [0:127]     frp_dout_buf;
@@ -67,6 +67,7 @@ module frame_process_v3 (
     reg     [ 10:0]     frp_len_1;
     reg     [ 10:0]     frp_len_pad;
     reg     [ 10:0]     frp_len_back;
+    reg     [ 10:0]     frp_len_back_pad;
     reg     [  1:0]     frp_wr_en;
 
     always @(*) begin
@@ -78,6 +79,7 @@ module frame_process_v3 (
             // 08: frp_fnt_state_next  =   (frp_cnt_front == 'h8) ? 16 : 8;
             // 16: frp_fnt_state_next  =   (frp_cnt_front == 'hE) ? 32 : 16;
             16: frp_fnt_state_next  =   (frp_cnt_front == frp_len) ? 1 : 16;
+            default: frp_fnt_state_next =   frp_fnt_state;
         endcase
     end
 
@@ -108,7 +110,7 @@ module frame_process_v3 (
                 frp_cnt_front   <=  'b1;
             end
             // if (!frp_bak_state[0]) begin
-            if (frp_bak_state[2]) begin
+            if (frp_bak_state[1]) begin
                 frp_cnt_back    <=  frp_cnt_back + 1'b1;
             end
             else begin
@@ -200,9 +202,10 @@ module frame_process_v3 (
 
     always @(*) begin
         case(frp_bak_state)
-            01: frp_bak_state_next  =   (frp_wr_en[1] && frp_cnt_front == 'h10) ? 4 : 1;
+            01: frp_bak_state_next  =   (frp_wr_en[1] && frp_cnt_front == 'h10) ? 2 : 1;
             // 02: frp_bak_state_next  =   (frp_cnt_front == 'h10) ? 4 : 2;
-            04: frp_bak_state_next  =   (frp_cnt_back == frp_len_back) ? 1 : 4;
+            02: frp_bak_state_next  =   (frp_cnt_back == frp_len_back) ? 1 : 2;
+            default: frp_bak_state_next =   frp_bak_state;
         endcase
     end
 
@@ -217,19 +220,21 @@ module frame_process_v3 (
 
     always @(posedge clk) begin
         if (!rstn) begin
-            frp_len_back    <=  'b0;
+            frp_len_back        <=  'b0;
+            frp_len_back_pad    <=  'b0;
         end
-        else if (frp_bak_state[0] && frp_bak_state_next[2]) begin
-            frp_len_back    <=  frp_len_1;
+        else if (frp_bak_state[0] && frp_bak_state_next[1]) begin
+            frp_len_back        <=  frp_len_1;
+            frp_len_back_pad    <=  frp_len_pad;
         end
     end
 
     always @(posedge clk) begin
         if (!rstn) begin
             // i_cell_data_fifo_dout   <=  'b0;
-            frp_dout_buf            <=  'b0;
+            // frp_dout_buf            <=  'b0;
             i_cell_data_fifo_wr     <=  'b0;
-            i_cell_ptr_fifo_dout    <=  'b0;
+            // i_cell_ptr_fifo_dout    <=  'b0;
             i_cell_ptr_fifo_wr      <=  'b0;
         end
         else begin
@@ -247,14 +252,14 @@ module frame_process_v3 (
                 frp_dout_buf[frp_cnt_back[3:0]*8+:8]  <=  frp_buf[127:120];
             end
             // end
-            if (frp_bak_state[2] && (frp_cnt_back[3:0] == 'h0 || frp_cnt_back == frp_len_back)) begin
+            if (frp_bak_state[1] && (frp_cnt_back[3:0] == 'h0 || frp_cnt_back == frp_len_back)) begin
                 i_cell_data_fifo_wr     <=  'b1;
             end
             else begin
                 i_cell_data_fifo_wr     <=  'b0;
             end
-            if (frp_bak_state[2] && frp_cnt_back == frp_len_back) begin
-                i_cell_ptr_fifo_dout    <=  {4'b0, frp_header[11:8], 1'b0, frp_len_pad[10:4]};
+            if (frp_bak_state[1] && frp_cnt_back == frp_len_back) begin
+                i_cell_ptr_fifo_dout    <=  {4'b0, frp_header[11:8], 1'b0, frp_len_back_pad[10:4]};
                 i_cell_ptr_fifo_wr      <=  'b1;
             end
             else begin

@@ -550,9 +550,16 @@ module top_switch (
         .ptr_sfifo_empty(tteptr_sfifo_empty)
     );
 
-    wire        sof;
-    wire        dv;
-    wire [ 7:0] data;
+    // wire        sof;
+    // wire        dv;
+    // wire [ 7:0] data;
+
+    wire [127:0] i_cell_data_fifo_dout;
+    wire         i_cell_data_fifo_wr;
+    wire [ 15:0] i_cell_ptr_fifo_dout;
+    wire         i_cell_ptr_fifo_wr;
+    wire         i_cell_bp;
+
     wire        se_source;
     wire [47:0] se_mac;
     wire [15:0] source_portmap;
@@ -569,7 +576,7 @@ module top_switch (
     wire        bp2;
     wire        bp3;
 
-    frame_process_retime u_frame_process (
+    frame_process_v3 u_frame_process (
         .clk(clk),
         .rstn(rstn_sys),
         .sfifo_dout(sfifo_dout),
@@ -578,9 +585,14 @@ module top_switch (
         .ptr_sfifo_empty(ptr_sfifo_empty),
         .ptr_sfifo_dout(ptr_sfifo_dout),
 
-        .sof (sof),
-        .dv  (dv),
-        .data(data),
+        // .sof (sof),
+        // .dv  (dv),
+        // .data(data),
+        .i_cell_data_fifo_dout(i_cell_data_fifo_dout),
+        .i_cell_data_fifo_wr(i_cell_data_fifo_wr),
+        .i_cell_ptr_fifo_dout(i_cell_ptr_fifo_dout),
+        .i_cell_ptr_fifo_wr(i_cell_ptr_fifo_wr),
+        .i_cell_bp(i_cell_bp),
 
         .se_mac(se_mac),
         .se_req(se_req),
@@ -590,12 +602,7 @@ module top_switch (
         .se_nak(se_nak),
         .se_source(se_source),
         .se_hash(se_hash),
-        .link(link),
-
-        .bp0(bp0),
-        .bp1(bp1),
-        .bp2(bp2),
-        .bp3(bp3)
+        .link(link)
 
     );
     hash_2_bucket u_hash (
@@ -613,13 +620,19 @@ module top_switch (
         .aging_ack()
     );
 
-    switch_top switch (
+    switch_top_v2 switch (
         .clk (clk),
         .rstn(rstn_sys),
 
-        .sof(sof),
-        .dv (dv),
-        .din(data),
+        // .sof(sof),
+        // .dv (dv),
+        // .din(data),
+
+        .i_cell_data_fifo_dout(i_cell_data_fifo_dout),
+        .i_cell_data_fifo_wr(i_cell_data_fifo_wr),
+        .i_cell_ptr_fifo_dout(i_cell_ptr_fifo_dout),
+        .i_cell_ptr_fifo_wr(i_cell_ptr_fifo_wr),
+        .i_cell_bp(i_cell_bp),
 
         .interface_clk0(emac0_interface_clk),
         .interface_clk1(emac1_interface_clk),
