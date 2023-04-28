@@ -111,6 +111,7 @@ module register_v2 #(
                     end
                 end
             end
+            default: reg_state_next =   reg_state;
         endcase
     end
 
@@ -175,6 +176,7 @@ module register_v2 #(
                 end
             end
             4: ft_state_next    =   1;
+            default: ft_state_next  =   ft_state;
         endcase
     end
 

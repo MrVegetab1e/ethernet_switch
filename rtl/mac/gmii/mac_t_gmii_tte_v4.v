@@ -665,6 +665,7 @@ module mac_t_gmii_tte_v4(
             1: mgnt_state_next =    (tx_state == 2) ? 2 : 1;
             2: mgnt_state_next =    4;
             4: mgnt_state_next =    tx_mgnt_resp ? 1 : 4;
+            default: mgnt_state_next =  mgnt_state;
         endcase
     end
 
