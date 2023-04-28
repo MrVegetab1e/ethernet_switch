@@ -5,7 +5,7 @@
 // 
 // Create Date: 2022/06/30 22:00:40
 // Design Name: 
-// Module Name: tteframe_process_v2
+// Module Name: tteframe_process_v3
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -21,7 +21,7 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-module frame_process_v2 (
+module frame_process_v3 (
     input              clk,
     input              rstn,
     output reg         sfifo_rd,
@@ -44,7 +44,8 @@ module frame_process_v2 (
     // output reg         dv,
     // output reg  [ 7:0] data
 
-    output reg [143:16] i_cell_data_fifo_dout,    
+    // output reg [143:16] i_cell_data_fifo_dout,
+    output     [127:0]  i_cell_data_fifo_dout,
     output reg          i_cell_data_fifo_wr,
     output reg [ 15:0]  i_cell_ptr_fifo_dout,
     output reg          i_cell_ptr_fifo_wr,
@@ -52,12 +53,13 @@ module frame_process_v2 (
 
 );
 
-    reg     [ 15:0]     frp_state, frp_state_next;
+    // reg     [ 15:0]     frp_state, frp_state_next;
     reg     [ 15:0]     frp_fnt_state, frp_fnt_state_next;
     reg     [ 15:0]     frp_bak_state, frp_bak_state_next;
 
     reg     [127:0]     frp_buf;
-    reg     [ 16:0]     frp_header;
+    reg     [0:127]     frp_dout_buf;
+    reg     [ 15:0]     frp_header;
 
     reg     [ 10:0]     frp_cnt_front;
     reg     [ 10:0]     frp_cnt_back;
@@ -91,8 +93,8 @@ module frame_process_v2 (
     always @(posedge clk) begin
         if (!rstn) begin
             // frp_buf         <=  'b0;
-            frp_cnt_front   <=  'b1;
-            frp_cnt_back    <=  'b1;
+            // frp_cnt_front   <=  'b1;
+            // frp_cnt_back    <=  'b1;
             frp_len         <=  'b0;
             frp_len_1       <=  'b0;
             frp_len_pad     <=  'b0;
@@ -105,11 +107,13 @@ module frame_process_v2 (
             else begin
                 frp_cnt_front   <=  'b1;
             end
-            if (frp_wr_en[1]) begin
+            // if (!frp_bak_state[0]) begin
+            if (frp_bak_state[2]) begin
                 frp_cnt_back    <=  frp_cnt_back + 1'b1;
             end
             else begin
-                frp_cnt_back    <=  'hFF2;
+                // frp_cnt_back    <=  'hFF3;
+                frp_cnt_back    <=  'b1;
             end
             if (frp_fnt_state[2]) begin
                 frp_len         <=  ptr_sfifo_dout[10:0];
@@ -118,6 +122,7 @@ module frame_process_v2 (
             if (frp_fnt_state[3]) begin
                 // frp_len_pad[10:4]   <=  (frp_len[3:0] == 'b0) ? frp_len[10:4] : frp_len[10:4] + 1'b1;
                 frp_len_pad[10:4]   <=  (frp_len_1[3:0] == 'b0) ? frp_len_1[10:4] : frp_len_1[10:4] + 1'b1;
+                // frp_len_pad[10:4]   <=  (frp_len_1[3:0] == 'hF) ? frp_len_1[10:4] : frp_len_1[10:4] + 1'b1;
             end
             frp_buf     <=  {frp_buf, sfifo_dout};  
             frp_wr_en   <=  {frp_wr_en, sfifo_rd};
@@ -136,7 +141,7 @@ module frame_process_v2 (
             else begin
                 ptr_sfifo_rd    <=  'b0;
             end
-            if (frp_fnt_state_next[1]) begin
+            if (frp_fnt_state_next[3]) begin
                 sfifo_rd        <=  'b1;
             end
             else if (frp_fnt_state_next[0]) begin
@@ -188,15 +193,15 @@ module frame_process_v2 (
             // if (frp_cnt_front == 'hE) begin
             if (frp_cnt_front == 'hF) begin
                 // frp_header      <=  {(se_result && link), 1'b0, frp_len_1};
-                frp_header      <=  {1'b0, frp_len_1[10:8], (se_result && link), frp_len_1[7:0]};
+                frp_header      <=  {1'b0, frp_len_1[10:8], (se_result[ 3:0] & link), frp_len_1[7:0]};
             end
         end
     end
 
     always @(*) begin
         case(frp_bak_state)
-            01: frp_bak_state_next  =   (frp_wr_en[1]) ? 2 : 1;
-            02: frp_bak_state_next  =   (frp_cnt_back == 0) ? 4 : 2;
+            01: frp_bak_state_next  =   (frp_wr_en[1] && frp_cnt_front == 'h10) ? 4 : 1;
+            // 02: frp_bak_state_next  =   (frp_cnt_front == 'h10) ? 4 : 2;
             04: frp_bak_state_next  =   (frp_cnt_back == frp_len_back) ? 1 : 4;
         endcase
     end
@@ -214,37 +219,41 @@ module frame_process_v2 (
         if (!rstn) begin
             frp_len_back    <=  'b0;
         end
-        else if (frp_bak_state_next[0]) begin
+        else if (frp_bak_state[0] && frp_bak_state_next[2]) begin
             frp_len_back    <=  frp_len_1;
         end
     end
 
     always @(posedge clk) begin
         if (!rstn) begin
-            i_cell_data_fifo_dout   <=  'b0;
+            // i_cell_data_fifo_dout   <=  'b0;
+            frp_dout_buf            <=  'b0;
             i_cell_data_fifo_wr     <=  'b0;
             i_cell_ptr_fifo_dout    <=  'b0;
             i_cell_ptr_fifo_wr      <=  'b0;
         end
         else begin
             // if (frp_bak_state[2]) begin
-            if (frp_cnt_front == 'h1) begin
-                i_cell_data_fifo_dout[frp_cnt_back[3:0]*16+:16] <=  frp_header[15:8];
+            if (frp_cnt_back == 'h1) begin
+                // i_cell_data_fifo_dout[frp_cnt_back[3:0]*16+:16] <=  frp_header[15:8];
+                frp_dout_buf[frp_cnt_back[3:0]*8+:8]  <=  frp_header[15:8];
             end
-            else if (frp_cnt_front == 'h2) begin
-                i_cell_data_fifo_dout[frp_cnt_back[3:0]*16+:16] <=  frp_header[ 7:0];
+            else if (frp_cnt_back == 'h2) begin
+                // i_cell_data_fifo_dout[frp_cnt_back[3:0]*16+:16] <=  frp_header[ 7:0];
+                frp_dout_buf[frp_cnt_back[3:0]*8+:8]  <=  frp_header[ 7:0];
             end
             else begin
-                i_cell_data_fifo_dout[frp_cnt_back[3:0]*16+:16] <=  frp_buf[127:120];
+                // i_cell_data_fifo_dout[frp_cnt_back[3:0]*16+:16] <=  frp_buf[127:120];
+                frp_dout_buf[frp_cnt_back[3:0]*8+:8]  <=  frp_buf[127:120];
             end
             // end
-            if (frp_bak_state[2] && (frp_cnt_back[3:0] == 'b0 || frp_cnt_back == frp_len_back)) begin
+            if (frp_bak_state[2] && (frp_cnt_back[3:0] == 'h0 || frp_cnt_back == frp_len_back)) begin
                 i_cell_data_fifo_wr     <=  'b1;
             end
             else begin
                 i_cell_data_fifo_wr     <=  'b0;
             end
-            if (frp_cnt_back == frp_len_back) begin
+            if (frp_bak_state[2] && frp_cnt_back == frp_len_back) begin
                 i_cell_ptr_fifo_dout    <=  {4'b0, frp_header[11:8], 1'b0, frp_len_pad[10:4]};
                 i_cell_ptr_fifo_wr      <=  'b1;
             end
@@ -253,5 +262,8 @@ module frame_process_v2 (
             end
         end
     end
+
+    assign i_cell_data_fifo_dout = {frp_dout_buf[8:127], frp_dout_buf[0:7]};
+    // assign i_cell_data_fifo_dout = frp_dout_buf;
 
 endmodule

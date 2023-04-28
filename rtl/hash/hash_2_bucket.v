@@ -231,6 +231,7 @@ always @(posedge clk or negedge rstn)
             2'b00: begin
                 se_ack<=#2 0;
                 se_nak<=#2 1;
+                se_result<=#2 ~se_portmap;
                 end
             2'b01: begin
                 se_nak<=#2 0;
