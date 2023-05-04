@@ -904,7 +904,7 @@ afifo_w16_d32 u_tteptr_fifo (
   .empty(tteptr_fifo_empty)         // output empty
 );
 
-reg [15:0] mgnt_state, mgnt_state_next;
+reg [ 3:0] mgnt_state, mgnt_state_next;
 reg [11:0] mgnt_cnt;
 reg [ 7:0] mgnt_flag;
 
@@ -945,7 +945,7 @@ always @(posedge rx_clk or negedge rstn_mac) begin
         mgnt_cnt    <=  'b0;
     end
     else begin
-        if (mgnt_state == 1) begin
+        if (mgnt_state[0]) begin
             if (load_be && !bp) begin
                 mgnt_flag[7]    <=  'b0;
                 mgnt_flag[3]    <=  'b0;
@@ -959,11 +959,11 @@ always @(posedge rx_clk or negedge rstn_mac) begin
                 mgnt_flag[3]    <=  'b0;
             end
         end
-        else if (mgnt_state == 2 && ptr_fifo_wr) begin
+        else if (mgnt_state[1] && ptr_fifo_wr) begin
             mgnt_cnt        <=  ptr_fifo_din[11:0];
             mgnt_flag[6:4]  <=  ptr_fifo_din[15:13];
         end
-        else if (mgnt_state == 4 && tteptr_fifo_wr) begin
+        else if (mgnt_state[2] && tteptr_fifo_wr) begin
             mgnt_cnt        <=  tteptr_fifo_din[11:0];
             mgnt_flag[6:4]  <=  tteptr_fifo_din[15:13];
         end

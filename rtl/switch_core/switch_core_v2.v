@@ -128,7 +128,7 @@ always@(posedge clk or negedge rstn)
 		FQ_rd<=#2  0;
 		MC_ram_wra<=#2  0;
 		sram_cnt_a<=#2  0;
-		i_cell_data_fifo_rd<=#2  0;
+		// i_cell_data_fifo_rd<=#2  0;
 		i_cell_ptr_fifo_rd<=#2 0;
 		qc_wr_ptr_wr_en<=#2  0;
 		qc_wr_ptr_din<=#2  0;
