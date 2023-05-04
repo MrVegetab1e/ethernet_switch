@@ -46,9 +46,9 @@ module frame_process_v3 (
 
     // output reg [143:16] i_cell_data_fifo_dout,
     output     [127:0]  i_cell_data_fifo_dout,
-    (*MARK_DEBUG="TRUE"*) output reg          i_cell_data_fifo_wr,
-    (*MARK_DEBUG="TRUE"*) output reg [ 15:0]  i_cell_ptr_fifo_dout,
-    (*MARK_DEBUG="TRUE"*) output reg          i_cell_ptr_fifo_wr,
+    output reg          i_cell_data_fifo_wr,
+    output reg [ 15:0]  i_cell_ptr_fifo_dout,
+    output reg          i_cell_ptr_fifo_wr,
     input               i_cell_bp
 
 );

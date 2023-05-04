@@ -23,9 +23,9 @@ wire 	[127:0]	sram_dout_b;
 wire 	[11:0]	sram_addr_a;			
 wire 	[11:0]	sram_addr_b;			
 // wire			sram_wr_a;
-(*MARK_DEBUG="TRUE"*) reg  			sram_wr_a;			
+reg  			sram_wr_a;			
 		
-(*MARK_DEBUG="TRUE"*) reg  			i_cell_data_fifo_rd;	
+reg  			i_cell_data_fifo_rd;	
 wire [127:0]	i_cell_data_fifo_dout;	
 wire [8:0]		i_cell_data_fifo_depth;	
 
@@ -45,8 +45,9 @@ reg				FQ_wr;
 reg				FQ_rd;
 reg  [9:0]		FQ_dout;
 wire [9:0]		FQ_count;
-wire			FQ_alloc;				//check FQ depth before initiate writing
-assign 			FQ_alloc = |(FQ_count[9:6]) || (i_cell_ptr_fifo_dout[5:0] > FQ_count[5:0]);
+wire			FQ_alloc;	//check FQ depth before initiate writing
+// assign 			FQ_alloc = |(FQ_count[9:6]) || (i_cell_ptr_fifo_dout[5:0] > FQ_count[5:0]);
+assign 			FQ_alloc = |(FQ_count[9:6]) || (FQ_count[5:0] > i_cell_ptr_fifo_dout[7:2]);
 
 reg	 [1:0]		sram_cnt_a;	
 reg	 [1:0]		sram_cnt_b;
@@ -58,7 +59,7 @@ reg				sram_rd_dv;
  
 
 
-(*MARK_DEBUG="TRUE"*) reg  [3:0]		wr_state;		
+reg  [3:0]		wr_state;		
 reg  [3:0]		qc_wr_ptr_wr_en;
 wire			qc_ptr_full0;
 wire			qc_ptr_full1;

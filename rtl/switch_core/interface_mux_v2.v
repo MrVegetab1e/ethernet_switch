@@ -42,13 +42,13 @@ module interface_mux_v2 (
     reg     [ 1:0]  cnt_1;
     reg     [12:0]  cnt_tgt;
 
-    (*MARK_DEBUG="true"*) reg     [ 1:0]  sfifo_wr;
+    reg     [ 1:0]  sfifo_wr;
     reg             sfifo_en;
-    (*MARK_DEBUG="true"*) reg     [ 7:0]  sfifo_din;
+    reg     [ 7:0]  sfifo_din;
     // wire    [13:0]  sfifo_cnt;
     wire    [11:0]  sfifo_cnt;
-    (*MARK_DEBUG="true"*) reg             ptr_sfifo_wr;
-    (*MARK_DEBUG="true"*) reg     [15:0]  ptr_sfifo_din;
+    reg             ptr_sfifo_wr;
+    reg     [15:0]  ptr_sfifo_din;
     wire            ptr_sfifo_full;
 
     wire    [15:0]  rx_ptr_fifo_dout;
