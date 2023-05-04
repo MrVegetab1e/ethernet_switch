@@ -81,65 +81,75 @@ module mac_t_gmii_tte_v4(
     localparam  PTP_TX_STATE_FUP3   =   128;// follow_up state 3, replace data with new correctionField
 
     // no jitter clk switch
-    reg     [ 1:0]  speed_reg;
-    wire            speed_change;
-    always @(posedge sys_clk or negedge rstn_sys) begin
-        if (!rstn_sys) begin
-            speed_reg   <=  2'b11;
-        end
-        else begin
-            speed_reg   <=  speed;
-        end
-    end
-    assign          speed_change =  |(speed ^ speed_reg);
+    // reg     [ 1:0]  speed_reg;
+    // wire            speed_change;
+    // always @(posedge sys_clk or negedge rstn_sys) begin
+    //     if (!rstn_sys) begin
+    //         speed_reg   <=  2'b11;
+    //     end
+    //     else begin
+    //         speed_reg   <=  speed;
+    //     end
+    // end
+    // assign          speed_change =  |(speed ^ speed_reg);
 
-    wire            tx_master_clk;
-    reg             tx_clk_en_reg_p;
-    reg             tx_clk_en_reg_n;
-    reg             gtx_clk_en_reg_p;
-    reg             gtx_clk_en_reg_n;
+    // wire            tx_master_clk;
+    // reg             tx_clk_en_reg_p;
+    // reg             tx_clk_en_reg_n;
+    // reg             gtx_clk_en_reg_p;
+    // reg             gtx_clk_en_reg_n;
 
-    always @(posedge tx_clk or posedge speed_change) begin
-        if (speed_change) begin
-            tx_clk_en_reg_p     <=  'b0;
-        end
-        else begin
-            tx_clk_en_reg_p     <=  !speed[1] && !gtx_clk_en_reg_n;
-        end
-    end 
-    always @(negedge tx_clk or posedge speed_change) begin
-        if (speed_change) begin
-            tx_clk_en_reg_n     <=  'b0;
-        end
-        else begin
-            tx_clk_en_reg_n     <=  tx_clk_en_reg_p;
-        end
-    end
+    // always @(posedge tx_clk or posedge speed_change) begin
+    //     if (speed_change) begin
+    //         tx_clk_en_reg_p     <=  'b0;
+    //     end
+    //     else begin
+    //         tx_clk_en_reg_p     <=  !speed[1] && !gtx_clk_en_reg_n;
+    //     end
+    // end 
+    // always @(negedge tx_clk or posedge speed_change) begin
+    //     if (speed_change) begin
+    //         tx_clk_en_reg_n     <=  'b0;
+    //     end
+    //     else begin
+    //         tx_clk_en_reg_n     <=  tx_clk_en_reg_p;
+    //     end
+    // end
 
-    always @(posedge gtx_clk or posedge speed_change) begin
-        if (speed_change) begin
-            gtx_clk_en_reg_p    <=  'b0;
-        end
-        else begin
-            gtx_clk_en_reg_p    <=  speed[1] && !tx_clk_en_reg_n;
-        end
-    end  
-    always @(negedge gtx_clk or negedge speed_change) begin
-        if (speed_change) begin
-            gtx_clk_en_reg_n    <=  'b0;
-        end
-        else begin
-            gtx_clk_en_reg_n    <=  gtx_clk_en_reg_p;
-        end
-    end
+    // always @(posedge gtx_clk or posedge speed_change) begin
+    //     if (speed_change) begin
+    //         gtx_clk_en_reg_p    <=  'b0;
+    //     end
+    //     else begin
+    //         gtx_clk_en_reg_p    <=  speed[1] && !tx_clk_en_reg_n;
+    //     end
+    // end  
+    // always @(negedge gtx_clk or negedge speed_change) begin
+    //     if (speed_change) begin
+    //         gtx_clk_en_reg_n    <=  'b0;
+    //     end
+    //     else begin
+    //         gtx_clk_en_reg_n    <=  gtx_clk_en_reg_p;
+    //     end
+    // end
 
-    assign  tx_master_clk   =   (tx_clk_en_reg_n && tx_clk) || (gtx_clk_en_reg_n && gtx_clk);
-    // assign  interface_clk   =   tx_master_clk;
+    // assign  tx_master_clk   =   (tx_clk_en_reg_n && tx_clk) || (gtx_clk_en_reg_n && gtx_clk);
+    // // assign  interface_clk   =   tx_master_clk;
 
-   BUFG BUFG_inst (
-      .O(interface_clk),    // 1-bit output: Clock output
-      .I(tx_master_clk)     // 1-bit input: Clock input
-   );
+    // BUFG BUFG_inst (
+    //     .O(interface_clk),    // 1-bit output: Clock output
+    //     .I(tx_master_clk)     // 1-bit input: Clock input
+    // );
+
+    BUFGMUX #(
+        .CLK_SEL_TYPE("ASYNC")
+    ) BUFGMUX_inst (
+        .O(interface_clk),   // 1-bit output: Clock output
+        .I0(tx_clk), // 1-bit input: Clock input (S=0)
+        .I1(gtx_clk), // 1-bit input: Clock input (S=1)
+        .S(speed[1])    // 1-bit input: Clock select
+    );
+
 
     reg     [ 5:0]  tx_state, tx_state_next;
     reg     [95:0]  tx_buffer;      // extended buffer for PTP operations
