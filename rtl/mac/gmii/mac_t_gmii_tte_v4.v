@@ -203,10 +203,11 @@ module mac_t_gmii_tte_v4(
             'd01: tx_state_next = (!tptr_fifo_empty || !ptr_fifo_empty) ? 'd2 : 'd1;
             'd02: tx_state_next = 'd4;
             'd04: tx_state_next = 'd8;
-            'd08: tx_state_next = (tx_cnt_front == tx_byte_cnt) ? 'd16 : 'd8;
+            'd08: tx_state_next = (tx_cnt_front == tx_byte_cnt) && (speed[1] || tx_read_req) ? 'd16 : 'd8;
+            // 'd08: tx_state_next = (tx_cnt_front == tx_byte_cnt) ? 'd16 : 'd8;
             // 'd16: tx_state_next = (tx_cnt_back == 12'hFF8) ? 'd32 : 'd16;
-            'd16: tx_state_next = (tx_cnt_back_1 == 12'hFFA) ? 'd32 : 'd16;
-            'd32: tx_state_next = (tx_cnt_front_1 == 7) ? 'd1 : 'd32; 
+            'd16: tx_state_next = (tx_cnt_back_1 == 12'hFFA) && (speed[1] || tx_read_req)? 'd32 : 'd16;
+            'd32: tx_state_next = (tx_cnt_front_1 == 7) && (speed[1] || tx_read_req)? 'd1 : 'd32; 
             default: tx_state_next = tx_state;
         endcase
     end
@@ -288,7 +289,8 @@ module mac_t_gmii_tte_v4(
             end
             // else if (tx_state_next == 8) begin
             else if (tx_state_next[3]) begin
-                tx_byte_cnt     <=  tx_ptr_in[11:0] + !speed[1];
+                // tx_byte_cnt     <=  tx_ptr_in[11:0] + !speed[1];
+                tx_byte_cnt     <=  tx_ptr_in[11:0];
                 tx_read_req     <=  !tx_read_req;
             end
             // else if (tx_state_next == 16) begin
@@ -543,8 +545,8 @@ module mac_t_gmii_tte_v4(
 
     always @(*) begin
         case(mii_state)
-            'h01: mii_state_next = tx_buf_rdy[3] ? 'h2 : 'h1;
-            'h02: mii_state_next = (tx_cnt_back_1 == 0) ? 'h4 : 'h2;
+            'h01: mii_state_next = tx_buf_rdy[3] && (speed[1] || tx_read_req)? 'h2 : 'h1;
+            'h02: mii_state_next = (tx_cnt_back_1 == 0) && (speed[1] || tx_read_req) ? 'h4 : 'h2;
             'h04: mii_state_next = (tx_cnt_back_1 == tx_byte_cnt) && (speed[1] || tx_read_req) ? 'h8 : 'h4;
             'h08: mii_state_next = !tx_buf_rdy[3] && (speed[1] || tx_read_req) ? 'h1 : 'h8;
             default: mii_state_next = mii_state; 
