@@ -207,7 +207,8 @@ module mac_ctrl #(
     end
 
     always @(posedge clk_if) begin
-        if (!rst_if || (mgnt_state == 16 && mgnt_reg_req_addr == 'h0F)) begin
+        // if (!rst_if || (mgnt_state == 16 && mgnt_reg_req_addr == 'h0F)) begin
+        if (!rst_if) begin
             for (i = 0; i < 10; i = i + 1) begin
                 mgnt_reg_rx[i]  <=  'b0;
             end
@@ -245,7 +246,8 @@ module mac_ctrl #(
     end
 
     always @(posedge clk_if) begin
-        if (!rst_if || (mgnt_state == 16 && mgnt_reg_req_addr == 'h1F)) begin
+        // if (!rst_if || (mgnt_state == 16 && mgnt_reg_req_addr == 'h1F)) begin
+        if (!rst_if) begin
             for (i = 0; i < 6; i = i + 1) begin
                 mgnt_reg_tx[i+16]  <=  'b0;
             end

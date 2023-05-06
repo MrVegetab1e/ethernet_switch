@@ -155,6 +155,21 @@ module tb_frame_process_v3;
         send_frame(62);
         send_frame(63);
         send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
+        send_frame(1514);
         $finish;
     end
 

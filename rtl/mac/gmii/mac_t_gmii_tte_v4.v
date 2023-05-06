@@ -545,10 +545,10 @@ module mac_t_gmii_tte_v4(
 
     always @(*) begin
         case(mii_state)
-            'h01: mii_state_next = tx_buf_rdy[3] && (speed[1] || tx_read_req)? 'h2 : 'h1;
-            'h02: mii_state_next = (tx_cnt_back_1 == 0) && (speed[1] || tx_read_req) ? 'h4 : 'h2;
-            'h04: mii_state_next = (tx_cnt_back_1 == tx_byte_cnt) && (speed[1] || tx_read_req) ? 'h8 : 'h4;
-            'h08: mii_state_next = !tx_buf_rdy[3] && (speed[1] || tx_read_req) ? 'h1 : 'h8;
+            'h01: mii_state_next = tx_buf_rdy[3] ? 'h2 : 'h1;
+            'h02: mii_state_next = (tx_cnt_back_1 == 0) ? 'h4 : 'h2;
+            'h04: mii_state_next = (tx_cnt_back_1 == tx_byte_cnt) ? 'h8 : 'h4;
+            'h08: mii_state_next = !tx_buf_rdy[3] ? 'h1 : 'h8;
             default: mii_state_next = mii_state; 
         endcase
     end
@@ -558,7 +558,7 @@ module mac_t_gmii_tte_v4(
         if (!rstn_mac) begin
             mii_state   <=  'h1;
         end
-        else begin
+        else if (speed[1] || tx_read_req) begin
             mii_state   <=  mii_state_next;
         end
     end

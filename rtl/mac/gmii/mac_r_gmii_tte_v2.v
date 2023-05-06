@@ -20,476 +20,397 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module mac_r_gmii_tte(
-input               rstn_sys,
-input               rstn_mac,
-input               clk,
+module mac_r_gmii_tte (
+    input           clk_sys,
+    input           rstn_sys,
+    input           rstn_mac,
 
-input               rx_clk,
-input               rx_dv,
-input       [7:0]   gm_rx_d,
-output              gtx_clk,
+    input           rx_clk,
+    input           rx_dv,
+    input   [ 7:0]  gm_rx_d,
 
-input       [1:0]   speed,  //ethernet speed 00:10M 01:100M 10:1000M
+    input   [ 1:0]  speed,  //ethernet speed 00:10M 01:100M 10:1000M
 
-input               data_fifo_rd,
-output      [7:0]   data_fifo_dout,
-input               ptr_fifo_rd, 
-output      [15:0]  ptr_fifo_dout,
-output              ptr_fifo_empty,
-input               tte_fifo_rd,
-output      [7:0]   tte_fifo_dout,
-input               tteptr_fifo_rd, 
-output      [15:0]  tteptr_fifo_dout,
-output              tteptr_fifo_empty
-    );
+    input           data_fifo_rd,
+    output  [ 7:0]  data_fifo_dout,
+    input           ptr_fifo_rd,
+    output  [15:0]  ptr_fifo_dout,
+    output          ptr_fifo_empty,
+    input           tte_fifo_rd,
+    output  [ 7:0]  tte_fifo_dout,
+    input           tteptr_fifo_rd,
+    output  [15:0]  tteptr_fifo_dout,
+    output          tteptr_fifo_empty,
 
-parameter DELAY=2;  
-parameter CRC_RESULT_VALUE=32'hc704dd7b;
-parameter TTE_VALUE=8'h92;
-parameter MTU=1500;
+    input   [31:0]  counter_ns,
+    input   [63:0]  counter_ns_tx_delay,
+    input   [63:0]  counter_ns_gtx_delay,
 
-assign  gtx_clk = rx_clk & speed[1];
-//============================================  
-//generte a pipeline of input gm_rx_d.   
-//============================================  
-reg     [7:0]  rx_d_reg;
-always @(posedge rx_clk or negedge rstn_mac)
-    if(!rstn_mac)begin
-        rx_d_reg<=#DELAY 0;
+    output          rx_mgnt_valid,
+    output  [19:0]  rx_mgnt_data,
+    input           rx_mgnt_resp
+);
+
+    // general
+    localparam  DELAY               =   2;
+    localparam  CRC_RESULT_VALUE    =   32'hc704dd7b;
+    parameter   TTE_VALUE_HI        =   8'h08;
+    parameter   TTE_VALUE_LO        =   8'h92;
+    parameter   MTU                 =   1500;
+    // ptp
+    localparam  PTP_VALUE_HI        =   8'h88;
+    localparam  PTP_VALUE_LO        =   8'hf7;
+    localparam  PTP_TYPE_SYNC       =   4'h0;   // MsgType Sync
+    localparam  PTP_TYPE_DYRQ       =   4'h1;   // MsgType Delay_Req
+    localparam  PTP_TYPE_FLUP       =   4'h8;   // MsgType Follow_Up
+    localparam  PTP_TYPE_DYRP       =   4'h9;   // MsgType Delay_Resp
+    // lldp
+    parameter   LLDP_VALUE_HI       =   8'h08;
+    parameter   LLDP_VALUE_LO       =   8'h01;
+    parameter   LLDP_DBG_PROTO      =   16'h0800;
+    parameter   LLDP_DBG_MAC        =   48'h020000123456;
+    parameter   LLDP_DBG_PORT       =   16'h8;
+
+    localparam  PTP_RX_STATE_IDL1   =   1;  // idle state 1, wait for ptp packet
+    localparam  PTP_RX_STATE_IDL2   =   2;  // idle state 2, wait for ptp packet
+    localparam  PTP_RX_STATE_TYPE   =   4;  // type state, check for ptp type
+    localparam  PTP_RX_STATE_SYNC   =   8;  // sync state, inject internal timestamp
+    localparam  PTP_RX_STATE_DYRQ   =   16; // delay_req state, inject internal timestamp
+    localparam  PTP_RX_STATE_DRP1   =   32; // delay_resp state 1, wait for correctionField
+    localparam  PTP_RX_STATE_DRP2   =   64; // delay_resp state 2, update correctionField
+    localparam  PTP_RX_STATE_DRP3   =   128;// delay_resp state 3, replace data with new correctionField
+
+    reg     [15:0]  rx_state, rx_state_next;
+    reg     [127:0] rx_buffer;
+    reg     [ 7:0]  rx_buf_byte;
+    reg     [ 7:0]  rx_buf_byte_1;
+    reg     [ 1:0]  rx_buf_valid;
+    reg             rx_buf_valid_1;
+
+    reg     [ 1:0]  rx_arb_dir;
+    reg     [11:0]  rx_cnt_front;
+    reg     [11:0]  rx_cnt_back;
+    reg     [11:0]  rx_byte_cnt;
+
+    reg     [15:0]  lldp_state, lldp_state_next;
+
+    reg             data_fifo_wr;
+    reg     [ 7:0]  data_fifo_din;
+    wire    [11:0]  data_fifo_depth;
+    reg             ptr_fifo_wr;
+    reg     [15:0]  ptr_fifo_din;
+    wire            ptr_fifo_full;
+    reg             tte_fifo_wr;
+    reg     [ 7:0]  tte_fifo_din;
+    wire    [11:0]  tte_fifo_depth;
+    reg             tteptr_fifo_wr;
+    reg     [15:0]  tteptr_fifo_din;
+    wire            tteptr_fifo_full;
+
+    reg     [15:0]  ptp_state, ptp_state_next;
+    reg     [47:0]  ptp_cf;             // updated correctionField
+    wire            ptp_carry;
+    wire            ptp_carry_1;
+    reg             ptp_carry_reg;
+    reg             ptp_carry_reg_1;
+    wire    [ 7:0]  ptp_cf_add;
+    wire    [ 7:0]  ptp_cf_add_1;
+    reg     [31:0]  ptp_time_now;       // timestamp of now
+    reg     [31:0]  ptp_time_now_sys;   // timestamp of now, system side
+    reg             ptp_time_req;       // lockup counter output for cross clk domain
+    reg     [ 1:0]  ptp_time_req_mac;
+    reg     [ 1:0]  ptp_time_rdy_sys;   // system side of lockup signal
+    reg     [ 1:0]  ptp_time_rdy_mac;   // mac side of lockup signal
+
+    reg             crc_init;
+    reg             crc_cal;
+    reg             crc_dv;
+    wire    [31:0]  crc_result;
+    wire    [ 7:0]  crc_dout;
+
+
+    always @(posedge rx_clk) begin
+        if (!rstn_mac) begin
+            rx_buf_byte     <=  'b0;
+            rx_buf_valid    <=  'b0;
         end
-    else if(speed[1])begin
-        rx_d_reg<=#DELAY gm_rx_d;
+        else begin
+            if (speed[1]) begin
+                rx_buf_byte     <=  gm_rx_d;
+                rx_buf_valid    <=  {2{rx_dv}};
+            end
+            else begin
+                rx_buf_byte     <=  {gm_rx_d[3:0], rx_buf_byte[7:4]};
+                rx_buf_valid    <=  {rx_buf_valid[0], rx_dv && !rx_buf_valid[0]};
+            end
+            rx_buf_byte_1   <=  rx_buf_byte;
+            rx_buf_valid_1  <=  rx_buf_valid[1];
         end
-    else begin
-        rx_d_reg<=#DELAY 0;
-        end
-//============================================  
-//generte a pipeline of input m_rx_d.   
-//============================================  
-reg     [3:0]	rx_d_reg0;
-reg     [3:0]   rx_d_reg1;
-always @(posedge rx_clk or negedge rstn_mac)
-    if(!rstn_mac)begin
-        rx_d_reg0<=#DELAY 0;
-        rx_d_reg1<=#DELAY 0;
-        end
-    else if(!speed[1])begin
-        rx_d_reg0<=#DELAY gm_rx_d;
-        rx_d_reg1<=#DELAY rx_d_reg0;        
-        end
-    else begin
-        rx_d_reg0<=#DELAY 0;
-        rx_d_reg1<=#DELAY 0;
-        end
-//============================================  
-//generte a pipeline of input rx_dv.   
-//============================================  
-reg             rx_dv_reg0;
-reg             rx_dv_reg1;
-always @(posedge rx_clk or negedge rstn_mac)
-    if(!rstn_mac)begin
-        rx_dv_reg0<=#DELAY 0;
-        rx_dv_reg1<=#DELAY 0;
-        end
-    else begin
-        rx_dv_reg0<=#DELAY rx_dv;
-        rx_dv_reg1<=#DELAY rx_dv_reg0;
-        end
-//============================================  
-//generte internal control signals. 
-//============================================  
-wire dv_sof;
-wire dv_eof;
-wire sfd;
-assign  dv_sof=rx_dv_reg0  & !rx_dv_reg1;
-assign  dv_eof=!rx_dv_reg0 &  rx_dv_reg1;
-assign  sfd=rx_dv_reg0  & ((rx_d_reg==8'b11010101) | (rx_d_reg0==4'b1101));
-
-wire    nib_cnt_clr;
-reg     [12:0]  nib_cnt;
-wire    [12:0]  byte_cnt;
-always @(posedge rx_clk  or negedge rstn_mac)
-    if(!rstn_mac)nib_cnt<=#DELAY 0;
-    else if(nib_cnt_clr) nib_cnt<=#DELAY 0; 
-    else nib_cnt<=#DELAY nib_cnt+1; 
-
-assign byte_cnt = speed[1]?nib_cnt:{1'b0,nib_cnt[12:1]};
-
-wire    byte_dv;
-assign  byte_dv=nib_cnt[0] | speed[1];
-
-wire    byte_bp;
-assign  byte_bp=(byte_cnt>=(MTU+18));
-//============================================  
-//short-term rx_state.   
-//============================================ 
-reg     fv; 
-wire    data_ram_wr;
-assign  data_ram_wr=rx_dv_reg0 & fv & byte_dv;
-wire    [10:0]  data_ram_addra;
-assign  data_ram_addra=byte_cnt[10:0];
-wire    [7:0]   data_ram_din;
-assign  data_ram_din=rx_d_reg | {rx_d_reg0[3:0],rx_d_reg1[3:0]};
-wire    [7:0]   data_ram_dout;
-wire    [10:0]  data_ram_addrb;
-
-reg     load_tte;
-reg     load_be;
-reg     load_req;
-reg     [12:0]  load_byte;
-reg     [2:0]   st_state;
-
-assign  nib_cnt_clr=(dv_sof & sfd) | ((st_state==1)& sfd);
-
-always @(posedge rx_clk  or negedge rstn_mac)
-    if(!rstn_mac)begin
-        st_state<=#DELAY 0;
-        load_tte<=#DELAY 0;
-        load_be<=#DELAY 0;
-        load_req<=#DELAY 0;
-        load_byte<=#DELAY 0;
-        fv<=#DELAY 0;
     end
-    else begin
-        case(st_state)
-        0: begin
-            if(dv_sof)begin
-                if(!sfd) begin
-                    st_state<=#DELAY 1;
-                    end
-                else begin
-                    st_state<=#DELAY 2;
-                    fv<=#DELAY 1;
-                    end
-                end
-            end
-        1:begin
-            if(rx_dv_reg0)begin
-                if(sfd) begin
-                    fv<=#DELAY 1;
-                    st_state<=#DELAY 2;
-                    end
-                end
-            else st_state<=#DELAY 0;
-            end
-        2:begin
-            if(byte_cnt==13 & byte_dv)begin
-                st_state<=#DELAY 3;
-                if(data_ram_din==TTE_VALUE)begin
-                    load_tte<=#DELAY 1;
-                    load_be<=#DELAY 0;
+
+    always @(*) begin
+        case(rx_state)
+            01: begin
+                if (rx_buf_valid_1 && rx_buf_byte_1 == 8'hd5) begin
+                    rx_state_next   =   2;
                 end
                 else begin
-                    load_tte<=#DELAY 0;
-                    load_be<=#DELAY 1;
+                    rx_state_next   =   1;
                 end
             end
-            else if(dv_eof | (!rx_dv_reg0))begin
-                fv<=#DELAY 0;
-                st_state<=#DELAY 0;
-            end
-        end
-        3:begin
-            load_tte<=#DELAY 0;
-            load_be<=#DELAY 0;
-            st_state<=#DELAY 4;
-        end
-        4:begin
-            if(dv_eof | (!rx_dv_reg0) | byte_bp)begin
-                fv<=#DELAY 0;
-                load_byte<=#DELAY byte_cnt;
-                load_req<=#DELAY 1;
-                st_state<=#DELAY 5;
+            02: begin
+                if (rx_buf_valid == 2'b0) begin
+                    rx_state_next   =   1;
+                end
+                else if (rx_cnt_front == 12'hF && rx_buf_valid_1) begin
+                    rx_state_next   =   4;
+                end
+                else begin
+                    rx_state_next   =   2;
                 end
             end
-        5:begin
-            load_req<=#DELAY 0;
-            st_state<=#DELAY 0;
-        end
+            04: begin
+                if (rx_buf_valid == 2'b0 || rx_cnt_front == MTU) begin
+                    rx_state_next   =   8;
+                end
+                else begin
+                    rx_state_next   =   4;
+                end
+            end
+            08: begin
+                rx_state_next   =   1;
+            end
+            default: rx_state_next  =   rx_state;
         endcase
     end
 
-
-dpsram_w8_d2k u_data_ram(
-  .clka(rx_clk),            // input wire clka
-  .wea(data_ram_wr),        // input wire [0 : 0] wea
-  .addra(data_ram_addra),   // input wire [10 : 0] addra
-  .dina(data_ram_din),      // input wire [7 : 0] dina
-  .clkb(rx_clk),            // input wire clkb
-  .addrb(data_ram_addrb),   // input wire [10 : 0] addrb
-  .doutb(data_ram_dout)     // output wire [7 : 0] doutb
-);
-
-
-//============================================  
-//crc signal.   
-//============================================ 
-reg     [7:0]   crc_din;
-wire    load_init;
-wire    calc;
-wire    d_valid;
-wire    [31:0]  crc_result;
-
-assign  load_init = nib_cnt_clr;
-
-always @(posedge rx_clk or negedge rstn_mac)
-    if(!rstn_mac)begin
-        crc_din<=#DELAY 0;
+    always @(posedge rx_clk) begin
+        if (!rstn_mac) begin
+            rx_state    <=  1;
         end
-    else begin
-        crc_din<=#DELAY data_ram_dout;
+        else begin
+            rx_state    <=  rx_state_next;
         end
+    end
 
-crc32_8023 u_crc32_8023(
-    .clk(rx_clk), 
-    .reset(!rstn_mac), 
-    .d(crc_din), 
-    .load_init(load_init),
-    .calc(calc), 
-    .d_valid(d_valid), 
-    .crc_reg(crc_result), 
-    .crc()
+    always @(posedge rx_clk) begin
+        if (!rstn_mac) begin
+            rx_cnt_front    <=  'b1;
+        end
+        else begin
+            if (rx_state == 1) begin
+                rx_cnt_front    <=  'b1;
+            end
+            else if (rx_buf_valid_1) begin
+                rx_cnt_front    <=  rx_cnt_front + 1'b1;
+            end
+        end
+    end
+
+    always @(posedge rx_clk) begin
+        if (!rstn_mac) begin
+            crc_init    <=  'b0;
+            crc_cal     <=  'b0;
+            crc_dv      <=  'b0;
+        end
+        else begin
+            if (rx_state_next[0]) begin
+                crc_init    <=  'b1;
+                crc_cal     <=  'b0;
+                crc_dv      <=  'b0;
+            end
+            else if (rx_state_next[1] || rx_state_next[2]) begin
+                crc_init    <=  'b0;
+                crc_cal     <=  'b1;
+                crc_dv      <=  'b1;
+            end
+            else if (rx_state_next[3]) begin
+                crc_init    <=  'b0;
+                crc_cal     <=  'b1;
+                crc_dv      <=  'b0;
+            end
+        end
+    end
+
+    always @(posedge rx_clk) begin
+        if (!rstn_mac) begin
+            rx_buffer       <=  'b0;
+            rx_arb_dir      <=  'b0;
+        end
+        else begin
+            if (rx_buf_valid_1) begin
+                rx_buffer   <=  {rx_buffer, rx_buf_byte_1};
+            end
+            if (rx_cnt_front == 'hD && rx_buf_valid_1) begin
+                if (rx_buf_byte_1 == TTE_VALUE_HI) begin
+                    rx_arb_dir[1]   <=  'b1;
+                end
+                else begin
+                    rx_arb_dir[1]   <=  'b0;
+                end
+            end
+            if (rx_cnt_front == 'hE && rx_buf_valid_1) begin
+                if (rx_buf_byte_1 == TTE_VALUE_LO) begin
+                    rx_arb_dir[0]   <=  'b1;
+                end
+                else begin
+                    rx_arb_dir[0]   <=  'b0;
+                end
+            end
+        end
+    end
+
+    always @(*) begin
+        case(ptp_state)
+            PTP_RX_STATE_IDL1: begin
+                if (rx_cnt_front == 'hD && rx_buf_byte_1 == PTP_VALUE_HI)
+                    ptp_state_next  =   PTP_RX_STATE_IDL2;
+                else
+                    ptp_state_next  =   PTP_RX_STATE_IDL1;
+            end
+            PTP_RX_STATE_IDL2: begin
+                if (rx_cnt_front == 'hE && rx_buf_byte_1 == PTP_VALUE_LO)
+                    ptp_state_next  =   PTP_RX_STATE_TYPE;
+                else
+                    ptp_state_next  =   PTP_RX_STATE_IDL1;
+            end
+            PTP_RX_STATE_TYPE: begin
+                if (rx_cnt_front == 'hF && rx_buf_byte_1[3:0] == PTP_TYPE_SYNC)
+                    ptp_state_next  =   PTP_RX_STATE_SYNC;
+                else if (rx_cnt_front == 'hF && rx_buf_byte_1[3:0] == PTP_TYPE_DYRQ)
+                    ptp_state_next  =   PTP_RX_STATE_DYRQ;
+                else if (rx_cnt_front == 'hF && rx_buf_byte_1[3:0] == PTP_TYPE_DYRP)
+                    ptp_state_next  =   PTP_RX_STATE_DRP1;              
+                else
+                    ptp_state_next  =   PTP_RX_STATE_IDL1;
+            end
+            PTP_RX_STATE_SYNC: begin
+                if (rx_cnt_front == 'd46)
+                    ptp_state_next  =   PTP_RX_STATE_IDL1;
+                else
+                    ptp_state_next  =   PTP_RX_STATE_SYNC;
+            end
+            PTP_RX_STATE_DYRQ: begin
+                if (rx_cnt_front == 'd46)
+                    ptp_state_next  =   PTP_RX_STATE_IDL1;
+                else
+                    ptp_state_next  =   PTP_RX_STATE_DYRQ;
+            end
+            PTP_RX_STATE_DRP1: begin
+                if (rx_cnt_front == 'd28)
+                    ptp_state_next  =   PTP_RX_STATE_DRP2;
+                else
+                    ptp_state_next  =   PTP_RX_STATE_DRP1;
+            end
+            PTP_RX_STATE_DRP2: begin
+                if (rx_cnt_front == 'd40)
+                    ptp_state_next  =   PTP_RX_STATE_DRP3;
+                else
+                    ptp_state_next  =   PTP_RX_STATE_DRP2;
+            end
+            PTP_RX_STATE_DRP3: begin
+                if (rx_cnt_front == 'd46)
+                    ptp_state_next  =   PTP_RX_STATE_IDL1;
+                else
+                    ptp_state_next  =   PTP_RX_STATE_DRP3;
+            end
+        endcase
+    end
+
+    always @(posedge rx_clk) begin
+        if (!rstn_mac) begin
+            ptp_state   <=  1;
+        end
+        else begin
+            ptp_state   <=  ptp_state_next;
+        end
+    end
+
+    always @(posedge rx_clk) begin
+        
+    end
+
+    crc32_8023 u_crc32_8023(
+        .clk(rx_clk),
+        .reset(!rstn_mac), 
+        .d(rx_buf_byte_1), 
+        .load_init(crc_init),
+        .calc(crc_cal), 
+        .d_valid(crc_dv), 
+        .crc_reg(crc_result), 
+        .crc(crc_dout)
     );
 
-//============================================  
-//be state.   
-//============================================  
-reg     [12:0]  ram_nibble_be;
-wire    [12:0]  ram_cnt_be;
-reg     [7:0]	data_fifo_din;
-reg             data_fifo_wr;
-reg             data_fifo_wr_reg;
-wire            data_fifo_wr_dv;
-wire    [11:0]  data_fifo_depth;
-reg     [15:0]  ptr_fifo_din;
-reg             ptr_fifo_wr;
-wire            ptr_fifo_full;
+    always @(posedge rx_clk) begin
+        if (!rstn_mac) begin
+            data_fifo_wr    <=  'b0;
+            data_fifo_din   <=  'b0;
+            ptr_fifo_wr     <=  'b0;
+            ptr_fifo_din    <=  'b0;
+            tte_fifo_wr     <=  'b0;
+            tte_fifo_din    <=  'b0;
+            tteptr_fifo_wr  <=  'b0;
+            tteptr_fifo_din <=  'b0;
+        end
+        else begin
 
-assign  ram_cnt_be = speed[1]?ram_nibble_be:{1'b0,ram_nibble_be[12:1]};
-assign  data_fifo_wr_dv = data_fifo_wr_reg & (ram_nibble_be[0] | speed[1]); 
-//============================================  
-//generte a pipeline    
-//============================================  
-always @(posedge rx_clk or negedge rstn_mac)
-    if(!rstn_mac)begin
-        data_fifo_wr_reg<=#DELAY 0;
         end
-    else begin
-        data_fifo_wr_reg<=#DELAY data_fifo_wr;
-        end
+    end
 
-always @(posedge rx_clk or negedge rstn_mac)
-    if(!rstn_mac)begin
-        data_fifo_din<=#DELAY 0;
-        end
-    else begin
-        data_fifo_din<=#DELAY data_ram_dout;
-        end
+    //============================================  
+    //fifo used. 
+    //============================================  
 
-wire    bp;
-assign  bp=(data_fifo_depth>2564) | ptr_fifo_full;
+    (*MARK_DEBUG="true"*) wire dbg_data_empty;
 
-reg     [2:0]   be_state;
-always @(posedge rx_clk  or negedge rstn_mac)
-    if(!rstn_mac)begin
-        be_state<=#DELAY 0;
-        ptr_fifo_din<=#DELAY 0;
-        ptr_fifo_wr<=#DELAY 0;
-        data_fifo_wr<=#DELAY 0;
-        ram_nibble_be<=#DELAY 0;
-        end
-    else begin
-        case(be_state)
-        0: begin
-            if(load_be & !bp)begin
-                ram_nibble_be<=#DELAY ram_nibble_be+1;
-                be_state<=#DELAY 1;
-                end
-            end
-        1:begin
-            data_fifo_wr<=#DELAY 1;
-            ram_nibble_be<=#DELAY ram_nibble_be+1;
-            if(load_req)begin
-                be_state<=#DELAY 2;
-                end
-        end
-        2:begin
-            if(ram_cnt_be<=load_byte)
-                ram_nibble_be<=#DELAY ram_nibble_be+1;
-            else begin
-                data_fifo_wr<=#DELAY 0;
-                be_state<=#DELAY 3;
-            end
-        end
-        3:begin
-            be_state<=#DELAY 4;
-        end
-        4:begin
-            ptr_fifo_din[12:0]<=#DELAY ram_cnt_be-1;
-            if((ram_cnt_be<65) | (ram_cnt_be>1519)) ptr_fifo_din[14]<=#DELAY 1;
-            else ptr_fifo_din[14]<=#DELAY 0;
-            if(crc_result==CRC_RESULT_VALUE) ptr_fifo_din[15]<=#DELAY 1'b0;
-            else ptr_fifo_din[15]<=#DELAY 1'b1;
-            ptr_fifo_wr<=#DELAY 1;
-            be_state<=#DELAY 5;
-        end
-        5:begin
-            ptr_fifo_wr<=#DELAY 0;
-            ram_nibble_be<=#DELAY 0;
-            be_state<=#DELAY 0;
-        end
-        endcase
-        end
+    afifo_w8_d4k u_data_fifo (
+        .rst          (!rstn_sys),          // input rst
+        .wr_clk       (rx_clk),             // input wr_clk
+        .rd_clk       (clk),                // input rd_clk
+        .din          (data_fifo_din),      // input [7 : 0] din
+        .wr_en        (data_fifo_wr),       // input wr_en
+        .rd_en        (data_fifo_rd),       // input rd_en
+        .dout         (data_fifo_dout),     // output [7 : 0]       
+        .full         (),
+        .empty        (dbg_data_empty),
+        .rd_data_count(),                   // output [11 : 0] rd_data_count
+        .wr_data_count(data_fifo_depth)     // output [11 : 0] wr_data_count
+    );
 
+    afifo_w16_d32 u_ptr_fifo (
+        .rst   (!rstn_sys),      // input rst
+        .wr_clk(rx_clk),         // input wr_clk
+        .rd_clk(clk),            // input rd_clk
+        .din   (ptr_fifo_din),   // input [15 : 0] din
+        .wr_en (ptr_fifo_wr),    // input wr_en
+        .rd_en (ptr_fifo_rd),    // input rd_en
+        .dout  (ptr_fifo_dout),  // output [15 : 0] dout
+        .full  (ptr_fifo_full),  // output full
+        .empty (ptr_fifo_empty)  // output empty
+    );
+    afifo_w8_d4k u_tte_fifo (
+        .rst          (!rstn_sys),       // input rst
+        .wr_clk       (rx_clk),          // input wr_clk
+        .rd_clk       (clk),             // input rd_clk
+        .din          (tte_fifo_din),    // input [7 : 0] din
+        .wr_en        (tte_fifo_wr),     // input wr_en
+        .rd_en        (tte_fifo_rd),     // input rd_en
+        .dout         (tte_fifo_dout),   // output [7 : 0]       
+        .full         (),
+        .empty        (),
+        .rd_data_count(),                // output [11 : 0] rd_data_count
+        .wr_data_count(tte_fifo_depth)   // output [11 : 0] wr_data_count
+    );
 
-//============================================  
-//tte state.   
-//============================================  
-reg     [12:0]  ram_nibble_tte;
-wire    [12:0]  ram_cnt_tte;
-reg     [7:0]	tte_fifo_din;
-reg             tte_fifo_wr;
-reg             tte_fifo_wr_reg;
-wire            tte_fifo_wr_dv;
-wire    [11:0]  tte_fifo_depth;
-reg     [15:0]  tteptr_fifo_din;
-reg             tteptr_fifo_wr;
-wire            tteptr_fifo_full;
-
-assign  ram_cnt_tte = speed[1]?ram_nibble_tte:{1'b0,ram_nibble_tte[12:1]};
-assign  tte_fifo_wr_dv = tte_fifo_wr_reg & (ram_nibble_tte[0] | speed[1]);
-//============================================  
-//generte a pipeline    
-//============================================  
-always @(posedge rx_clk or negedge rstn_mac)
-    if(!rstn_mac)begin
-        tte_fifo_wr_reg<=#DELAY 0;
-        end
-    else begin
-        tte_fifo_wr_reg<=#DELAY tte_fifo_wr;
-        end
-
-always @(posedge rx_clk or negedge rstn_mac)
-    if(!rstn_mac)begin
-        tte_fifo_din<=#DELAY 0;
-        end
-    else begin
-        tte_fifo_din<=#DELAY data_ram_dout;
-        end
-
-wire    tte_bp;
-assign  tte_bp=(tte_fifo_depth>2564) | tteptr_fifo_full;
-
-reg     [2:0]   tte_state;
-always @(posedge rx_clk  or negedge rstn_mac)
-    if(!rstn_mac)begin
-        tte_state<=#DELAY 0;
-        tteptr_fifo_din<=#DELAY 0;
-        tteptr_fifo_wr<=#DELAY 0;
-        tte_fifo_wr<=#DELAY 0;
-        ram_nibble_tte<=#DELAY 0;
-        end
-    else begin
-        case(tte_state)
-        0: begin
-            if(load_tte & !bp)begin
-                ram_nibble_tte<=#DELAY ram_nibble_tte+1;
-                tte_state<=#DELAY 1;
-                end
-            end
-        1:begin
-            tte_fifo_wr<=#DELAY 1;
-            ram_nibble_tte<=#DELAY ram_nibble_tte+1;
-            if(load_req)begin
-                tte_state<=#DELAY 2;
-                end
-        end
-        2:begin
-            if(ram_cnt_tte<=load_byte)
-                ram_nibble_tte<=#DELAY ram_nibble_tte+1;
-            else begin
-                tte_fifo_wr<=#DELAY 0;
-                tte_state<=#DELAY 3;
-            end
-        end
-        3:begin
-            tte_state<=#DELAY 4;
-        end
-        4:begin
-            tteptr_fifo_din[12:0]<=#DELAY ram_cnt_tte-1;
-            if((ram_cnt_tte<65) | (ram_cnt_tte>1519)) tteptr_fifo_din[14]<=#DELAY 1;
-            else tteptr_fifo_din[14]<=#DELAY 0;
-            if(crc_result==CRC_RESULT_VALUE) tteptr_fifo_din[15]<=#DELAY 1'b0;
-            else tteptr_fifo_din[15]<=#DELAY 1'b1;
-            tteptr_fifo_wr<=#DELAY 1;
-            tte_state<=#DELAY 5;
-        end
-        5:begin
-            tteptr_fifo_wr<=#DELAY 0;
-            ram_nibble_tte<=#DELAY 0;
-            tte_state<=#DELAY 0;
-        end
-        endcase
-        end
-
-assign  data_ram_addrb = ram_cnt_be[10:0] | ram_cnt_tte[10:0] ;
-assign  calc = data_fifo_wr_dv | tte_fifo_wr_dv;
-assign  d_valid = data_fifo_wr_dv | tte_fifo_wr_dv;
-//============================================  
-//fifo used. 
-//============================================  
-
-(*MARK_DEBUG="true"*)wire dbg_data_empty;
-
-afifo_w8_d4k u_data_fifo (
-  .rst(!rstn_sys),                  // input rst
-  .wr_clk(rx_clk),                  // input wr_clk
-  .rd_clk(clk),                     // input rd_clk
-  .din(data_fifo_din),              // input [7 : 0] din
-  .wr_en(data_fifo_wr_dv),          // input wr_en
-  .rd_en(data_fifo_rd),             // input rd_en
-  .dout(data_fifo_dout),            // output [7 : 0]       
-  .full(), 
-  .empty(dbg_data_empty), 
-  .rd_data_count(), 				// output [11 : 0] rd_data_count
-  .wr_data_count(data_fifo_depth) 	// output [11 : 0] wr_data_count
-);
-
-afifo_w16_d32 u_ptr_fifo (
-  .rst(!rstn_sys),                  // input rst
-  .wr_clk(rx_clk),                  // input wr_clk
-  .rd_clk(clk),                     // input rd_clk
-  .din(ptr_fifo_din),               // input [15 : 0] din
-  .wr_en(ptr_fifo_wr),              // input wr_en
-  .rd_en(ptr_fifo_rd),              // input rd_en
-  .dout(ptr_fifo_dout),             // output [15 : 0] dout
-  .full(ptr_fifo_full),             // output full
-  .empty(ptr_fifo_empty)            // output empty
-);
-afifo_w8_d4k u_tte_fifo (
-  .rst(!rstn_sys),                  // input rst
-  .wr_clk(rx_clk),                  // input wr_clk
-  .rd_clk(clk),                     // input rd_clk
-  .din(tte_fifo_din),               // input [7 : 0] din
-  .wr_en(tte_fifo_wr_dv),           // input wr_en
-  .rd_en(tte_fifo_rd),              // input rd_en
-  .dout(tte_fifo_dout),             // output [7 : 0]       
-  .full(), 
-  .empty(), 
-  .rd_data_count(), 				// output [11 : 0] rd_data_count
-  .wr_data_count(tte_fifo_depth) 	// output [11 : 0] wr_data_count
-);
-
-afifo_w16_d32 u_tteptr_fifo (
-  .rst(!rstn_sys),                  // input rst
-  .wr_clk(rx_clk),                  // input wr_clk
-  .rd_clk(clk),                     // input rd_clk
-  .din(tteptr_fifo_din),            // input [15 : 0] din
-  .wr_en(tteptr_fifo_wr),           // input wr_en
-  .rd_en(tteptr_fifo_rd),           // input rd_en
-  .dout(tteptr_fifo_dout),          // output [15 : 0] dout
-  .full(tteptr_fifo_full),          // output full
-  .empty(tteptr_fifo_empty)         // output empty
-);
+    afifo_w16_d32 u_tteptr_fifo (
+        .rst   (!rstn_sys),         // input rst
+        .wr_clk(rx_clk),            // input wr_clk
+        .rd_clk(clk),               // input rd_clk
+        .din   (tteptr_fifo_din),   // input [15 : 0] din
+        .wr_en (tteptr_fifo_wr),    // input wr_en
+        .rd_en (tteptr_fifo_rd),    // input rd_en
+        .dout  (tteptr_fifo_dout),  // output [15 : 0] dout
+        .full  (tteptr_fifo_full),  // output full
+        .empty (tteptr_fifo_empty)  // output empty
+    );
 endmodule
