@@ -47,7 +47,10 @@ module mac_t_gmii_tte_v4(
     input           tptr_fifo_empty,
     // 1588 interface
     input   [31:0]  counter_ns,         // current time
-    output  [63:0]  counter_delay,      // broadcast slave-master delay to rx port, update delay_resp
+    output  [31:0]  delay_fifo_din,
+    output reg      delay_fifo_wr,
+    input           delay_fifo_full,
+    // output  [63:0]  counter_delay,      // broadcast slave-master delay to rx port, update delay_resp
     // mgnt interface
     output          tx_mgnt_valid,
     output  [15:0]  tx_mgnt_data,
@@ -158,7 +161,7 @@ module mac_t_gmii_tte_v4(
 
     reg             tx_arb_dir;
     reg     [11:0]  tx_cnt_front;   // frontend count
-    reg     [11:0]  tx_cnt_front_1;
+    reg     [ 4:0]  tx_cnt_front_1;
     reg     [11:0]  tx_cnt_back;    // backend count
     reg     [11:0]  tx_cnt_back_1;
     reg     [11:0]  tx_byte_cnt;    // total byte count
@@ -206,8 +209,9 @@ module mac_t_gmii_tte_v4(
             'd08: tx_state_next = (tx_cnt_front == tx_byte_cnt) && (speed[1] || tx_read_req) ? 'd16 : 'd8;
             // 'd08: tx_state_next = (tx_cnt_front == tx_byte_cnt) ? 'd16 : 'd8;
             // 'd16: tx_state_next = (tx_cnt_back == 12'hFF8) ? 'd32 : 'd16;
-            'd16: tx_state_next = (tx_cnt_back_1 == 12'hFFA) && (speed[1] || tx_read_req)? 'd32 : 'd16;
-            'd32: tx_state_next = (tx_cnt_front_1 == 7) && (speed[1] || tx_read_req)? 'd1 : 'd32; 
+            // 'd16: tx_state_next = (tx_cnt_back_1 == 12'hFFA) && (speed[1] || tx_read_req)? 'd32 : 'd16;
+            // 'd32: tx_state_next = (tx_cnt_front_1 == 1) && (speed[1] || tx_read_req)? 'd1 : 'd32; 
+            'd16: tx_state_next = (tx_cnt_front_1 == 'h17) ? 'd1 : 'd16;
             default: tx_state_next = tx_state;
         endcase
     end
@@ -226,7 +230,7 @@ module mac_t_gmii_tte_v4(
     always @(posedge interface_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             tx_cnt_front    <=  'b1;
-            tx_cnt_front_1  <=  'b0;
+            tx_cnt_front_1  <=  'h2;
             tx_byte_valid   <=  'b0;
         end
         else begin
@@ -239,13 +243,13 @@ module mac_t_gmii_tte_v4(
                 tx_cnt_front    <=  'b1;
             end
             // if (tx_state_next == 32) begin
-            if (tx_state_next[5]) begin
+            if (tx_state[4]) begin
                 if (speed[1] || tx_read_req) begin
                     tx_cnt_front_1  <=  tx_cnt_front_1 + 1'b1;
                 end
             end
             else begin
-                tx_cnt_front_1  <=  'b0;
+                tx_cnt_front_1  <=  speed[1] ? 'h2 : 'b0;
             end
             tx_byte_valid   <=  {tx_byte_valid[0], (data_fifo_rd || tdata_fifo_rd)};
         end
@@ -300,9 +304,9 @@ module mac_t_gmii_tte_v4(
                 tx_read_req     <=  !tx_read_req;
             end
             // else if (tx_state_next == 32) begin
-            else if (tx_state_next[5]) begin
-                tx_read_req     <=  !tx_read_req;
-            end
+            // else if (tx_state_next[5]) begin
+                // tx_read_req     <=  !tx_read_req;
+            // end
         end
     end
 
@@ -404,6 +408,20 @@ module mac_t_gmii_tte_v4(
             ptp_time_rdy_mac    <=  {ptp_time_rdy_mac[0], ptp_time_rdy_sys[1]};
             ptp_time_now        <=  (ptp_time_req_mac == 2'b10) ? ptp_time_now_sys : ptp_time_now;
             // ptp_time_now        <=  (ptp_time_req_mac[0] && ptp_time_rdy_mac[1]) ? ptp_time_now_sys : ptp_time_now;
+        end
+    end
+
+    always @(posedge interface_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            delay_fifo_wr   <=  'b0;
+        end
+        else begin
+            if (ptp_state == PTP_TX_STATE_DYRQ && tx_cnt_front == 40 && (speed[1] || tx_read_req)) begin
+                delay_fifo_wr   <=  !delay_fifo_full;
+            end
+            else begin
+                delay_fifo_wr   <=  'b0;
+            end
         end
     end
 
@@ -530,7 +548,8 @@ module mac_t_gmii_tte_v4(
 
     assign  {ptp_carry, ptp_cf_add}         =   tx_buf_cf[47:40] + ptp_delay_sync[7:0] + ptp_carry_reg;
     assign  {ptp_carry_1, ptp_cf_add_1}     =   tx_buf_cf[47:40] + ptp_carry_reg;
-    assign  counter_delay   =   {16'b0, ptp_delay_req, 16'b0};
+    // assign  counter_delay   =   {16'b0, ptp_delay_req, 16'b0};
+    assign  delay_fifo_din  =   ptp_delay_req;
 
     reg     [ 3:0]  mii_state, mii_state_next;
 
@@ -545,10 +564,10 @@ module mac_t_gmii_tte_v4(
 
     always @(*) begin
         case(mii_state)
-            'h01: mii_state_next = tx_buf_rdy[3] ? 'h2 : 'h1;
-            'h02: mii_state_next = (tx_cnt_back_1 == 0) ? 'h4 : 'h2;
-            'h04: mii_state_next = (tx_cnt_back_1 == tx_byte_cnt) ? 'h8 : 'h4;
-            'h08: mii_state_next = !tx_buf_rdy[3] ? 'h1 : 'h8;
+            'h01: mii_state_next = tx_buf_rdy[3] && (speed[1] || tx_read_req)? 'h2 : 'h1;
+            'h02: mii_state_next = (tx_cnt_back_1 == 0) && (speed[1] || tx_read_req) ? 'h4 : 'h2;
+            'h04: mii_state_next = (tx_cnt_back_1 == tx_byte_cnt) && (speed[1] || tx_read_req) ? 'h8 : 'h4;
+            'h08: mii_state_next = !tx_buf_rdy[3] && (speed[1] || tx_read_req) ? 'h1 : 'h8;
             default: mii_state_next = mii_state; 
         endcase
     end
@@ -558,7 +577,7 @@ module mac_t_gmii_tte_v4(
         if (!rstn_mac) begin
             mii_state   <=  'h1;
         end
-        else if (speed[1] || tx_read_req) begin
+        else begin
             mii_state   <=  mii_state_next;
         end
     end

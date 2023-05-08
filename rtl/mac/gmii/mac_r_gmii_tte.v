@@ -44,8 +44,11 @@ output      [15:0]  tteptr_fifo_dout,
 output              tteptr_fifo_empty,
 
 input       [31:0]  counter_ns,
-input       [63:0]  counter_ns_tx_delay,
-input       [63:0]  counter_ns_gtx_delay,
+input       [31:0]  delay_fifo_dout,
+output reg          delay_fifo_rd,
+input               delay_fifo_empty,
+// input       [63:0]  counter_ns_tx_delay,
+// input       [63:0]  counter_ns_gtx_delay,
 
 output              rx_mgnt_valid,
 output      [19:0]  rx_mgnt_data,
@@ -62,8 +65,43 @@ parameter PTP_VALUE_LOWER=8'hf7;
 //============================================  
 //generte ptp message    
 //============================================ 
-wire    [63:0]  counter_ns_delay;
-assign  counter_ns_delay = speed[1]?counter_ns_gtx_delay:counter_ns_tx_delay;
+reg     [ 5:0]  ptp_state;
+reg     [ 3:0]  ptp_delay_state, ptp_delay_state_next;
+reg     [63:0]  counter_ns_delay;
+always @(*) begin
+    case(ptp_delay_state)
+        01: ptp_delay_state_next = !delay_fifo_empty ? 2 : 1;
+        02: ptp_delay_state_next = 4;
+        04: ptp_delay_state_next = 8;
+        08: ptp_delay_state_next = (ptp_state == 23) || (ptp_state == 32) ? 1 : 8; 
+    endcase
+end
+always @(posedge rx_clk or negedge rstn_mac) begin
+    if (!rstn_mac) begin
+        ptp_delay_state <=  1;
+    end
+    else begin
+        ptp_delay_state <=  ptp_delay_state_next;
+    end
+end
+always @(posedge rx_clk or negedge rstn_mac) begin
+    if (!rstn_mac) begin
+        delay_fifo_rd       <=  'b0;
+        counter_ns_delay    <=  'b0;
+    end
+    else begin
+        if (ptp_delay_state_next[1]) begin
+            delay_fifo_rd   <=  'b1;
+        end
+        else begin
+            delay_fifo_rd   <=  'b0;
+        end
+        if (ptp_delay_state[2]) begin
+            counter_ns_delay    <=  {16'b0, delay_fifo_dout, 16'b0};
+        end
+    end
+end
+// assign  counter_ns_delay = speed[1]?counter_ns_gtx_delay:counter_ns_tx_delay;
 
 assign  gtx_clk = rx_clk & speed[1];
 //============================================  
@@ -484,7 +522,7 @@ always @(posedge rx_clk  or negedge rstn_mac)
 //============================================ 
 reg     [7:0]   ptp_data; 
 reg             ptp_sel;
-reg     [5:0]   ptp_state;
+// reg     [5:0]   ptp_state;
 reg     [31:0]  counter_ns_reg;
 reg     [63:0]  ptp_message_pad;
 

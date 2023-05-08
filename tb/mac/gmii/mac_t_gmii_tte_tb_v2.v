@@ -68,6 +68,10 @@ module mac_t_gmii_tte_tb_v2;
     wire        tptr_fifo_full;
     wire        tptr_fifo_empty;
 
+    wire [63:0] delay_fifo_din;
+    wire        delay_fifo_wr;
+    reg         delay_fifo_full;
+
     reg  [ 7:0] frame_1588_sync  [59:0];
     reg  [ 7:0] frame_1588_follow[59:0];
     reg  [ 7:0] frame_1588_req   [59:0];
@@ -96,10 +100,35 @@ module mac_t_gmii_tte_tb_v2;
         // .status_fifo_rd(status_fifo_rd),
         // .status_fifo_dout(status_fifo_dout),
         // .status_fifo_empty(status_fifo_empty),
-        .counter_ns(counter_ns)
+        .counter_ns(counter_ns),
         // .counter_ns_tx_delay(counter_ns_tx_delay),
-        // .counter_ns_gtx_delay(counter_ns_gtx_delay)
+        // .counter_ns_gtx_delay(counter_ns_gtx_delay),
+        .delay_fifo_din(delay_fifo_din),
+        .delay_fifo_wr(delay_fifo_wr),
+        .delay_fifo_full(delay_fifo_full)
     );
+
+    reg reg_dv = 0;
+    integer i = 0;
+
+    always @(posedge interface_clk) begin
+        if (!rstn) begin
+            reg_dv  <=  0;
+            i       <=  1;
+        end
+        else begin
+            reg_dv  <=  gtx_dv;
+            if (reg_dv && !gtx_dv) begin
+                i   <=  1;
+            end
+            else if (!gtx_dv) begin
+                i   <=  i + 1'b1;
+            end
+            else if (!reg_dv && gtx_dv) begin
+                $display("f2f interval: %d", i);
+            end
+        end
+    end
 
     initial begin
         // Initialize Inputs
@@ -117,7 +146,8 @@ module mac_t_gmii_tte_tb_v2;
         tptr_fifo_din = 0;
         tptr_fifo_wr = 0;
         status_fifo_rd = 0;
-        speed[1:0] = 2'b10;  //ethernet speed 00:10M 01:100M 10:1000M
+        delay_fifo_full = 0;
+        speed[1:0] = 2'b01;  //ethernet speed 00:10M 01:100M 10:1000M
 
         $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/1588_sync.txt",
                   frame_1588_sync);

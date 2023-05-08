@@ -71,7 +71,13 @@ parameter   INIT = 0;
 
 wire            time_rst;
 wire    [ 1:0]  speed;
-wire    [63:0]  counter_delay;
+// wire    [63:0]  counter_delay;
+wire            delay_fifo_wr;
+wire    [31:0]  delay_fifo_din;
+wire            delay_fifo_full;
+wire            delay_fifo_rd;
+wire    [31:0]  delay_fifo_dout;
+wire            delay_fifo_empty;
 
 wire            rx_mgnt_valid;
 wire            rx_mgnt_resp;
@@ -102,8 +108,11 @@ mac_r_gmii_tte u_mac_r_gmii(
     .tteptr_fifo_dout(rx_tteptr_fifo_dout),
     .tteptr_fifo_empty(rx_tteptr_fifo_empty),
     .counter_ns(counter_ns),
-    .counter_ns_tx_delay(counter_delay),
-    .counter_ns_gtx_delay(counter_delay),
+    // .counter_ns_tx_delay(counter_delay),
+    // .counter_ns_gtx_delay(counter_delay),
+    .delay_fifo_dout(delay_fifo_dout),
+    .delay_fifo_rd(delay_fifo_rd),
+    .delay_fifo_empty(delay_fifo_empty),
     .rx_mgnt_valid(rx_mgnt_valid),
     .rx_mgnt_resp(rx_mgnt_resp),
     .rx_mgnt_data(rx_mgnt_data)
@@ -130,7 +139,10 @@ mac_t_gmii_tte_v4 u_mac_t_gmii(
     .tptr_fifo_din(tx_tteptr_fifo_dout),
     .tptr_fifo_empty(tx_tteptr_fifo_empty),
     .counter_ns(counter_ns),
-    .counter_delay(counter_delay),
+    // .counter_delay(counter_delay),
+    .delay_fifo_din(delay_fifo_din),
+    .delay_fifo_wr(delay_fifo_wr),
+    .delay_fifo_full(delay_fifo_full),
     .tx_mgnt_valid(tx_mgnt_valid),
     .tx_mgnt_resp(tx_mgnt_resp),
     .tx_mgnt_data(tx_mgnt_data)
@@ -156,6 +168,18 @@ mac_t_gmii_tte_v4 u_mac_t_gmii(
 //     .tptr_fifo_din(tx_tteptr_fifo_dout),
 //     .tptr_fifo_empty(tx_tteptr_fifo_empty)
 //     );
+
+afifo_w32_d32 ptp_delay_fifo (
+    .rst(!rstn_mac),
+    .wr_clk(interface_clk),
+    .din(delay_fifo_din),
+    .wr_en(delay_fifo_wr),
+    .full(delay_fifo_full),
+    .rd_clk(GMII_RX_CLK),
+    .dout(delay_fifo_dout),
+    .rd_en(delay_fifo_rd),
+    .empty(delay_fifo_empty)
+);
 
 smi_config  #(
 .REF_CLK                 (125                   ),        
