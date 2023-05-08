@@ -28,9 +28,9 @@ module register_v2 #(
     input                   clk,
     input                   rst,
     // spi side interface
-    (*MARK_DEBUG="true"*) input                   spi_wr,
-    (*MARK_DEBUG="true"*) input       [ 6:0]      spi_op,
-    (*MARK_DEBUG="true"*) input       [15:0]      spi_din,
+    input                   spi_wr,
+    input       [ 6:0]      spi_op,
+    input       [15:0]      spi_din,
     output                  spi_ack,
     output      [15:0]      spi_dout,
     // sys mgnt side interface
@@ -40,10 +40,10 @@ module register_v2 #(
     input                   sys_resp_valid,
     input       [ 7:0]      sys_resp_data,
     // flow table side interface
-    (*MARK_DEBUG="true"*) output reg              ft_clear,
-    (*MARK_DEBUG="true"*) output reg              ft_update,
+    output reg              ft_clear,
+    output reg              ft_update,
     output      [119:0]     flow,
-    (*MARK_DEBUG="true"*) output      [11:0]      hash
+    output      [11:0]      hash
 );
 
     localparam  PORT0_ADDR      =   7'h00;
