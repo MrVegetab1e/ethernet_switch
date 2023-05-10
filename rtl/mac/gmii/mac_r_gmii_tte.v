@@ -71,15 +71,19 @@ parameter   LLDP_DBG_PORT       =   16'h4;
 //============================================  
 //generte ptp message    
 //============================================ 
-reg     [ 5:0]  ptp_state;
-reg     [ 3:0]  ptp_delay_state, ptp_delay_state_next;
+(*MARK_DEBUG = "TRUE"*) reg     [ 5:0]  ptp_state;
+(*MARK_DEBUG = "TRUE"*) reg     [ 3:0]  ptp_delay_state, ptp_delay_state_next;
+(*MARK_DEBUG = "TRUE"*) reg     [19:0]  ptp_timeout_us; // 5us per cycle
+(*MARK_DEBUG = "TRUE"*) reg     [15:0]  ptp_timeout;
+
 reg     [63:0]  counter_ns_delay;
 always @(*) begin
     case(ptp_delay_state)
         01: ptp_delay_state_next = !delay_fifo_empty ? 2 : 1;
         02: ptp_delay_state_next = 4;
         04: ptp_delay_state_next = 8;
-        08: ptp_delay_state_next = (ptp_state == 23) || (ptp_state == 32) ? 1 : 8; 
+        08: ptp_delay_state_next = (ptp_state == 23) || (ptp_state == 32) || (ptp_timeout == 400) ? 1 : 8;
+        default: ptp_delay_state_next = ptp_delay_state;
     endcase
 end
 always @(posedge rx_clk or negedge rstn_mac) begin
@@ -94,6 +98,8 @@ always @(posedge rx_clk or negedge rstn_mac) begin
     if (!rstn_mac) begin
         delay_fifo_rd       <=  'b0;
         counter_ns_delay    <=  'b0;
+        ptp_timeout_us      <=  'b0;
+        ptp_timeout         <=  'b0;
     end
     else begin
         if (ptp_delay_state_next[1]) begin
@@ -104,6 +110,19 @@ always @(posedge rx_clk or negedge rstn_mac) begin
         end
         if (ptp_delay_state[2]) begin
             counter_ns_delay    <=  {16'b0, delay_fifo_dout, 16'b0};
+        end
+        if (ptp_delay_state[3]) begin
+            if (ptp_timeout_us != 'hF423F) begin
+                ptp_timeout_us  <=  ptp_timeout_us + 1'b1;
+            end
+            else begin
+                ptp_timeout_us  <=  'b0;
+                ptp_timeout     <=  ptp_timeout + 1'b1;
+            end
+        end
+        else begin
+            ptp_timeout_us  <=  'b0;
+            ptp_timeout     <=  'b0;
         end
     end
 end
@@ -542,23 +561,59 @@ reg             ptp_sel;
 reg     [31:0]  counter_ns_reg;
 reg     [63:0]  ptp_message_pad;
 
+    reg     [31:0]  ptp_time_now;   // timestamp of now
+    reg     [31:0]  ptp_time_now_sys;   // timestamp of now, system side
+    reg             ptp_time_req;       // lockup counter output for cross clk domain
+    reg     [ 1:0]  ptp_time_req_mac;
+    reg     [ 1:0]  ptp_time_rdy_sys;   // system side of lockup signal
+    reg     [ 1:0]  ptp_time_rdy_mac;   // mac side of lockup signal
+
+    always @(posedge clk or negedge rstn_sys) begin
+        if (!rstn_sys) begin
+            ptp_time_rdy_sys    <=  'b0;
+            ptp_time_now_sys    <=  'b0;
+        end
+        else begin
+            ptp_time_rdy_sys    <=  {ptp_time_rdy_sys[0], ptp_time_req_mac[1]};
+            ptp_time_now_sys    <=  ptp_time_rdy_sys[1] ? ptp_time_now_sys : counter_ns;
+        end
+    end
+
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge rx_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            ptp_time_now        <=  'b0;
+            ptp_time_req_mac    <=  'b0;    // pulse signal
+            ptp_time_rdy_mac    <=  'b0;
+        end
+        else begin
+            ptp_time_req_mac[0] <=  (ptp_time_req || (ptp_time_req_mac && ~ptp_time_rdy_mac[1]));
+            ptp_time_req_mac[1] <=  ptp_time_req_mac[0];
+            ptp_time_rdy_mac    <=  {ptp_time_rdy_mac[0], ptp_time_rdy_sys[1]};
+            ptp_time_now        <=  (ptp_time_req_mac == 2'b10) ? ptp_time_now_sys : ptp_time_now;
+            // ptp_time_now        <=  (ptp_time_req_mac[0] && ptp_time_rdy_mac[1]) ? ptp_time_now_sys : ptp_time_now;
+        end
+    end
+
 always @(posedge rx_clk  or negedge rstn_mac)
     if(!rstn_mac)begin
         ptp_state<=#DELAY 0;
         ptp_sel<=#DELAY 0;
         ptp_data<=#DELAY 0;
-        counter_ns_reg<=#DELAY 0;
+        // counter_ns_reg<=#DELAY 0;
         ptp_message_pad<=#DELAY 0;
+        ptp_time_req<=#DELAY 0;
     end
     else begin
+        ptp_time_req<=#DELAY 0;
         case(ptp_state)
         0: begin
-            if(ram_cnt_be==13)begin //mii
+            if(!speed[1] && ram_cnt_be==13)begin //mii
                 if(data_ram_dout==PTP_VALUE_HIGH)begin
                     ptp_state<=#DELAY 1;
                 end
             end
-            else if(ram_cnt_be==14)begin //gmii
+            else if(speed[1] && ram_cnt_be==14)begin //gmii
                 if(data_ram_dout==PTP_VALUE_HIGH)begin
                     ptp_state<=#DELAY 8;
                 end
@@ -577,7 +632,8 @@ always @(posedge rx_clk  or negedge rstn_mac)
         2:begin
             if(ram_cnt_be==15)begin
                 if(data_ram_dout[3:1]==0)begin
-                    ptp_state<=#DELAY 3;
+                    // ptp_state<=#DELAY 3;
+                    ptp_state<=#DELAY 33;
                 end
                 else if(data_ram_dout[3:0]==4'b1001)begin
                     ptp_state<=#DELAY 15;
@@ -589,27 +645,31 @@ always @(posedge rx_clk  or negedge rstn_mac)
         end
         3:begin
             if(ram_cnt_be==30 & data_fifo_wr_dv)begin
-                counter_ns_reg<=#DELAY counter_ns;
-                ptp_data<=#DELAY counter_ns[31:24];
+                // counter_ns_reg<=#DELAY counter_ns;
+                // ptp_data<=#DELAY counter_ns[31:24];
+                ptp_data<=#DELAY ptp_time_now[31:24];
                 ptp_sel<=#DELAY 1;
                 ptp_state<=#DELAY 4;
             end
         end
         4:begin
             if(ram_cnt_be==31 & data_fifo_wr_dv)begin
-                ptp_data<=#DELAY counter_ns_reg[23:16];
+                // ptp_data<=#DELAY counter_ns_reg[23:16];
+                ptp_data<=#DELAY ptp_time_now[23:16];
                 ptp_state<=#DELAY 5;
             end
         end
         5:begin
             if(ram_cnt_be==32 & data_fifo_wr_dv)begin
-                ptp_data<=#DELAY counter_ns_reg[15:8];
+                // ptp_data<=#DELAY counter_ns_reg[15:8];
+                ptp_data<=#DELAY ptp_time_now[15:8];
                 ptp_state<=#DELAY 6;
             end
         end
         6:begin
             if(ram_cnt_be==33 & data_fifo_wr_dv)begin
-                ptp_data<=#DELAY counter_ns_reg[7:0];
+                // ptp_data<=#DELAY counter_ns_reg[7:0];
+                ptp_data<=#DELAY ptp_time_now[7:0];
                 ptp_state<=#DELAY 7;
             end
         end
@@ -633,7 +693,8 @@ always @(posedge rx_clk  or negedge rstn_mac)
         9:begin
             if(ram_cnt_be==16)begin
                 if(data_ram_dout[3:1]==0)begin
-                    ptp_state<=#DELAY 10;
+                    // ptp_state<=#DELAY 10;
+                    ptp_state<=#DELAY 34;
                 end
                 else if(data_ram_dout[3:0]==4'b1001)begin
                     ptp_message_pad<=#DELAY ptp_messeage+counter_ns_delay;
@@ -646,27 +707,31 @@ always @(posedge rx_clk  or negedge rstn_mac)
         end
         10:begin
             if(ram_cnt_be==32 & data_fifo_wr_dv)begin
-                counter_ns_reg<=#DELAY counter_ns;
-                ptp_data<=#DELAY counter_ns[31:24];
+                // counter_ns_reg<=#DELAY counter_ns;
+                // ptp_data<=#DELAY counter_ns[31:24];
+                ptp_data<=#DELAY ptp_time_now[31:24];
                 ptp_sel<=#DELAY 1;
                 ptp_state<=#DELAY 11;
             end
         end
         11:begin
             if(ram_cnt_be==33 & data_fifo_wr_dv)begin
-                ptp_data<=#DELAY counter_ns_reg[23:16];
+                // ptp_data<=#DELAY counter_ns_reg[23:16];
+                ptp_data<=#DELAY ptp_time_now[23:16];
                 ptp_state<=#DELAY 12;
             end
         end
         12:begin
             if(ram_cnt_be==34 & data_fifo_wr_dv)begin
-                ptp_data<=#DELAY counter_ns_reg[15:8];
+                // ptp_data<=#DELAY counter_ns_reg[15:8];
+                ptp_data<=#DELAY ptp_time_now[15:8];
                 ptp_state<=#DELAY 13;
             end
         end
         13:begin
             if(ram_cnt_be==35 & data_fifo_wr_dv)begin
-                ptp_data<=#DELAY counter_ns_reg[7:0];
+                // ptp_data<=#DELAY counter_ns_reg[7:0];
+                ptp_data<=#DELAY ptp_time_now[7:0];
                 ptp_state<=#DELAY 14;
             end
         end
@@ -788,6 +853,18 @@ always @(posedge rx_clk  or negedge rstn_mac)
                 ptp_data<=#DELAY 0;
                 ptp_state<=#DELAY 0;
                 ptp_sel<=#DELAY 0;
+            end
+        end
+        33:begin
+            if(ram_cnt_be==22 & data_fifo_wr_dv)begin
+                ptp_time_req<=#DELAY 1;
+                ptp_state<=#DELAY 3;
+            end
+        end
+        34:begin
+            if(ram_cnt_be==24 & data_fifo_wr_dv)begin
+                ptp_time_req<=#DELAY 1;
+                ptp_state<=#DELAY 10;
             end
         end
         endcase
