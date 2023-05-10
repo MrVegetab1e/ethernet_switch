@@ -236,8 +236,18 @@ module top_switch (
         .counter_ns(counter_ns)
     );
 
-    mac_top u_mac_top_0 (
+    IDELAYCTRL IDELAYCTRL_inst (
+        .RDY(RDY), // 1-bit output: Ready output
+        .REFCLK(clk_in), // 1-bit input: Reference clock input
+        .RST(!rstn_mac)   // 1-bit input: Active high reset input
+    );
+
+    mac_top #(
+        .MAC_PORT(0),
+        .RX_DELAY(10)
+    ) u_mac_top_0 (
         .clk(clk),
+        .clk_ref(clk_in),
         .clk_125(clk_125),
         .rstn_sys(rstn_sys),
         .rstn_mac(rstn_mac),
@@ -294,8 +304,12 @@ module top_switch (
         .counter_ns(counter_ns)
     );
 
-    mac_top u_mac_top_1 (
+    mac_top #(
+        .MAC_PORT(1),
+        .RX_DELAY(10)
+    ) u_mac_top_1 (
         .clk(clk),
+        .clk_ref(clk_in),
         .clk_125(clk_125),
         .rstn_sys(rstn_sys),
         .rstn_mac(rstn_mac),
@@ -353,8 +367,12 @@ module top_switch (
 
     );
 
-    mac_top u_mac_top_2 (
+    mac_top #(
+        .MAC_PORT(2),
+        .RX_DELAY(8)
+    ) u_mac_top_2 (
         .clk(clk),
+        .clk_ref(clk_in),
         .clk_125(clk_125),
         .rstn_sys(rstn_sys),
         .rstn_mac(rstn_mac),
@@ -412,8 +430,12 @@ module top_switch (
 
     );
 
-    mac_top u_mac_top_3 (
+    mac_top #(
+        .MAC_PORT(3),
+        .RX_DELAY(8)
+    ) u_mac_top_3 (
         .clk(clk),
+        .clk_ref(clk_in),
         .clk_125(clk_125),
         .rstn_sys(rstn_sys),
         .rstn_mac(rstn_mac),

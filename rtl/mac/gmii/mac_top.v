@@ -2,6 +2,7 @@
 
 module mac_top(
     input              clk,
+    input              clk_ref,
     input              clk_125,
 	input              rstn_sys,
     input              rstn_mac,
@@ -64,10 +65,15 @@ module mac_top(
 
     );
 
+parameter   MAC_PORT = 1;
+parameter   RX_DELAY = 8;
+localparam  MAC_PORT_ONEH = (16'b1 << MAC_PORT);
 parameter   PORT_RX_ADDR = 7'h10;
 parameter   PORT_TX_ADDR = 7'h11;
 parameter   PORT_ER_ADDR = 7'h12;
 parameter   INIT = 0;
+
+genvar n;
 
 wire            time_rst;
 wire    [ 1:0]  speed;
@@ -88,13 +94,98 @@ wire    [15:0]  tx_mgnt_data;
 
 assign          GMII_TX_CLK =   clk_125;        
 
-mac_r_gmii_tte u_mac_r_gmii(
+wire    [ 7:0]  delay_rx_d;
+wire            delay_rx_dv;
+wire            delay_rx_er;
+
+generate
+    for (n = 0; n < 8; n = n + 1) begin : rx_d_delay
+        IDELAYE2 #(
+            .CINVCTRL_SEL("FALSE"),          // Enable dynamic clock inversion (FALSE, TRUE)
+            .DELAY_SRC("IDATAIN"),           // Delay input (IDATAIN, DATAIN)
+            .HIGH_PERFORMANCE_MODE("TRUE"), // Reduced jitter ("TRUE"), Reduced power ("FALSE")
+            .IDELAY_TYPE("FIXED"),           // FIXED, VARIABLE, VAR_LOAD, VAR_LOAD_PIPE
+            .IDELAY_VALUE(RX_DELAY),                // Input delay tap setting (0-31)
+            .PIPE_SEL("FALSE"),              // Select pipelined mode, FALSE, TRUE
+            .REFCLK_FREQUENCY(200.0),        // IDELAYCTRL clock input frequency in MHz (190.0-210.0, 290.0-310.0).
+            .SIGNAL_PATTERN("DATA")          // DATA, CLOCK input signal
+        ) (
+            .CNTVALUEOUT(),            // 5-bit output: Counter value output
+            .DATAOUT(delay_rx_d[n]),   // 1-bit output: Delayed data output
+            .C(clk_ref),               // 1-bit input: Clock input
+            .CE(1'b0),                 // 1-bit input: Active high enable increment/decrement input
+            .CINVCTRL(1'b0),           // 1-bit input: Dynamic clock inversion input
+            .CNTVALUEIN(),             // 5-bit input: Counter value input
+            .DATAIN(),                 // 1-bit input: Internal delay data input
+            .IDATAIN(GMII_RXD[n]),     // 1-bit input: Data input from the I/O
+            .INC(1'b0),                // 1-bit input: Increment / Decrement tap delay input
+            .LD(1'b0),                 // 1-bit input: Load IDELAY_VALUE input
+            .LDPIPEEN(1'b0),           // 1-bit input: Enable PIPELINE register to load data input
+            .REGRST(1'b0)              // 1-bit input: Active-high reset tap-delay input
+        );
+    end
+
+    IDELAYE2 #(
+        .CINVCTRL_SEL("FALSE"),          // Enable dynamic clock inversion (FALSE, TRUE)
+        .DELAY_SRC("IDATAIN"),           // Delay input (IDATAIN, DATAIN)
+        .HIGH_PERFORMANCE_MODE("TRUE"), // Reduced jitter ("TRUE"), Reduced power ("FALSE")
+        .IDELAY_TYPE("FIXED"),           // FIXED, VARIABLE, VAR_LOAD, VAR_LOAD_PIPE
+        .IDELAY_VALUE(RX_DELAY),                // Input delay tap setting (0-31)
+        .PIPE_SEL("FALSE"),              // Select pipelined mode, FALSE, TRUE
+        .REFCLK_FREQUENCY(200.0),        // IDELAYCTRL clock input frequency in MHz (190.0-210.0, 290.0-310.0).
+        .SIGNAL_PATTERN("DATA")          // DATA, CLOCK input signal
+    )
+    rx_dv_delay (
+        .CNTVALUEOUT(),            // 5-bit output: Counter value output
+        .DATAOUT(delay_rx_dv),     // 1-bit output: Delayed data output
+        .C(clk_ref),               // 1-bit input: Clock input
+        .CE(1'b0),                 // 1-bit input: Active high enable increment/decrement input
+        .CINVCTRL(1'b0),           // 1-bit input: Dynamic clock inversion input
+        .CNTVALUEIN(),             // 5-bit input: Counter value input
+        .DATAIN(),                 // 1-bit input: Internal delay data input
+        .IDATAIN(GMII_RX_DV),      // 1-bit input: Data input from the I/O
+        .INC(1'b0),                // 1-bit input: Increment / Decrement tap delay input
+        .LD(1'b0),                 // 1-bit input: Load IDELAY_VALUE input
+        .LDPIPEEN(1'b0),           // 1-bit input: Enable PIPELINE register to load data input
+        .REGRST(1'b0)              // 1-bit input: Active-high reset tap-delay input
+    );
+
+    IDELAYE2 #(
+        .CINVCTRL_SEL("FALSE"),          // Enable dynamic clock inversion (FALSE, TRUE)
+        .DELAY_SRC("IDATAIN"),           // Delay input (IDATAIN, DATAIN)
+        .HIGH_PERFORMANCE_MODE("TRUE"), // Reduced jitter ("TRUE"), Reduced power ("FALSE")
+        .IDELAY_TYPE("FIXED"),           // FIXED, VARIABLE, VAR_LOAD, VAR_LOAD_PIPE
+        .IDELAY_VALUE(RX_DELAY),                // Input delay tap setting (0-31)
+        .PIPE_SEL("FALSE"),              // Select pipelined mode, FALSE, TRUE
+        .REFCLK_FREQUENCY(200.0),        // IDELAYCTRL clock input frequency in MHz (190.0-210.0, 290.0-310.0).
+        .SIGNAL_PATTERN("DATA")          // DATA, CLOCK input signal
+    )
+    rx_er_delay (
+        .CNTVALUEOUT(),            // 5-bit output: Counter value output
+        .DATAOUT(delay_rx_er),     // 1-bit output: Delayed data output
+        .C(clk_ref),               // 1-bit input: Clock input
+        .CE(1'b0),                 // 1-bit input: Active high enable increment/decrement input
+        .CINVCTRL(1'b0),           // 1-bit input: Dynamic clock inversion input
+        .CNTVALUEIN(),             // 5-bit input: Counter value input
+        .DATAIN(),                 // 1-bit input: Internal delay data input
+        .IDATAIN(GMII_RX_ER),      // 1-bit input: Data input from the I/O
+        .INC(1'b0),                // 1-bit input: Increment / Decrement tap delay input
+        .LD(1'b0),                 // 1-bit input: Load IDELAY_VALUE input
+        .LDPIPEEN(1'b0),           // 1-bit input: Enable PIPELINE register to load data input
+        .REGRST(1'b0)              // 1-bit input: Active-high reset tap-delay input
+    );
+
+endgenerate
+
+mac_r_gmii_tte #(
+    .LLDP_PARAM_PORT (MAC_PORT_ONEH)
+) u_mac_r_gmii(
     .clk(clk),
     .rstn_sys(rstn_sys),
     .rstn_mac(rstn_mac),
     .rx_clk(GMII_RX_CLK),
-    .rx_dv(GMII_RX_DV),
-    .gm_rx_d(GMII_RXD),
+    .rx_dv(delay_rx_dv),
+    .gm_rx_d(delay_rx_d),
     // .gtx_clk(GMII_TX_CLK),
     .speed(speed),
     .data_fifo_rd(rx_data_fifo_rd),

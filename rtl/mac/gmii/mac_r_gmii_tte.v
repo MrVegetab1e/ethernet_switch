@@ -55,12 +55,18 @@ output      [19:0]  rx_mgnt_data,
 input               rx_mgnt_resp
     );
 
-parameter DELAY=2;  
-parameter CRC_RESULT_VALUE=32'hc704dd7b;
-parameter TTE_VALUE=8'h92;
-parameter MTU=1500;
-parameter PTP_VALUE_HIGH=8'h88;
-parameter PTP_VALUE_LOWER=8'hf7;
+parameter   DELAY=2;  
+parameter   CRC_RESULT_VALUE=32'hc704dd7b;
+parameter   TTE_VALUE=8'h92;
+parameter   MTU=1500;
+parameter   PTP_VALUE_HIGH=8'h88;
+parameter   PTP_VALUE_LOWER=8'hf7;
+parameter   LLDP_VALUE_HI       =   8'h08;
+parameter   LLDP_VALUE_LO       =   8'h01;
+parameter   LLDP_PARAM_PORT     =   16'h1;
+parameter   LLDP_DBG_PROTO      =   16'h0800;
+parameter   LLDP_DBG_MAC        =   48'h60BEB40363E8;
+parameter   LLDP_DBG_PORT       =   16'h4;
 
 //============================================  
 //generte ptp message    
@@ -190,6 +196,7 @@ wire    [10:0]  data_ram_addrb;
 
 reg     load_tte;
 reg     load_be;
+reg     load_lldp;
 reg     load_req;
 reg     [12:0]  load_byte;
 reg     [2:0]   st_state;
@@ -201,6 +208,7 @@ always @(posedge rx_clk  or negedge rstn_mac)
         st_state<=#DELAY 0;
         load_tte<=#DELAY 0;
         load_be<=#DELAY 0;
+        load_lldp<=#DELAY 0;
         load_req<=#DELAY 0;
         load_byte<=#DELAY 0;
         fv<=#DELAY 0;
@@ -233,10 +241,17 @@ always @(posedge rx_clk  or negedge rstn_mac)
                 if(data_ram_din==TTE_VALUE)begin
                     load_tte<=#DELAY 1;
                     load_be<=#DELAY 0;
+                    load_lldp<=#DELAY 0;
+                end
+                else if(data_ram_din==LLDP_VALUE_LO)begin
+                    load_tte<=#DELAY 0;
+                    load_be<=#DELAY 1;
+                    load_lldp<=#DELAY 1;
                 end
                 else begin
                     load_tte<=#DELAY 0;
                     load_be<=#DELAY 1;
+                    load_lldp<=#DELAY 0;
                 end
             end
             else if(dv_eof | (!rx_dv_reg0))begin
@@ -247,6 +262,7 @@ always @(posedge rx_clk  or negedge rstn_mac)
         3:begin
             load_tte<=#DELAY 0;
             load_be<=#DELAY 0;
+            load_lldp<=#DELAY 0;
             st_state<=#DELAY 4;
         end
         4:begin
@@ -777,7 +793,154 @@ always @(posedge rx_clk  or negedge rstn_mac)
         endcase
     end
 
+reg [ 7:0] lldp_state, lldp_state_next;
+reg [ 7:0] lldp_data;
+reg        lldp_sel;
 
+always @(*) begin
+    case(lldp_state)
+        01: begin
+            if (load_be && load_lldp) begin
+                if (speed[1]) begin
+                    lldp_state_next =   2;
+                end
+                else begin
+                    lldp_state_next =   4;
+                end
+            end 
+            else begin
+                lldp_state_next =   1;
+            end 
+        end  
+        02: lldp_state_next = (ram_cnt_be == 66) ? 1 : 2;
+        04: lldp_state_next = (ram_cnt_be == 66) ? 1 : 4;
+        default: lldp_state_next = lldp_state;
+    endcase
+end
+
+always @(posedge rx_clk or negedge rstn_mac) begin
+    if (!rstn_mac) begin
+        lldp_state  <=  1;
+    end
+    else begin
+        lldp_state  <=  lldp_state_next;
+    end
+end
+
+always @(posedge rx_clk or negedge rstn_mac) begin
+    if (!rstn_mac) begin
+        lldp_sel    <=  'b0;
+        lldp_data   <=  'b0;
+    end
+    else begin
+        if (lldp_state[1]) begin
+            if (ram_cnt_be == 2) begin          // gmii
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_MAC[47:40];
+            end
+            else if (ram_cnt_be == 3) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_MAC[39:32];
+            end
+            else if (ram_cnt_be == 4) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_MAC[31:24];
+            end
+            else if (ram_cnt_be == 5) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_MAC[23:16];
+            end
+            else if (ram_cnt_be == 6) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_MAC[15: 8];
+            end
+            else if (ram_cnt_be == 7) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_MAC[ 7: 0];
+            end
+            else if (ram_cnt_be == 14) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_PROTO[15: 8];
+            end
+            else if (ram_cnt_be == 15) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_PROTO[ 7: 0];
+            end
+            else if (ram_cnt_be == 58) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_PORT[15: 8];
+            end
+            else if (ram_cnt_be == 59) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_PORT[ 7: 0];
+            end
+            else if (ram_cnt_be == 64) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_PARAM_PORT[15: 8];
+            end
+            else if (ram_cnt_be == 65) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_PARAM_PORT[ 7: 0];
+            end
+            else begin
+                lldp_sel    <=  'b0;
+            end
+        end
+        else if (lldp_state[2]) begin
+            if (ram_cnt_be == 1 && !ram_nibble_be[0]) begin     // mii
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_MAC[47:40];
+            end
+            else if (ram_cnt_be == 2 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_MAC[39:32];
+            end
+            else if (ram_cnt_be == 3 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_MAC[31:24];
+            end
+            else if (ram_cnt_be == 4 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_MAC[23:16];
+            end
+            else if (ram_cnt_be == 5 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_MAC[15: 8];
+            end
+            else if (ram_cnt_be == 6 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_MAC[ 7: 0];
+            end
+            else if (ram_cnt_be == 13 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_PROTO[15: 8];
+            end
+            else if (ram_cnt_be == 14 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_PROTO[ 7: 0];
+            end
+            else if (ram_cnt_be == 57 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_PORT[15: 8];
+            end
+            else if (ram_cnt_be == 58 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_DBG_PORT[ 7: 0];
+            end
+            else if (ram_cnt_be == 63 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_PARAM_PORT[15: 8];
+            end
+            else if (ram_cnt_be == 64 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  LLDP_PARAM_PORT[ 7: 0];
+            end
+            else begin
+                lldp_sel    <=  'b0;
+            end
+        end
+    end
+end
 
 //============================================  
 //tte state.   
@@ -883,7 +1046,9 @@ assign  data_ram_addrb = ram_cnt_be[10:0] | ram_cnt_tte[10:0] ;
 assign  calc = data_fifo_wr_dv | tte_fifo_wr_dv;
 assign  d_valid = data_fifo_wr_dv | tte_fifo_wr_dv;
 
-assign  data_fifo_din = (ptp_sel==1)?ptp_data:data_fifo_din_reg;
+assign  data_fifo_din   =   (lldp_sel==1)   ?   lldp_data   :
+                            (ptp_sel==1)    ?   ptp_data    : 
+                            data_fifo_din_reg;
 
 //============================================  
 //fifo used. 
