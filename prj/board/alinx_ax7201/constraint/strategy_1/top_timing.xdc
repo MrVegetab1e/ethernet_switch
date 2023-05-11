@@ -17,6 +17,9 @@ create_clock -period 40.000 -name MII_TX_CLK_2 [get_ports MII_TX_CLK_2]
 create_clock -period 8.000 -name GMII_RX_CLK_3 [get_ports GMII_RX_CLK_3]
 ############## ethernet PORT3 TX MII CLOCK define##############
 create_clock -period 40.000 -name MII_TX_CLK_3 [get_ports MII_TX_CLK_3]
+############## SPI sck define ###############
+create_clock -period 60.000 -name sck [get_ports sck]
+set_input_jitter sys_clk_p 0.5
 ############## generated clock constraint##############
 create_generated_clock -name emac0_ifclk_gmii -divide_by 1 [get_pins u_mac_top_0/u_mac_t_gmii/BUFGMUX_inst/O] -source [get_pins u_mac_top_0/u_mac_t_gmii/clk_out2] -add -master_clock clk_out2_clk_wiz_0
 create_generated_clock -name emac0_ifclk_mii  -divide_by 1 [get_pins u_mac_top_0/u_mac_t_gmii/BUFGMUX_inst/O] -source [get_pins u_mac_top_0/u_mac_t_gmii/MII_TX_CLK_0_IBUF] -add -master_clock MII_TX_CLK_0
@@ -35,8 +38,18 @@ create_generated_clock -name MDC_1 -source [get_pins u_pll/clk_out2] -divide_by 
 create_generated_clock -name MDC_2 -source [get_pins u_pll/clk_out2] -divide_by 250 [get_ports MDC_2]
 create_generated_clock -name MDC_3 -source [get_pins u_pll/clk_out2] -divide_by 250 [get_ports MDC_3]
 ############## create clock constraint##############
-set_input_delay -clock [get_clocks sck] -min 0.5 [get_ports {mosi csb}]
-set_input_delay -clock [get_clocks sck] -max 1.5 [get_ports {mosi csb}]
+set_input_delay -clock [get_clocks sck] -clock_fall -min -1.0 [get_ports {mosi csb}]
+set_input_delay -clock [get_clocks sck] -clock_fall -max  5.0 [get_ports {mosi csb}]
+set_output_delay -clock [get_clocks sck] -min -3.0 [get_ports {miso}]
+set_output_delay -clock [get_clocks sck] -max  7.0 [get_ports {miso}]
+set_clock_uncertainty -from sck -to clk_out1_clk_wiz_0 -setup 2.500
+set_clock_uncertainty -from clk_out1_clk_wiz_0 -to sck -setup 2.500
+set_multicycle_path -setup 3 -end -from [get_clocks sck] -to [get_clocks clk_out1_clk_wiz_0]
+# set_multicycle_path -hold 2 -end -from [get_clocks sck] -to [get_clocks clk_out1_clk_wiz_0]
+set_false_path -hold -from [get_clocks sck] -to [get_clocks clk_out1_clk_wiz_0]
+set_multicycle_path -setup 5 -start -from [get_clocks clk_out1_clk_wiz_0] -to [get_clocks sck]
+# set_multicycle_path -hold 2 -start -from [get_clocks clk_out1_clk_wiz_0] -to [get_clocks sck]
+set_false_path -hold -from [get_clocks clk_out1_clk_wiz_0] -to [get_clocks sck]
 
 set_input_delay -clock [get_clocks GMII_RX_CLK_0] -min 0.0 [get_ports {GMII_RX_DV_0 GMII_RX_ER_0 GMII_RXD_0[*]}]
 set_input_delay -clock [get_clocks GMII_RX_CLK_0] -max 6.0 [get_ports {GMII_RX_DV_0 GMII_RX_ER_0 GMII_RXD_0[*]}]

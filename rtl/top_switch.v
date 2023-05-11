@@ -244,7 +244,7 @@ module top_switch (
 
     mac_top #(
         .MAC_PORT(0),
-        .RX_DELAY(10)
+        .RX_DELAY(11)
     ) u_mac_top_0 (
         .clk(clk),
         .clk_ref(clk_in),
@@ -306,7 +306,7 @@ module top_switch (
 
     mac_top #(
         .MAC_PORT(1),
-        .RX_DELAY(10)
+        .RX_DELAY(11)
     ) u_mac_top_1 (
         .clk(clk),
         .clk_ref(clk_in),
@@ -369,7 +369,7 @@ module top_switch (
 
     mac_top #(
         .MAC_PORT(2),
-        .RX_DELAY(8)
+        .RX_DELAY(10)
     ) u_mac_top_2 (
         .clk(clk),
         .clk_ref(clk_in),
@@ -432,7 +432,7 @@ module top_switch (
 
     mac_top #(
         .MAC_PORT(3),
-        .RX_DELAY(8)
+        .RX_DELAY(10)
     ) u_mac_top_3 (
         .clk(clk),
         .clk_ref(clk_in),

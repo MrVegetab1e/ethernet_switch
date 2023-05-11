@@ -17,6 +17,7 @@ set_property IOSTANDARD LVCMOS33 [get_ports csb]
 
 set_property PACKAGE_PIN C22 [get_ports miso]
 set_property IOSTANDARD LVCMOS33 [get_ports miso]
+set_property SLEW FAST [get_ports miso]
 
 set_property PACKAGE_PIN A20 [get_ports mosi]
 set_property IOSTANDARD LVCMOS33 [get_ports mosi]
@@ -130,6 +131,8 @@ set_property PACKAGE_PIN L20 [get_ports {GMII_TXD_0[7]}]
 
 set_property IOSTANDARD LVCMOS33 [get_ports phy_rstn_0]
 set_property PACKAGE_PIN G20 [get_ports phy_rstn_0]
+
+set_property SLEW FAST [get_ports {GMII_TX_EN_0 GMII_TX_ER_0 GMII_TXD_0[*]}]
 ############## ethernet PORT1 RX define############
 set_property IOSTANDARD LVCMOS33 [get_ports GMII_RX_CLK_1]
 set_property PACKAGE_PIN J20 [get_ports GMII_RX_CLK_1]
@@ -202,6 +205,8 @@ set_property PACKAGE_PIN V15 [get_ports {GMII_TXD_1[7]}]
 
 set_property IOSTANDARD LVCMOS33 [get_ports phy_rstn_1]
 set_property PACKAGE_PIN L14 [get_ports phy_rstn_1]
+
+set_property SLEW FAST [get_ports {GMII_TX_EN_1 GMII_TX_ER_1 GMII_TXD_1[*]}]
 ############## ethernet PORT2 RX define############
 set_property IOSTANDARD LVCMOS33 [get_ports GMII_RX_CLK_2]
 set_property PACKAGE_PIN V13 [get_ports GMII_RX_CLK_2]
@@ -274,6 +279,8 @@ set_property PACKAGE_PIN AB10 [get_ports {GMII_TXD_2[7]}]
 
 set_property IOSTANDARD LVCMOS33 [get_ports phy_rstn_2]
 set_property PACKAGE_PIN T20 [get_ports phy_rstn_2]
+
+set_property SLEW FAST [get_ports {GMII_TX_EN_2 GMII_TX_ER_2 GMII_TXD_2[*]}]
 ############## ethernet PORT3 RX define############
 set_property IOSTANDARD LVCMOS33 [get_ports GMII_RX_CLK_3]
 set_property PACKAGE_PIN Y18 [get_ports GMII_RX_CLK_3]
@@ -346,3 +353,5 @@ set_property PACKAGE_PIN P19 [get_ports {GMII_TXD_3[7]}]
 
 set_property IOSTANDARD LVCMOS33 [get_ports phy_rstn_3]
 set_property PACKAGE_PIN R16 [get_ports phy_rstn_3]
+
+set_property SLEW FAST [get_ports {GMII_TX_EN_3 GMII_TX_ER_3 GMII_TXD_3[*]}]
