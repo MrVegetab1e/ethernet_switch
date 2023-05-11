@@ -4,8 +4,8 @@
 // Engineer: Athlon
 // 
 // Create Date: 2022/05/11 16:43:39
-// Design Name: GMII TX interface, version 3
-// Module Name: mac_t_gmii_tte_v3
+// Design Name: GMII TX interface, version 4
+// Module Name: mac_t_gmii_tte_v4
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -14,7 +14,7 @@
 // Dependencies: 
 // 
 // Revision:
-// Revision 0.01 - File Created
+// Revision 1.01 - Functionality Test Passed, mgnt function added
 // Additional Comments:
 // Only 2 step clock support available now, need refinement
 //////////////////////////////////////////////////////////////////////////////////
@@ -47,7 +47,14 @@ module mac_t_gmii_tte_v4(
     input           tptr_fifo_empty,
     // 1588 interface
     input   [31:0]  counter_ns,         // current time
-    output  [63:0]  counter_delay       // broadcast slave-master delay to rx port, update delay_resp
+    output  [31:0]  delay_fifo_din,
+    output reg      delay_fifo_wr,
+    input           delay_fifo_full,
+    // output  [63:0]  counter_delay,      // broadcast slave-master delay to rx port, update delay_resp
+    // mgnt interface
+    output          tx_mgnt_valid,
+    output  [15:0]  tx_mgnt_data,
+    input           tx_mgnt_resp
 );
 
     localparam  PTP_VALUE_HI        =   8'h88;  // high byte of ptp ethertype
@@ -77,60 +84,75 @@ module mac_t_gmii_tte_v4(
     localparam  PTP_TX_STATE_FUP3   =   128;// follow_up state 3, replace data with new correctionField
 
     // no jitter clk switch
-    reg     [ 1:0]  speed_reg;
-    wire            speed_change;
-    always @(posedge sys_clk or negedge rstn_sys) begin
-        if (!rstn_sys) begin
-            speed_reg   <=  2'b11;
-        end
-        else begin
-            speed_reg   <=  speed;
-        end
-    end
-    assign          speed_change =  |(speed ^ speed_reg);
+    // reg     [ 1:0]  speed_reg;
+    // wire            speed_change;
+    // always @(posedge sys_clk or negedge rstn_sys) begin
+    //     if (!rstn_sys) begin
+    //         speed_reg   <=  2'b11;
+    //     end
+    //     else begin
+    //         speed_reg   <=  speed;
+    //     end
+    // end
+    // assign          speed_change =  |(speed ^ speed_reg);
 
-    wire            tx_master_clk;
-    reg             tx_clk_en_reg_p;
-    reg             tx_clk_en_reg_n;
-    reg             gtx_clk_en_reg_p;
-    reg             gtx_clk_en_reg_n;
+    // wire            tx_master_clk;
+    // reg             tx_clk_en_reg_p;
+    // reg             tx_clk_en_reg_n;
+    // reg             gtx_clk_en_reg_p;
+    // reg             gtx_clk_en_reg_n;
 
-    always @(posedge tx_clk or posedge speed_change) begin
-        if (speed_change) begin
-            tx_clk_en_reg_p     <=  'b0;
-        end
-        else begin
-            tx_clk_en_reg_p     <=  !speed[1] && !gtx_clk_en_reg_n;
-        end
-    end 
-    always @(negedge tx_clk or posedge speed_change) begin
-        if (speed_change) begin
-            tx_clk_en_reg_n     <=  'b0;
-        end
-        else begin
-            tx_clk_en_reg_n     <=  tx_clk_en_reg_p;
-        end
-    end
+    // always @(posedge tx_clk or posedge speed_change) begin
+    //     if (speed_change) begin
+    //         tx_clk_en_reg_p     <=  'b0;
+    //     end
+    //     else begin
+    //         tx_clk_en_reg_p     <=  !speed[1] && !gtx_clk_en_reg_n;
+    //     end
+    // end 
+    // always @(negedge tx_clk or posedge speed_change) begin
+    //     if (speed_change) begin
+    //         tx_clk_en_reg_n     <=  'b0;
+    //     end
+    //     else begin
+    //         tx_clk_en_reg_n     <=  tx_clk_en_reg_p;
+    //     end
+    // end
 
-    always @(posedge gtx_clk or posedge speed_change) begin
-        if (speed_change) begin
-            gtx_clk_en_reg_p    <=  'b0;
-        end
-        else begin
-            gtx_clk_en_reg_p    <=  speed[1] && !tx_clk_en_reg_n;
-        end
-    end  
-    always @(negedge gtx_clk or negedge speed_change) begin
-        if (speed_change) begin
-            gtx_clk_en_reg_n    <=  'b0;
-        end
-        else begin
-            gtx_clk_en_reg_n    <=  gtx_clk_en_reg_p;
-        end
-    end
+    // always @(posedge gtx_clk or posedge speed_change) begin
+    //     if (speed_change) begin
+    //         gtx_clk_en_reg_p    <=  'b0;
+    //     end
+    //     else begin
+    //         gtx_clk_en_reg_p    <=  speed[1] && !tx_clk_en_reg_n;
+    //     end
+    // end  
+    // always @(negedge gtx_clk or negedge speed_change) begin
+    //     if (speed_change) begin
+    //         gtx_clk_en_reg_n    <=  'b0;
+    //     end
+    //     else begin
+    //         gtx_clk_en_reg_n    <=  gtx_clk_en_reg_p;
+    //     end
+    // end
 
-    assign  tx_master_clk   =   (tx_clk_en_reg_n && tx_clk) || (gtx_clk_en_reg_n && gtx_clk);
-    assign  interface_clk   =   tx_master_clk;
+    // assign  tx_master_clk   =   (tx_clk_en_reg_n && tx_clk) || (gtx_clk_en_reg_n && gtx_clk);
+    // // assign  interface_clk   =   tx_master_clk;
+
+    // BUFG BUFG_inst (
+    //     .O(interface_clk),    // 1-bit output: Clock output
+    //     .I(tx_master_clk)     // 1-bit input: Clock input
+    // );
+
+    BUFGMUX #(
+        .CLK_SEL_TYPE("ASYNC")
+    ) BUFGMUX_inst (
+        .O(interface_clk),   // 1-bit output: Clock output
+        .I0(tx_clk), // 1-bit input: Clock input (S=0)
+        .I1(gtx_clk), // 1-bit input: Clock input (S=1)
+        .S(speed[1])    // 1-bit input: Clock select
+    );
+
 
     reg     [ 5:0]  tx_state, tx_state_next;
     reg     [95:0]  tx_buffer;      // extended buffer for PTP operations
@@ -139,7 +161,7 @@ module mac_t_gmii_tte_v4(
 
     reg             tx_arb_dir;
     reg     [11:0]  tx_cnt_front;   // frontend count
-    reg     [11:0]  tx_cnt_front_1;
+    reg     [ 4:0]  tx_cnt_front_1;
     reg     [11:0]  tx_cnt_back;    // backend count
     reg     [11:0]  tx_cnt_back_1;
     reg     [11:0]  tx_byte_cnt;    // total byte count
@@ -184,14 +206,18 @@ module mac_t_gmii_tte_v4(
             'd01: tx_state_next = (!tptr_fifo_empty || !ptr_fifo_empty) ? 'd2 : 'd1;
             'd02: tx_state_next = 'd4;
             'd04: tx_state_next = 'd8;
-            'd08: tx_state_next = (tx_cnt_front == tx_byte_cnt) ? 'd16 : 'd8;
-            'd16: tx_state_next = (tx_cnt_back == 12'hFF8) ? 'd32 : 'd16;
-            'd32: tx_state_next = (tx_cnt_front_1 == 7) ? 'd1 : 'd32; 
+            'd08: tx_state_next = (tx_cnt_front == tx_byte_cnt) && (speed[1] || tx_read_req) ? 'd16 : 'd8;
+            // 'd08: tx_state_next = (tx_cnt_front == tx_byte_cnt) ? 'd16 : 'd8;
+            // 'd16: tx_state_next = (tx_cnt_back == 12'hFF8) ? 'd32 : 'd16;
+            // 'd16: tx_state_next = (tx_cnt_back_1 == 12'hFFA) && (speed[1] || tx_read_req)? 'd32 : 'd16;
+            // 'd32: tx_state_next = (tx_cnt_front_1 == 1) && (speed[1] || tx_read_req)? 'd1 : 'd32; 
+            'd16: tx_state_next = (tx_cnt_front_1 == 'h17) ? 'd1 : 'd16;
             default: tx_state_next = tx_state;
         endcase
     end
 
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge interface_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             tx_state    <=  1;
         end
@@ -200,33 +226,37 @@ module mac_t_gmii_tte_v4(
         end
     end
 
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge interface_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             tx_cnt_front    <=  'b1;
-            tx_cnt_front_1  <=  'b0;
+            tx_cnt_front_1  <=  'h2;
             tx_byte_valid   <=  'b0;
         end
         else begin
             if (data_fifo_rd || tdata_fifo_rd) begin
                 tx_cnt_front    <=  tx_cnt_front + 1'b1;
             end
-            else if (tx_state_next == 1) begin
+            // else if (tx_state_next == 1) begin
+            else if (tx_state_next[0]) begin
                 // tx_cnt_front    <=  speed[1];
                 tx_cnt_front    <=  'b1;
             end
-            if (tx_state_next == 32) begin
+            // if (tx_state_next == 32) begin
+            if (tx_state[4]) begin
                 if (speed[1] || tx_read_req) begin
                     tx_cnt_front_1  <=  tx_cnt_front_1 + 1'b1;
                 end
             end
             else begin
-                tx_cnt_front_1  <=  'b0;
+                tx_cnt_front_1  <=  speed[1] ? 'h2 : 'b0;
             end
             tx_byte_valid   <=  {tx_byte_valid[0], (data_fifo_rd || tdata_fifo_rd)};
         end
     end
 
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge interface_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             tx_arb_dir      <=  'b0;
             ptr_fifo_rd     <=  'b0;
@@ -237,7 +267,8 @@ module mac_t_gmii_tte_v4(
             tx_read_req     <=  'b1;
         end        
         else begin
-            if (tx_state_next == 1) begin
+            // if (tx_state_next == 1) begin
+            if (tx_state_next[0]) begin
                 ptr_fifo_rd     <=  'b0;
                 tptr_fifo_rd    <=  'b0;
                 data_fifo_en    <=  'b0;
@@ -245,31 +276,37 @@ module mac_t_gmii_tte_v4(
                 tx_byte_cnt     <=  'b0;
                 tx_read_req     <=  'b1;
             end
-            else if (tx_state_next == 2) begin
+            // else if (tx_state_next == 2) begin
+            else if (tx_state_next[1]) begin
                 tx_arb_dir      <=  !tptr_fifo_empty;
                 ptr_fifo_rd     <=  tptr_fifo_empty;
                 tptr_fifo_rd    <=  !tptr_fifo_empty;
                 tx_read_req     <=  !tx_read_req;
             end
-            else if (tx_state_next == 4) begin
+            // else if (tx_state_next == 4) begin
+            else if (tx_state_next[2]) begin
                 ptr_fifo_rd     <=  'b0;
                 tptr_fifo_rd    <=  'b0;
                 data_fifo_en    <=  !tx_arb_dir;
                 tdata_fifo_en   <=  tx_arb_dir;
                 tx_read_req     <=  !tx_read_req;
             end
-            else if (tx_state_next == 8) begin
-                tx_byte_cnt     <=  tx_ptr_in[11:0] + !speed[1];
+            // else if (tx_state_next == 8) begin
+            else if (tx_state_next[3]) begin
+                // tx_byte_cnt     <=  tx_ptr_in[11:0] + !speed[1];
+                tx_byte_cnt     <=  tx_ptr_in[11:0];
                 tx_read_req     <=  !tx_read_req;
             end
-            else if (tx_state_next == 16) begin
+            // else if (tx_state_next == 16) begin
+            else if (tx_state_next[4]) begin
                 data_fifo_en    <=  'b0;
                 tdata_fifo_en   <=  'b0;
                 tx_read_req     <=  !tx_read_req;
             end
-            else if (tx_state_next == 32) begin
-                tx_read_req     <=  !tx_read_req;
-            end
+            // else if (tx_state_next == 32) begin
+            // else if (tx_state_next[5]) begin
+                // tx_read_req     <=  !tx_read_req;
+            // end
         end
     end
 
@@ -335,7 +372,8 @@ module mac_t_gmii_tte_v4(
         endcase
     end
 
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge interface_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             ptp_state   <=  PTP_TX_STATE_IDL1;
         end
@@ -357,7 +395,8 @@ module mac_t_gmii_tte_v4(
         end
     end
 
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge interface_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             ptp_time_now        <=  'b0;
             ptp_time_req_mac    <=  'b0;    // pulse signal
@@ -372,7 +411,22 @@ module mac_t_gmii_tte_v4(
         end
     end
 
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge interface_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            delay_fifo_wr   <=  'b0;
+        end
+        else begin
+            if (ptp_state == PTP_TX_STATE_DYRQ && tx_cnt_front == 40 && (speed[1] || tx_read_req)) begin
+                delay_fifo_wr   <=  !delay_fifo_full;
+            end
+            else begin
+                delay_fifo_wr   <=  'b0;
+            end
+        end
+    end
+
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge interface_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             tx_buf_cf           <=  'b0;
             ptp_cf              <=  'b0;
@@ -494,7 +548,8 @@ module mac_t_gmii_tte_v4(
 
     assign  {ptp_carry, ptp_cf_add}         =   tx_buf_cf[47:40] + ptp_delay_sync[7:0] + ptp_carry_reg;
     assign  {ptp_carry_1, ptp_cf_add_1}     =   tx_buf_cf[47:40] + ptp_carry_reg;
-    assign  counter_delay   =   {16'b0, ptp_delay_req, 16'b0};
+    // assign  counter_delay   =   {16'b0, ptp_delay_req, 16'b0};
+    assign  delay_fifo_din  =   ptp_delay_req;
 
     reg     [ 3:0]  mii_state, mii_state_next;
 
@@ -502,21 +557,23 @@ module mac_t_gmii_tte_v4(
     reg             mii_dv;
 
     wire    [ 7:0]  mii_d_in;
-    assign          mii_d_in    =   (mii_state == 'h08)                 ?   crc_dout        :
+    // assign          mii_d_in    =   (mii_state == 'h08)                 ?   crc_dout        :
+    assign          mii_d_in    =   (mii_state[3])                      ?   crc_dout        :
                                     (ptp_state == PTP_TX_STATE_FUP3)    ?   ptp_cf[47:40]   :
                                     tx_buffer[7:0];
 
     always @(*) begin
         case(mii_state)
-            'h01: mii_state_next = tx_buf_rdy[3] ? 'h2 : 'h1;
-            'h02: mii_state_next = (tx_cnt_back_1 == 0) ? 'h4 : 'h2;
+            'h01: mii_state_next = tx_buf_rdy[3] && (speed[1] || tx_read_req)? 'h2 : 'h1;
+            'h02: mii_state_next = (tx_cnt_back_1 == 0) && (speed[1] || tx_read_req) ? 'h4 : 'h2;
             'h04: mii_state_next = (tx_cnt_back_1 == tx_byte_cnt) && (speed[1] || tx_read_req) ? 'h8 : 'h4;
             'h08: mii_state_next = !tx_buf_rdy[3] && (speed[1] || tx_read_req) ? 'h1 : 'h8;
             default: mii_state_next = mii_state; 
         endcase
     end
 
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge interface_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             mii_state   <=  'h1;
         end
@@ -525,7 +582,8 @@ module mac_t_gmii_tte_v4(
         end
     end
 
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge interface_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             tx_buf_rdy  <=  'b0;
             crc_init    <=  'b0;
@@ -536,26 +594,31 @@ module mac_t_gmii_tte_v4(
             if (tx_byte_valid[1]) begin
                 tx_buf_rdy  <=  {tx_buf_rdy[2:0], 1'b1};
             end
-            else if (mii_state == 'h08 && (speed[1] || tx_read_req)) begin
+            // else if (mii_state == 'h08 && (speed[1] || tx_read_req)) begin
+            else if (mii_state[3] && (speed[1] || tx_read_req)) begin
                 tx_buf_rdy  <=  {tx_buf_rdy[2:0], 1'b0};
             end
-            if (mii_state_next == 'h01) begin
+            // if (mii_state_next == 'h01) begin
+            if (mii_state_next[0]) begin
                 crc_init    <=  'b0;
                 crc_cal     <=  'b0;
                 crc_dv      <=  'b0;
             end
-            else if (mii_state_next == 'h02) begin
+            // else if (mii_state_next == 'h02) begin
+            else if (mii_state_next[1]) begin
                 crc_init    <=  'b1;
                 crc_cal     <=  'b0;
                 crc_dv      <=  'b0;
             end
-            else if (mii_state_next == 'h04) begin
+            // else if (mii_state_next == 'h04) begin
+            else if (mii_state_next[2]) begin
                 crc_init    <=  'b0;
                 crc_cal     <=  'b1;
                 // crc_dv      <=  'b1;
                 crc_dv      <=  (speed[1] || tx_read_req);
             end
-            else if (mii_state_next == 'h08) begin
+            // else if (mii_state_next == 'h08) begin
+            else if (mii_state_next[3]) begin
                 crc_init    <=  'b0;
                 crc_cal     <=  'b0;
                 // crc_dv      <=  'b1;
@@ -564,31 +627,35 @@ module mac_t_gmii_tte_v4(
         end
     end
 
-    always @(posedge tx_master_clk or negedge rstn_mac) begin
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge interface_clk or negedge rstn_mac) begin
         if (!rstn_mac) begin
             tx_buffer       <=  {8'hd5, {7{8'h55}}, {4{8'b0}}};
             // tx_buf_cf       <=  'b0;
-            tx_cnt_back     <=  12'hFF8;
-            tx_cnt_back_1   <=  12'hFF9;
+            // tx_cnt_back     <=  12'hFF8;
+            tx_cnt_back_1   <=  12'hFFA;
             mii_d           <=  'b0;
             mii_dv          <=  'b0;
         end
         else begin  // initialize tx buffer
-            if (tx_state_next == 1) begin
+            // if (tx_state == 1) begin
+            if (tx_state[0]) begin
                 tx_buffer   <=  {8'hd5, {7{8'h55}}, {4{8'b0}}};
             end
             else if (tx_byte_valid[1]) begin
                 tx_buffer   <=  {tx_data_in, tx_buffer[95:8]};
             end
-            else if (mii_state_next != 1 && (speed[1] || tx_read_req)) begin
+            // else if (mii_state_next != 1 && (speed[1] || tx_read_req)) begin
+            else if (!mii_state_next[0] && (speed[1] || tx_read_req)) begin
                 tx_buffer   <=  {tx_data_in, tx_buffer[95:8]};
             end
-            if (mii_state_next != 1) begin
-                if ((speed[1] || tx_read_req)) begin
+            // if (mii_state_next != 1) begin
+            if (!mii_state_next[0]) begin
+                if (speed[1] || tx_read_req) begin
                     mii_d           <=  mii_d_in;
                     mii_dv          <=  1'b1;
-                    tx_cnt_back     <=  tx_cnt_back_1;
-                    tx_cnt_back_1   <=  tx_cnt_back_1 + 1'b1;
+                    // tx_cnt_back     <=  tx_cnt_back_1;
+                    // tx_cnt_back_1   <=  tx_cnt_back_1 + 1'b1;
                 end
                 else begin
                     mii_d           <=  mii_d >> 4;
@@ -596,8 +663,17 @@ module mac_t_gmii_tte_v4(
             end
             else begin
                 mii_dv          <=  'b0;
-                tx_cnt_back     <=  12'hFF8;
-                tx_cnt_back_1   <=  12'hFF9;
+                // tx_cnt_back     <=  12'hFF8;
+                // tx_cnt_back_1   <=  12'hFF9;
+            end
+            // if (mii_state != 1) begin
+            if (!mii_state[0]) begin
+                if (speed[1] || tx_read_req) begin
+                    tx_cnt_back_1   <=  tx_cnt_back_1 + 1'b1;
+                end
+            end
+            else begin
+                tx_cnt_back_1   <=  12'hFFA;
             end
             // if (!tx_buf_rdy[3] && tx_byte_valid[1]) begin
             //     tx_buffer       <=  {tx_data_in, tx_buffer[95:8]};
@@ -633,7 +709,8 @@ module mac_t_gmii_tte_v4(
     assign      gtx_dv  =   mii_dv;
 
     crc32_8023 u_crc32_8023(
-        .clk(tx_master_clk), 
+        // .clk(tx_master_clk), 
+        .clk(interface_clk),
         .reset(!rstn_mac), 
         .d(mii_d_in), 
         .load_init(crc_init),
@@ -642,5 +719,63 @@ module mac_t_gmii_tte_v4(
         .crc_reg(crc_result), 
         .crc(crc_dout)
     );
+
+    reg [ 2:0]  mgnt_state, mgnt_state_next;
+    reg [11:0]  mgnt_cnt;
+    reg [ 3:0]  mgnt_flag;
+
+    always @(*) begin
+        case(mgnt_state)
+            1: mgnt_state_next =    (tx_state[1]) ? 2 : 1;
+            2: mgnt_state_next =    4;
+            4: mgnt_state_next =    tx_mgnt_resp ? 1 : 4;
+            default: mgnt_state_next =  mgnt_state;
+        endcase
+    end
+
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge interface_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            mgnt_state  <=  1;
+        end
+        else begin
+            mgnt_state  <=  mgnt_state_next;
+        end
+    end
+
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    always @(posedge interface_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            mgnt_cnt    <=  'b0;
+            mgnt_flag   <=  'b0;
+        end
+        else begin
+            if (mgnt_state[0] && tx_state[1]) begin
+                mgnt_flag[3]    <=  tx_arb_dir;
+            end
+            if (mgnt_state[1]) begin
+                mgnt_cnt        <=  tx_ptr_in[11:0];
+            end 
+        end
+    end
+
+    assign  tx_mgnt_valid   =   (mgnt_state == 4);
+    assign  tx_mgnt_data    =   {mgnt_flag, mgnt_cnt};
+
+    // (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_t_pkt_be;
+    // (*MARK_DEBUG="true"*)   reg [15:0] dbg_mac_t_pkt_tte;
+
+    // always @(posedge tx_master_clk or negedge rstn_mac) begin
+    //     if (!rstn_mac) begin
+    //         dbg_mac_t_pkt_be    <=  'b0;
+    //         dbg_mac_t_pkt_tte   <=  'b0;
+    //     end
+    //     else begin
+    //         dbg_mac_t_pkt_be    <=  !tx_arb_dir ? dbg_mac_t_pkt_be + 1'b1 : dbg_mac_t_pkt_be;
+    //         if (tptr_fifo_rd) begin
+    //             dbg_mac_t_pkt_tte   <=  tx_arb_dir ? dbg_mac_t_pkt_tte + 1'b1 : dbg_mac_t_pkt_tte;
+    //         end
+    //     end
+    // end
 
 endmodule

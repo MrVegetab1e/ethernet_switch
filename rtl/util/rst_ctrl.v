@@ -27,9 +27,9 @@ module rst_ctrl(
     input       pll_locked,
 
     // output      rstn_pll,
-    output reg  rstn_sys,
-    output reg  rstn_mac,
-    output reg  rstn_phy
+    (*MAX_FANOUT=100*) output reg  rstn_sys,
+    (*MAX_FANOUT=100*) output reg  rstn_mac,
+    (*MAX_FANOUT=100*) output reg  rstn_phy
 );
 
     localparam  RST_STATE_INIT = 1; // initial state, wait for PLL locked

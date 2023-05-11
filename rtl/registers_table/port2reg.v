@@ -111,7 +111,7 @@ always @(posedge clk or negedge rst_n)begin
             tx_state <=#DELAY 2;
         end
         2: begin
-            tx_flow <= rx_flow + tx_status_fifo_dout[11:0];
+            tx_flow <= tx_flow + tx_status_fifo_dout[11:0];
             tx_state <=#DELAY 0;
         end
         3: begin

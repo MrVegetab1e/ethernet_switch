@@ -1,11 +1,17 @@
 `timescale 1ns / 1ps
-module switch_top (
+module switch_top_v2 (
     input clk,
     input rstn,
 
-    input       sof,
-    input       dv,
-    input [7:0] din,
+    // input       sof,
+    // input       dv,
+    // input [7:0] din,
+
+    input [127:0] i_cell_data_fifo_dout,
+    input         i_cell_data_fifo_wr,
+    input [ 15:0] i_cell_ptr_fifo_dout,
+    input         i_cell_ptr_fifo_wr,
+    output        i_cell_bp,
 
     input         interface_clk0,
     input         interface_clk1,
@@ -33,11 +39,11 @@ module switch_top (
     output        ptr_fifo_empty3
 );
 
-    wire [127:0] i_cell_data_fifo_dout;
-    wire         i_cell_data_fifo_wr;
-    wire [ 15:0] i_cell_ptr_fifo_dout;
-    wire         i_cell_ptr_fifo_wr;
-    wire         i_cell_bp;
+    // wire [127:0] i_cell_data_fifo_dout;
+    // wire         i_cell_data_fifo_wr;
+    // wire [ 15:0] i_cell_ptr_fifo_dout;
+    // wire         i_cell_ptr_fifo_wr;
+    // wire         i_cell_bp;
 
 
     wire [  3:0] o_cell_fifo_wr;
@@ -49,22 +55,22 @@ module switch_top (
     wire [  3:0] o_cell_bp;
 
 
-    switch_pre pre (
-        .clk (clk),
-        .rstn(rstn),
+    // switch_pre pre (
+    //     .clk (clk),
+    //     .rstn(rstn),
 
-        .sof(sof),
-        .dv (dv),
-        .din(din),
+    //     .sof(sof),
+    //     .dv (dv),
+    //     .din(din),
 
-        .i_cell_data_fifo_dout(i_cell_data_fifo_dout),
-        .i_cell_data_fifo_wr(i_cell_data_fifo_wr),
-        .i_cell_ptr_fifo_dout(i_cell_ptr_fifo_dout),
-        .i_cell_ptr_fifo_wr(i_cell_ptr_fifo_wr),
-        .i_cell_bp(i_cell_bp)
-    );
+    //     .i_cell_data_fifo_dout(i_cell_data_fifo_dout),
+    //     .i_cell_data_fifo_wr(i_cell_data_fifo_wr),
+    //     .i_cell_ptr_fifo_dout(i_cell_ptr_fifo_dout),
+    //     .i_cell_ptr_fifo_wr(i_cell_ptr_fifo_wr),
+    //     .i_cell_bp(i_cell_bp)
+    // );
 
-    switch_core core (
+    switch_core_v2 core (
         .clk (clk),
         .rstn(rstn),
 

@@ -64,9 +64,12 @@ initial begin
 	m=0;
 	end
 
+reg [7:0] frame_lldp [67:0];
+
 // Instantiate the Unit Under Test (UUT)
-mac_r_gmii mac_r_gmii (
-	.rstn(rstn), 
+mac_r_gmii_tte mac_r_gmii (
+	.rstn_sys(rstn), 
+	.rstn_mac(rstn), 
 	.clk(clk),
 	.rx_clk(rx_clk), 
 	.rx_dv(rx_dv), 
@@ -83,12 +86,9 @@ mac_r_gmii mac_r_gmii (
 	.tteptr_fifo_rd(tteptr_fifo_rd),
 	.tteptr_fifo_dout(tteptr_fifo_dout),
 	.tteptr_fifo_empty(tteptr_fifo_empty),
-	.status_fifo_rd(status_fifo_rd),
-	.status_fifo_dout(status_fifo_dout),
-	.status_fifo_empty(status_fifo_empty),
-	.counter_ns(counter_ns),
-	.counter_ns_tx_delay(counter_ns_tx_delay),
-	.counter_ns_gtx_delay(counter_ns_gtx_delay)
+	.counter_ns(counter_ns)
+	// .counter_ns_tx_delay(counter_ns_tx_delay),
+	// .counter_ns_gtx_delay(counter_ns_gtx_delay)
 );
 
 initial begin
@@ -103,44 +103,51 @@ initial begin
 	tte_fifo_rd = 0;
 	tteptr_fifo_rd = 0;
 	status_fifo_rd = 0;
-	speed[1:0] = 2'b10;//ethernet speed 00:10M 01:100M 10:1000M
+	speed[1:0] = 2'b01;//ethernet speed 00:10M 01:100M 10:1000M
+
+    $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/lldp_1.txt",
+        	  frame_lldp);
 
 	// Wait 100 ns for global reset to finish
 	#100;
     rstn=1;
 	// Add stimulus here
 	#800;
-    send_mac_frame_gmii(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
-	repeat(22)@(posedge rx_clk);
-    send_mac_frame_gmii(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
-    repeat(22)@(posedge rx_clk);		
-    send_mac_frame_gmii(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
-    repeat(22)@(posedge rx_clk);
-    send_mac_frame_gmii(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b1);
-    repeat(22)@(posedge rx_clk);
-	send_mac_frame_gmii(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b1);
-    repeat(22)@(posedge rx_clk);
-	send_mac_frame_gmii(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b1);
-    repeat(22)@(posedge rx_clk);
-	send_mac_frame_gmii(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b1);
-    repeat(22)@(posedge rx_clk);
-	send_mac_frame_gmii(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b0);
-	// send_mac_frame(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
-    // repeat(22)@(posedge rx_clk);		
-	// send_mac_frame(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
-    // repeat(22)@(posedge rx_clk);	
-    // send_mac_frame(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b1);
+	// send_lldp_frame_gmii(68,1'b0);
     // repeat(22)@(posedge rx_clk);
-	// send_mac_frame(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b1);
-    // repeat(22)@(posedge rx_clk);
-    // send_mac_frame(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
-    // repeat(22)@(posedge rx_clk);
-    // send_mac_frame(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b0);
-    // repeat(22)@(posedge rx_clk);
-    // send_mac_frame(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+    // send_mac_frame_gmii(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
 	// repeat(22)@(posedge rx_clk);
-	// send_mac_frame(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b0);
-    
+    // send_mac_frame_gmii(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
+    // repeat(22)@(posedge rx_clk);		
+    // send_mac_frame_gmii(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
+    // repeat(22)@(posedge rx_clk);
+    // send_mac_frame_gmii(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b1);
+    // repeat(22)@(posedge rx_clk);
+	// send_mac_frame_gmii(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b1);
+    // repeat(22)@(posedge rx_clk);
+	// send_mac_frame_gmii(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b1);
+    // repeat(22)@(posedge rx_clk);
+	// send_mac_frame_gmii(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b1);
+    // repeat(22)@(posedge rx_clk);
+	// send_mac_frame_gmii(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b0);
+	send_lldp_frame(68,1'b0);
+    repeat(22)@(posedge rx_clk);
+	send_mac_frame(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
+    repeat(22)@(posedge rx_clk);		
+	send_mac_frame(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
+    repeat(22)@(posedge rx_clk);	
+    send_mac_frame(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b1);
+    repeat(22)@(posedge rx_clk);
+	send_mac_frame(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b1);
+    repeat(22)@(posedge rx_clk);
+    send_mac_frame(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+    repeat(22)@(posedge rx_clk);
+    send_mac_frame(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b0);
+    repeat(22)@(posedge rx_clk);
+    send_mac_frame(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+	repeat(22)@(posedge rx_clk);
+	send_mac_frame(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b0);
+    $finish;
 end
 
 reg	[31:0]	counter;
@@ -240,6 +247,56 @@ begin
 	end
 endtask
 
+task send_lldp_frame_gmii;
+input	[10:0]	length;
+input			crc_error_insert;
+integer 		i;	
+reg		[7:0]	mii_din;
+reg		[31:0]	fcs;
+begin 
+	fcs=0;
+	gm_rx_d = 0;
+	rx_dv = 0;
+	repeat(1)@(posedge rx_clk);
+	#2;
+	repeat(1)@(posedge rx_clk);
+	#2;
+	rx_dv = 1;
+	gm_rx_d=8'h55;
+	repeat(7)@(posedge rx_clk);
+	#2;
+	gm_rx_d=8'hd5;	
+	repeat(1)@(posedge rx_clk);
+	#2;
+	for(i=0;i<length;i=i+1)begin
+		mii_din=frame_lldp[i];
+		mem_send[i]=mii_din;
+		calc_crc(mii_din,fcs);
+		//start to send data.
+		gm_rx_d=mii_din;
+		repeat(1)@(posedge rx_clk);
+		#2;
+		end
+	
+	if(crc_error_insert)fcs=~fcs;
+	
+	gm_rx_d=fcs[7:0];
+	repeat(1)@(posedge rx_clk);
+	#2;
+	gm_rx_d=fcs[15:8];
+	repeat(1)@(posedge rx_clk);
+	#2;
+	gm_rx_d=fcs[23:16];
+	repeat(1)@(posedge rx_clk);
+	#2;
+	gm_rx_d=fcs[31:24];
+	repeat(1)@(posedge rx_clk);
+	#2;
+	rx_dv=0;
+	repeat(1)@(posedge rx_clk);
+	m=m+14;
+	end
+endtask
 
 task send_mac_frame;
 input	[10:0]	length;
@@ -325,6 +382,72 @@ begin
 	end
 endtask
 
+task send_lldp_frame;
+input	[10:0]	length;
+input			crc_error_insert;
+integer 		i;	
+reg		[7:0]	mii_din;
+reg		[31:0]	fcs;
+begin 
+	fcs=0;
+	gm_rx_d = 0;
+	rx_dv = 0;
+	repeat(1)@(posedge rx_clk);
+	#2;
+	repeat(1)@(posedge rx_clk);
+	#2;
+	rx_dv = 1;
+	gm_rx_d=8'h5;
+	repeat(15)@(posedge rx_clk);
+	#2;
+	gm_rx_d=8'hd;	
+	repeat(1)@(posedge rx_clk);
+	#2;
+	for(i=0;i<length;i=i+1)begin
+		//emac head
+		mii_din=frame_lldp[i];
+		mem_send[i]=mii_din;
+		calc_crc(mii_din,fcs);
+		//start to send data.
+		gm_rx_d=mii_din[3:0];
+		repeat(1)@(posedge rx_clk);
+		#2;
+		gm_rx_d=mii_din[7:4];
+		repeat(1)@(posedge rx_clk);
+		#2;
+		end
+	
+	if(crc_error_insert)fcs=~fcs;
+	
+	gm_rx_d=fcs[3:0];
+	repeat(1)@(posedge rx_clk);
+	#2;
+	gm_rx_d=fcs[7:4];
+	repeat(1)@(posedge rx_clk);
+	#2;
+	gm_rx_d=fcs[11:8];
+	repeat(1)@(posedge rx_clk);
+	#2;
+	gm_rx_d=fcs[15:12];
+	repeat(1)@(posedge rx_clk);
+	#2;
+	gm_rx_d=fcs[19:16];
+	repeat(1)@(posedge rx_clk);
+	#2;
+	gm_rx_d=fcs[23:20];
+	repeat(1)@(posedge rx_clk);
+	#2;
+	gm_rx_d=fcs[27:24];
+	repeat(1)@(posedge rx_clk);
+	#2;
+	gm_rx_d=fcs[31:28];
+	repeat(1)@(posedge rx_clk);
+	#2;
+	rx_dv=0;
+	repeat(1)@(posedge rx_clk);
+	m=m+14;
+	end
+endtask
 
 task calc_crc;
 input	[7:0]  	data;
