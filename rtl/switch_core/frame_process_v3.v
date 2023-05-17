@@ -27,7 +27,7 @@ module frame_process_v3 (
     output reg         sfifo_rd,
     input       [ 7:0] sfifo_dout,
     output reg         ptr_sfifo_rd,
-    input       [15:0] ptr_sfifo_dout,
+    input       [19:0] ptr_sfifo_dout,
     input              ptr_sfifo_empty,
 
     output reg  [47:0] se_mac,
@@ -60,6 +60,7 @@ module frame_process_v3 (
     reg     [127:0]     frp_buf;
     reg     [0:127]     frp_dout_buf;
     reg     [ 15:0]     frp_header;
+    (*MARK_DEBUG = "TRUE"*) reg     [  3:0]     frp_lldp_prert;
 
     reg     [ 10:0]     frp_cnt_front;
     reg     [ 10:0]     frp_cnt_back;
@@ -159,11 +160,14 @@ module frame_process_v3 (
             se_source       <=  'b0;
             se_req          <=  'b0;
             source_portmap  <=  'b0;
+            frp_lldp_prert  <=  'b0;
             frp_header      <=  'b0;
         end
         else begin
             if (frp_fnt_state[2]) begin
-                source_portmap  <=  {12'b0, ptr_sfifo_dout[14:11]};
+                // source_portmap  <=  {12'b0, ptr_sfifo_dout[14:11]};
+                source_portmap  <=  {12'b0, ptr_sfifo_dout[15:12]};
+                frp_lldp_prert  <=  ptr_sfifo_dout[19:16];
             end
             // if (frp_cnt_front == 'h8) begin
             //     se_mac          <=  {frp_buf[39:0], sfifo_dout};
@@ -183,11 +187,11 @@ module frame_process_v3 (
             end
             // if (frp_cnt_front == 'h8) begin
             if (frp_cnt_front == 'h9) begin
-                se_req          <=  'b1;
+                se_req          <=  !frp_buf[40];
             end
             // else if (frp_cnt_front == 'hE) begin
             else if (frp_cnt_front == 'hF) begin
-                se_req          <=  'b1;
+                se_req          <=  !frp_buf[40];
             end
             else begin
                 se_req          <=  'b0;
@@ -195,7 +199,21 @@ module frame_process_v3 (
             // if (frp_cnt_front == 'hE) begin
             if (frp_cnt_front == 'hF) begin
                 // frp_header      <=  {(se_result && link), 1'b0, frp_len_1};
-                frp_header      <=  {1'b0, frp_len_1[10:8], (se_result[ 3:0] & link), frp_len_1[7:0]};
+                if (frp_lldp_prert != 0) begin
+                    frp_header      <=  {1'b0, frp_len_1[10:8], 
+                                        (frp_lldp_prert & link), 
+                                        frp_len_1[7:0]};                 
+                end
+                else if (se_mac[40]) begin
+                    frp_header      <=  {1'b0, frp_len_1[10:8], 
+                                        (~source_portmap[ 3:0] & link), 
+                                        frp_len_1[7:0]};
+                end
+                else begin
+                    frp_header      <=  {1'b0, frp_len_1[10:8], 
+                                        (se_result[ 3:0] & link), 
+                                        frp_len_1[7:0]};
+                end
             end
         end
     end

@@ -35,7 +35,7 @@ input       [1:0]   speed,  //ethernet speed 00:10M 01:100M 10:1000M
 input               data_fifo_rd,
 output      [7:0]   data_fifo_dout,
 input               ptr_fifo_rd, 
-output      [15:0]  ptr_fifo_dout,
+output      [19:0]  ptr_fifo_dout,
 output              ptr_fifo_empty,
 input               tte_fifo_rd,
 output      [7:0]   tte_fifo_dout,
@@ -65,8 +65,8 @@ parameter   LLDP_VALUE_HI       =   8'h08;
 parameter   LLDP_VALUE_LO       =   8'h01;
 parameter   LLDP_PARAM_PORT     =   16'h1;
 parameter   LLDP_DBG_PROTO      =   16'h0800;
-parameter   LLDP_DBG_MAC        =   48'h60BEB40363E8;
-parameter   LLDP_DBG_PORT       =   16'h4;
+parameter   LLDP_DBG_MAC        =   48'h60BEB403060E;
+parameter   LLDP_DBG_PORT       =   16'h1;
 
 //============================================  
 //generte ptp message    
@@ -463,9 +463,13 @@ reg             data_fifo_wr;
 reg             data_fifo_wr_reg;
 wire            data_fifo_wr_dv;
 wire    [11:0]  data_fifo_depth;
-reg     [15:0]  ptr_fifo_din;
+reg     [19:0]  ptr_fifo_din;
 reg             ptr_fifo_wr;
 wire            ptr_fifo_full;
+
+reg [ 7:0] lldp_state, lldp_state_next;
+reg [ 7:0] lldp_data;
+reg        lldp_sel;
 
 assign  ram_cnt_be = speed[1]?ram_nibble_be:{1'b0,ram_nibble_be[12:1]};
 assign  data_fifo_wr_dv = data_fifo_wr_reg & (ram_nibble_be[0] | speed[1]); 
@@ -540,6 +544,9 @@ always @(posedge rx_clk  or negedge rstn_mac)
             else ptr_fifo_din[15]<=#DELAY 0;
             if(crc_result==CRC_RESULT_VALUE) ptr_fifo_din[13]<=#DELAY 1'b0;
             else ptr_fifo_din[13]<=#DELAY 1'b1;
+            // lldp pre-route
+            if(!lldp_state[0]) ptr_fifo_din[19:16]<=#DELAY LLDP_DBG_PORT[3:0];
+            else ptr_fifo_din[19:16]<=#DELAY 4'b0;
             ptr_fifo_wr<=#DELAY 1;
             be_state<=#DELAY 5;
         end
@@ -870,10 +877,6 @@ always @(posedge rx_clk  or negedge rstn_mac)
         endcase
     end
 
-reg [ 7:0] lldp_state, lldp_state_next;
-reg [ 7:0] lldp_data;
-reg        lldp_sel;
-
 always @(*) begin
     case(lldp_state)
         01: begin
@@ -889,8 +892,8 @@ always @(*) begin
                 lldp_state_next =   1;
             end 
         end  
-        02: lldp_state_next = (ram_cnt_be == 66) ? 1 : 2;
-        04: lldp_state_next = (ram_cnt_be == 66) ? 1 : 4;
+        02: lldp_state_next = (be_state == 5) ? 1 : 2;
+        04: lldp_state_next = (be_state == 5) ? 1 : 4;
         default: lldp_state_next = lldp_state;
     endcase
 end
@@ -1147,7 +1150,7 @@ afifo_reg_w8_d4k u_data_fifo (
   .wr_data_count(data_fifo_depth) 	// output [11 : 0] wr_data_count
 );
 
-afifo_w16_d32 u_ptr_fifo (
+afifo_w20_d32 u_ptr_fifo (
   .rst(!rstn_sys),                  // input rst
   .wr_clk(rx_clk),                  // input wr_clk
   .rd_clk(clk),                     // input rd_clk
@@ -1158,6 +1161,7 @@ afifo_w16_d32 u_ptr_fifo (
   .full(ptr_fifo_full),             // output full
   .empty(ptr_fifo_empty)            // output empty
 );
+
 afifo_reg_w8_d4k u_tte_fifo (
   .rst(!rstn_sys),                  // input rst
   .wr_clk(rx_clk),                  // input wr_clk

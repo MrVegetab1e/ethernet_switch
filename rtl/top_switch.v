@@ -93,7 +93,7 @@ module top_switch (
     wire        emac0_rx_data_fifo_rd;
     wire [ 7:0] emac0_rx_data_fifo_dout;
     wire        emac0_rx_ptr_fifo_rd;
-    wire [15:0] emac0_rx_ptr_fifo_dout;
+    wire [19:0] emac0_rx_ptr_fifo_dout;
     wire        emac0_rx_ptr_fifo_empty;
 
     wire        emac0_tx_tte_fifo_rd;
@@ -119,7 +119,7 @@ module top_switch (
     wire        emac1_rx_data_fifo_rd;
     wire [ 7:0] emac1_rx_data_fifo_dout;
     wire        emac1_rx_ptr_fifo_rd;
-    wire [15:0] emac1_rx_ptr_fifo_dout;
+    wire [19:0] emac1_rx_ptr_fifo_dout;
     wire        emac1_rx_ptr_fifo_empty;
 
     wire        emac1_tx_tte_fifo_rd;
@@ -145,7 +145,7 @@ module top_switch (
     wire        emac2_rx_data_fifo_rd;
     wire [ 7:0] emac2_rx_data_fifo_dout;
     wire        emac2_rx_ptr_fifo_rd;
-    wire [15:0] emac2_rx_ptr_fifo_dout;
+    wire [19:0] emac2_rx_ptr_fifo_dout;
     wire        emac2_rx_ptr_fifo_empty;
 
     wire        emac2_tx_tte_fifo_rd;
@@ -171,7 +171,7 @@ module top_switch (
     wire        emac3_rx_data_fifo_rd;
     wire [ 7:0] emac3_rx_data_fifo_dout;
     wire        emac3_rx_ptr_fifo_rd;
-    wire [15:0] emac3_rx_ptr_fifo_dout;
+    wire [19:0] emac3_rx_ptr_fifo_dout;
     wire        emac3_rx_ptr_fifo_empty;
 
     wire        emac3_tx_tte_fifo_rd;
@@ -497,9 +497,11 @@ module top_switch (
     wire        sfifo_rd;
     wire [ 7:0] sfifo_dout;
     wire        ptr_sfifo_rd;
-    wire [15:0] ptr_sfifo_dout;
+    wire [19:0] ptr_sfifo_dout;
     wire        ptr_sfifo_empty;
-    interface_mux_v2 u_interface_mux (
+    interface_mux_v2 #(
+        .IFMUX_MODE("LLDP")
+    ) u_interface_mux (
         .clk_sys(clk),
         .rstn_sys(rstn_sys),
         .rx_data_fifo_dout0(emac0_rx_data_fifo_dout),
@@ -538,7 +540,9 @@ module top_switch (
     wire        tteptr_sfifo_rd;
     wire [15:0] tteptr_sfifo_dout;
     wire        tteptr_sfifo_empty;
-    interface_mux_v2 u_tteinterface_mux (
+    interface_mux_v2 #(
+        .IFMUX_MODE("TTE")
+    ) u_tteinterface_mux (
         .clk_sys(clk),
         .rstn_sys(rstn_sys),
         .rx_data_fifo_dout0(emac0_rx_tte_fifo_dout),
