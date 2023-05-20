@@ -549,7 +549,7 @@ module mac_t_gmii_tte_v4(
     assign  {ptp_carry, ptp_cf_add}         =   tx_buf_cf[47:40] + ptp_delay_sync[7:0] + ptp_carry_reg;
     assign  {ptp_carry_1, ptp_cf_add_1}     =   tx_buf_cf[47:40] + ptp_carry_reg;
     // assign  counter_delay   =   {16'b0, ptp_delay_req, 16'b0};
-    assign  delay_fifo_din  =   ptp_delay_req;
+    assign  delay_fifo_din  =   ptp_delay_req[31:0];
 
     reg     [ 3:0]  mii_state, mii_state_next;
 

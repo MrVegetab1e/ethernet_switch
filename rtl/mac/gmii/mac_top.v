@@ -58,20 +58,19 @@ module mac_top(
     input               sys_req_valid,
     input               sys_req_wr,
     input   [ 7:0]      sys_req_addr,
-    output              sys_resp_valid,
+    output              sys_req_ack,
+    input   [ 7:0]      sys_req_data,
+    input               sys_req_data_valid,
     output  [ 7:0]      sys_resp_data,
+    output              sys_resp_data_valid,
 
-    input     [31:0]  counter_ns
+    input   [31:0]      counter_ns
 
     );
 
 parameter   MAC_PORT = 1;
 parameter   RX_DELAY = 8;
 localparam  MAC_PORT_ONEH = (16'b1 << MAC_PORT);
-parameter   PORT_RX_ADDR = 7'h10;
-parameter   PORT_TX_ADDR = 7'h11;
-parameter   PORT_ER_ADDR = 7'h12;
-parameter   INIT = 0;
 
 genvar n;
 
@@ -88,6 +87,11 @@ wire            delay_fifo_empty;
 wire            rx_mgnt_valid;
 wire            rx_mgnt_resp;
 wire    [19:0]  rx_mgnt_data;
+
+wire            rx_conf_valid;
+wire            rx_conf_resp;
+wire    [51:0]  rx_conf_data;
+
 wire            tx_mgnt_valid;
 wire            tx_mgnt_resp;
 wire    [15:0]  tx_mgnt_data;
@@ -232,7 +236,10 @@ mac_r_gmii_tte #(
     .delay_fifo_empty(delay_fifo_empty),
     .rx_mgnt_valid(rx_mgnt_valid),
     .rx_mgnt_resp(rx_mgnt_resp),
-    .rx_mgnt_data(rx_mgnt_data)
+    .rx_mgnt_data(rx_mgnt_data),
+    .rx_conf_valid(rx_conf_valid),
+    .rx_conf_resp(rx_conf_resp),
+    .rx_conf_data(rx_conf_data)
     );
 
 mac_t_gmii_tte_v4 u_mac_t_gmii(
@@ -314,22 +321,28 @@ smi_config_inst
 );
 
 mac_ctrl #(
-    .MGNT_REG_WIDTH  (16                     )
+    .MGNT_REG_WIDTH     ( 16                         )
 ) mac_ctrl_inst (
-    .clk_if          ( clk                    ),
-    .rst_if          ( rstn_sys               ),
-    .rx_mgnt_valid   ( rx_mgnt_valid          ),
-    .rx_mgnt_data    ( rx_mgnt_data    [19:0] ),
-    .tx_mgnt_valid   ( tx_mgnt_valid          ),
-    .tx_mgnt_data    ( tx_mgnt_data    [15:0] ),
-    .sys_req_valid   ( sys_req_valid          ),
-    .sys_req_wr      ( sys_req_wr             ),
-    .sys_req_addr    ( sys_req_addr    [ 7:0] ),
+    .clk_if             ( clk_125                    ),
+    .rst_if             ( rstn_sys                   ),
+    .rx_mgnt_valid      ( rx_mgnt_valid              ),
+    .rx_mgnt_data       ( rx_mgnt_data        [19:0] ),
+    .rx_conf_resp       ( rx_conf_resp               ),
+    .tx_mgnt_valid      ( tx_mgnt_valid              ),
+    .tx_mgnt_data       ( tx_mgnt_data        [15:0] ),
+    .sys_req_valid      ( sys_req_valid              ),
+    .sys_req_wr         ( sys_req_wr                 ),
+    .sys_req_addr       ( sys_req_addr        [ 7:0] ),
+    .sys_req_data       ( sys_req_data        [ 7:0] ),
+    .sys_req_data_valid ( sys_req_data_valid         ),
 
-    .rx_mgnt_resp    ( rx_mgnt_resp           ),
-    .tx_mgnt_resp    ( tx_mgnt_resp           ),
-    .sys_resp_valid  ( sys_resp_valid         ),
-    .sys_resp_data   ( sys_resp_data   [ 7:0] )
+    .rx_mgnt_resp       ( rx_mgnt_resp               ),
+    .rx_conf_valid      ( rx_conf_valid              ),
+    .rx_conf_data       ( rx_conf_data        [51:0] ),
+    .tx_mgnt_resp       ( tx_mgnt_resp               ),
+    .sys_req_ack        ( sys_req_ack                ),
+    .sys_resp_data_valid( sys_resp_data_valid        ),
+    .sys_resp_data      ( sys_resp_data       [ 7:0] )
 );
 
 endmodule

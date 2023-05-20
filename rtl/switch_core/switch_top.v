@@ -30,7 +30,11 @@ module switch_top (
     output        ptr_fifo_empty0,
     output        ptr_fifo_empty1,
     output        ptr_fifo_empty2,
-    output        ptr_fifo_empty3
+    output        ptr_fifo_empty3,
+
+    output        swc_mgnt_valid,
+    input         swc_mgnt_resp,
+    output [ 3:0] swc_mgnt_data
 );
 
     wire [127:0] i_cell_data_fifo_dout;
@@ -79,7 +83,11 @@ module switch_top (
         .o_cell_fifo_din(o_cell_fifo_din),
         .o_cell_first(o_cell_first),
         .o_cell_last(o_cell_last),
-        .o_cell_bp(o_cell_bp)
+        .o_cell_bp(o_cell_bp),
+
+        .swc_mgnt_valid( swc_mgnt_valid              ),
+        .swc_mgnt_data ( swc_mgnt_data        [ 3:0] ),
+        .swc_mgnt_resp ( swc_mgnt_resp               )
     );
 
     switch_post_top u_switch_post_top (

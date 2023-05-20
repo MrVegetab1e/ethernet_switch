@@ -32,10 +32,10 @@ input                   ptr_sfifo_empty,
 
 output  reg  [47:0]     se_dmac,
 output  reg  [47:0]     se_smac,
-output  reg  [11:0]      se_hash,
-output  reg             se_req,
-input                   se_ack,
-input                   se_nak,
+(*MARK_DEBUG = "TRUE"*) output  reg  [11:0]     se_hash,
+(*MARK_DEBUG = "TRUE"*) output  reg             se_req,
+(*MARK_DEBUG = "TRUE"*) input                   se_ack,
+(*MARK_DEBUG = "TRUE"*) input                   se_nak,
 input        [15:0]     se_result,
 input        [3:0]      link,                    
 
@@ -45,8 +45,23 @@ input                   bp2,
 input                   bp3,
 output  reg             sof,
 output  reg             dv,
-output  reg  [7:0]      data    
+output  reg  [7:0]      data,
+
+    // mgnt interface
+    output              fp_stat_valid,
+    input               fp_stat_resp,
+    output     [  7:0]  fp_stat_data,
+    input               fp_conf_valid,
+    output              fp_conf_resp,
+    input      [  1:0]  fp_conf_type,
+    input      [ 15:0]  fp_conf_data
 );
+
+reg     [ 3:0]     frp_fwd_blk_vect, frp_fwd_blk_vect_next;
+
+reg     [ 3:0]     frp_link_fwd;
+reg                frp_link_src;
+
 reg     [47:0]     source_mac;
 reg     [47:0]     desti_mac;
 reg     [15:0]     length_type;
@@ -69,6 +84,8 @@ always@(posedge clk or negedge rstn)begin
         data<=#2 0;
         state<=#2 0;
         cnt<=#2 0;
+        // frp_link_fwd<=#2 0;
+        // frp_link_src<=#2 0;
         end
     else  begin
         case(state)
@@ -87,11 +104,13 @@ always@(posedge clk or negedge rstn)begin
             end
         2:begin
             cnt<=#2 ptr_sfifo_dout[10:0];						
-            length<=#2 {1'b0,ptr_sfifo_dout[10:0]};				
+            length<=#2 {1'b0,ptr_sfifo_dout[10:0]}; 
+            frp_link_src<=#2 (ptr_sfifo_dout[15:12] & frp_fwd_blk_vect) == 4'b0;
             state<=#2 3;
             end
         3:begin
-			length<=#2 length+2;	
+			length<=#2 length+2;
+            frp_link_fwd<=#2 frp_link_src ? (link & ~frp_fwd_blk_vect) : 4'b0;
 			// desti_mac[47:40]<=#2 sfifo_dout[7:0];
             desti_mac[7:0]<=#2 sfifo_dout[7:0];
             desti_mac[47:8]<=#2 desti_mac[39:0];
@@ -177,7 +196,7 @@ always@(posedge clk or negedge rstn)begin
             state<=#2 19;
             end
         19:begin
-            se_req<=#2 1;
+            se_req<=#2 frp_link_src;
             se_hash<=#2 {source_mac[4:0],desti_mac[6:0]};
             se_dmac<=#2 desti_mac;
             se_smac<=#2 source_mac;
@@ -187,10 +206,10 @@ always@(posedge clk or negedge rstn)begin
             if(se_ack)begin
                 se_req<=#2 0;
                 state<=#2 22;
-                egress_portmap<=#2 se_result[3:0]&link;
+                egress_portmap<=#2 se_result[3:0] & frp_link_fwd;
                 // len_tgt_combo <= {length[11:8], egress_portmap[3:0], length[7:0]}; 
                 end
-            if(se_nak)begin
+            if(se_nak || !frp_link_src)begin
                 se_req<=#2 0;
                 state<=#2 21;
                 egress_portmap<=#2 0;
@@ -344,5 +363,90 @@ always@(posedge clk or negedge rstn)begin
         endcase
         end
     end
+
+    reg     [ 3:0]  mgnt_tx_state, mgnt_tx_state_next;
+    reg     [ 3:0]  mgnt_rx_state, mgnt_rx_state_next;
+    reg     [ 1:0]  mgnt_rx_buf_type;
+    reg     [15:0]  mgnt_rx_buf_data;
+    reg     [ 1:0]  mgnt_flag;
+
+    always @(*) begin
+        case(mgnt_tx_state)
+            1 : mgnt_tx_state_next  =   (state == 0) && !ptr_sfifo_empty        ? 2 : 1;
+            2 : mgnt_tx_state_next  =   (state == 21)                           ? 4 : 2;
+            4 : mgnt_tx_state_next  =   fp_stat_resp                            ? 1 : 4;
+            default : mgnt_tx_state_next    =   mgnt_tx_state;
+        endcase
+    end
+
+    always @(posedge clk) begin
+        if (!rstn) begin
+            mgnt_tx_state   <=  1;
+        end
+        else begin
+            mgnt_tx_state   <=  mgnt_tx_state_next;
+        end
+    end
+
+    always @(posedge clk) begin
+        if (!rstn) begin
+            mgnt_flag   <=  'b0;
+        end
+        else begin
+            if (state == 20) begin
+                mgnt_flag[0]    <=  se_ack;
+            end
+            if (state == 19) begin
+                mgnt_flag[1]    <=  !source_mac[40] && !desti_mac[40];
+            end
+        end
+    end
+
+    always @(*) begin
+        case(mgnt_rx_state)
+            1 : mgnt_rx_state_next  =   (fp_conf_valid) ? 2 : 1;
+            2 : mgnt_rx_state_next  =   4;
+            4 : mgnt_rx_state_next  =   8;
+            8 : mgnt_rx_state_next  =   (!fp_conf_valid) ? 1 : 8;
+            default : mgnt_rx_state_next    =   mgnt_rx_state;
+        endcase
+    end
+
+    always @(posedge clk) begin
+        if (!rstn) begin
+            mgnt_rx_state   <=  1;
+        end
+        else begin
+            mgnt_rx_state   <=  mgnt_rx_state_next;
+        end
+    end
+
+    always @(posedge clk) begin
+        if (mgnt_rx_state[1]) begin
+            mgnt_rx_buf_type    <=  fp_conf_type;
+            mgnt_rx_buf_data    <=  fp_conf_data;
+        end
+    end
+
+    always @(posedge clk) begin
+        if (!rstn) begin
+            frp_fwd_blk_vect        <=  'b0;
+            frp_fwd_blk_vect_next   <=  'b0;
+        end
+        else begin
+            if (mgnt_rx_state[2]) begin
+                if (mgnt_rx_buf_type == 2'b0) begin
+                    frp_fwd_blk_vect_next   <=  mgnt_rx_buf_data;
+                end 
+            end
+            if (state == 1) begin
+                frp_fwd_blk_vect    <=  frp_fwd_blk_vect_next;
+            end
+        end
+    end
+
+    assign  fp_stat_valid   =   mgnt_tx_state[3];
+    assign  fp_stat_data    =   {3'b0, mgnt_flag, 3'b1};
+    assign  fp_conf_resp    =   mgnt_rx_state[3];
 
 endmodule

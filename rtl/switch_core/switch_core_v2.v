@@ -14,7 +14,11 @@ output	reg	 [3:0]		o_cell_fifo_wr,
 output	     [127:0]	o_cell_fifo_din,
 output					o_cell_first,
 output					o_cell_last,
-input		 [3:0]		o_cell_bp	
+input		 [3:0]		o_cell_bp,
+
+output         			swc_mgnt_valid,
+input   				swc_mgnt_resp,
+output  	 [7:0]		swc_mgnt_data
     );
 reg 	[3:0]	qc_portmap;
 
@@ -491,5 +495,41 @@ dpsram_w128_d2k u_data_ram (
 // 		end
 // 	end
 // end
+
+	reg 	[ 3:0]	mgnt_state, mgnt_state_next;
+	reg  	[ 3:0]	mgnt_flag;
+
+	always @(*) begin
+		case(mgnt_state)
+			1 : mgnt_state_next	= 	(wr_state && !i_cell_ptr_fifo_empty) 	? 2 : 1;
+			2 : mgnt_state_next = 	(swc_mgnt_resp) 						? 1 : 2;
+			default : mgnt_state_next	= 	mgnt_state;
+		endcase
+	end
+
+	always @(posedge clk) begin
+		if (!rstn) begin
+			mgnt_state	<=	1;
+		end
+		else begin
+			mgnt_state	<= 	mgnt_state_next;
+		end
+	end
+
+	always @(posedge clk) begin
+		if (!rstn) begin
+			mgnt_flag 	<= 	'b0;
+		end
+		else begin
+			if (wr_state && !i_cell_ptr_fifo_empty) begin
+				mgnt_flag[0] 	<= 	(i_cell_ptr_fifo_dout[11:8] == 4'b0);
+				mgnt_flag[1] 	<= 	qc_ptr_full;
+				mgnt_flag[2]	<= 	!FQ_alloc;
+			end
+		end
+	end
+
+	assign 	swc_mgnt_data	= 	mgnt_flag;
+	assign  swc_mgnt_valid 	= 	mgnt_state[1];
 
 endmodule

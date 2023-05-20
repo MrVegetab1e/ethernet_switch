@@ -69,8 +69,8 @@ begin
     end
 end
 wire sck_riseedge, sck_falledge;
-	assign sck_riseedge = (sck_edge[2:1] == 2'b01);  //检测到SCK由0变成1，则认为发现上跳沿
-	assign sck_falledge = (sck_edge[2:1] == 2'b10);  //检测到SCK由1变成0，则认为发现下跳沿
+	assign sck_riseedge = (sck_edge[1:0] == 2'b01);  //检测到SCK由0变成1，则认为发现上跳沿
+	assign sck_falledge = (sck_edge[1:0] == 2'b10);  //检测到SCK由1变成0，则认为发现下跳沿
 
 reg[7:0] byte_received;
 reg[2:0] bit_received_cnt;
