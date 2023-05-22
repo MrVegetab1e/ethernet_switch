@@ -151,7 +151,8 @@ module interface_mux_v2 #(
                 rx_data_fifo_rd <=  ifmux_rr_vec_out;
             end
             // else if (ifmux_state_next == 1) begin
-            else if (ifmux_state_next[0]) begin
+            // else if (ifmux_state_next[0]) begin
+            else if (ifmux_state[5] && cnt_1 == 2'b11) begin
                 rx_data_fifo_rd <=  'b0;
             end
             // rx ptr read

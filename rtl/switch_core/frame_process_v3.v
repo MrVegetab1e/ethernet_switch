@@ -39,7 +39,7 @@ module frame_process_v3 (
     input              se_ack,
     input              se_nak,
     input       [15:0] se_result,
-    (*MARK_DEBUG = "TRUE"*) input       [ 3:0] link,
+    input       [ 3:0] link,
 
     // output reg         sof,
     // output reg         dv,

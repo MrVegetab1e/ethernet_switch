@@ -1270,6 +1270,7 @@ afifo_w16_d32 u_tteptr_fifo (
 );
 
 reg [ 3:0] mgnt_state, mgnt_state_next;
+reg [ 1:0] mgnt_resp_buf;
 reg [11:0] mgnt_cnt;
 reg [ 7:0] mgnt_flag;
 
@@ -1290,7 +1291,7 @@ always @(*) begin
         end
         02: mgnt_state_next  =   ptr_fifo_wr ? 8 : 2;
         04: mgnt_state_next  =   tteptr_fifo_wr ? 8 : 4;
-        08: mgnt_state_next  =   rx_mgnt_resp ? 1 : 8;
+        08: mgnt_state_next  =   mgnt_resp_buf[1] ? 1 : 8;
         default: mgnt_state_next    =   1;
     endcase
 end
@@ -1301,6 +1302,15 @@ always @(posedge rx_clk or negedge rstn_mac) begin
     end
     else begin
         mgnt_state  <=  mgnt_state_next;
+    end
+end
+
+always @(posedge rx_clk or negedge rstn_mac) begin
+    if (!rstn_mac) begin
+        mgnt_resp_buf   <=  'b0;
+    end
+    else begin
+        mgnt_resp_buf   <=  {mgnt_resp_buf, rx_mgnt_resp};
     end
 end
 

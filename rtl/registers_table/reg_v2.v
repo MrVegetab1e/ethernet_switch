@@ -15,6 +15,8 @@
 // 
 // Revision:
 // Revision 0.01 - File Created
+// Revision 1.00 - Basic function(mac rx link) implemented
+// Revision 2.00 - Full capabilities incl. tx link
 // Additional Comments:
 // Distributed design for mac state registers
 //                                                                                
@@ -34,16 +36,16 @@ module register_v2 #(
     output                  spi_ack,
     output reg  [15:0]      spi_dout,
     // sys mgnt side interface, cmd channel
-    (*MARK_DEBUG = "TRUE"*) output reg  [ 5:0]      sys_req_valid,
-    (*MARK_DEBUG = "TRUE"*) output reg              sys_req_wr,
-    (*MARK_DEBUG = "TRUE"*) output      [ 7:0]      sys_req_addr,
-    (*MARK_DEBUG = "TRUE"*) input                   sys_req_ack,
+    output reg  [ 5:0]      sys_req_valid,
+    output reg              sys_req_wr,
+    output      [ 7:0]      sys_req_addr,
+    input                   sys_req_ack,
     // sys mgnt side interface, tx channel
-    (*MARK_DEBUG = "TRUE"*) output      [ 7:0]      sys_req_data,
-    (*MARK_DEBUG = "TRUE"*) output reg              sys_req_data_valid,
+    output      [ 7:0]      sys_req_data,
+    output reg              sys_req_data_valid,
     // sys mgnt side interface, rx channel
-    (*MARK_DEBUG = "TRUE"*) input       [ 7:0]      sys_resp_data,
-    (*MARK_DEBUG = "TRUE"*) input                   sys_resp_data_valid,
+    input       [ 7:0]      sys_resp_data,
+    input                   sys_resp_data_valid,
     // flow table side interface
     output reg              ft_clear,
     output reg              ft_update,
