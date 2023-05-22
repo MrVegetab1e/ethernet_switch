@@ -102,7 +102,7 @@ always @(posedge clk or negedge rstn)
         ram_wr<=#2 0;
         se_ack<=#2 0;
         se_nak<=#2 0;
-        reg_rst<=#2 0;
+        // reg_rst<=#2 0;
         // ram_din<=#2 flow; 
         case(state)
             0:begin
@@ -110,13 +110,15 @@ always @(posedge clk or negedge rstn)
                     ram_addr<=#2 0;   
                     ram_wr<=#2 1;
                     ram_din<=#2 0;
-                    state<=#2 6;    
+                    state<=#2 6;
+                    reg_rst<=#2 1;
                 end
                 else if(hash_update)begin
                     ram_addr<=#2 hash; 
                     ram_wr<=#2 1;
                     ram_din<=#2 flow; 
-                    state<=#2 4; 
+                    state<=#2 4;
+                    reg_rst<=#2 1;
                 end
                 else if(se_req) begin
                     ram_addr<=#2 se_hash;
@@ -158,7 +160,7 @@ always @(posedge clk or negedge rstn)
                 state<=#2 5;
             end
             4:begin
-                reg_rst<=#2 1;
+                reg_rst<=#2 0;
                 state<=#2 0;
             end
             5:begin
@@ -173,7 +175,7 @@ always @(posedge clk or negedge rstn)
                     ram_addr<=#2 0;
                     ram_wr<=#2 0;
                     clear_op<=#2 0;
-                    reg_rst<=#2 1;
+                    reg_rst<=#2 0;
                     state<=#2 0;
                 end
             end

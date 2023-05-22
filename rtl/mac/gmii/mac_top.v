@@ -35,7 +35,7 @@ module mac_top(
     input             rx_data_fifo_rd,
     output    [7:0]   rx_data_fifo_dout,
     input             rx_ptr_fifo_rd,
-	output    [15:0]  rx_ptr_fifo_dout,
+	output    [19:0]  rx_ptr_fifo_dout,
     output            rx_ptr_fifo_empty,
 
     output             tx_tte_fifo_rd,
@@ -58,20 +58,19 @@ module mac_top(
     input               sys_req_valid,
     input               sys_req_wr,
     input   [ 7:0]      sys_req_addr,
-    output              sys_resp_valid,
+    output              sys_req_ack,
+    input   [ 7:0]      sys_req_data,
+    input               sys_req_data_valid,
     output  [ 7:0]      sys_resp_data,
+    output              sys_resp_data_valid,
 
-    input     [31:0]  counter_ns
+    input   [31:0]      counter_ns
 
     );
 
 parameter   MAC_PORT = 1;
 parameter   RX_DELAY = 8;
 localparam  MAC_PORT_ONEH = (16'b1 << MAC_PORT);
-parameter   PORT_RX_ADDR = 7'h10;
-parameter   PORT_TX_ADDR = 7'h11;
-parameter   PORT_ER_ADDR = 7'h12;
-parameter   INIT = 0;
 
 genvar n;
 
@@ -88,6 +87,11 @@ wire            delay_fifo_empty;
 wire            rx_mgnt_valid;
 wire            rx_mgnt_resp;
 wire    [19:0]  rx_mgnt_data;
+
+wire            rx_conf_valid;
+wire            rx_conf_resp;
+wire    [51:0]  rx_conf_data;
+
 wire            tx_mgnt_valid;
 wire            tx_mgnt_resp;
 wire    [15:0]  tx_mgnt_data;
@@ -97,6 +101,7 @@ assign          GMII_TX_CLK =   clk_125;
 wire    [ 7:0]  delay_rx_d;
 wire            delay_rx_dv;
 wire            delay_rx_er;
+wire            delar_rx_clk;
 
 generate
     for (n = 0; n < 8; n = n + 1) begin : rx_d_delay
@@ -177,6 +182,31 @@ generate
 
 endgenerate
 
+// IDELAYE2 #(
+//     .CINVCTRL_SEL("FALSE"),          // Enable dynamic clock inversion (FALSE, TRUE)
+//     .DELAY_SRC("IDATAIN"),           // Delay input (IDATAIN, DATAIN)
+//     .HIGH_PERFORMANCE_MODE("TRUE"),  // Reduced jitter ("TRUE"), Reduced power ("FALSE")
+//     .IDELAY_TYPE("FIXED"),           // FIXED, VARIABLE, VAR_LOAD, VAR_LOAD_PIPE
+//     .IDELAY_VALUE(RX_DELAY),         // Input delay tap setting (0-31)
+//     .PIPE_SEL("FALSE"),              // Select pipelined mode, FALSE, TRUE
+//     .REFCLK_FREQUENCY(200.0),        // IDELAYCTRL clock input frequency in MHz (190.0-210.0, 290.0-310.0).
+//     .SIGNAL_PATTERN("CLOCK")         // DATA, CLOCK input signal
+// )
+// rx_er_delay (
+//     .CNTVALUEOUT(),            // 5-bit output: Counter value output
+//     .DATAOUT(delay_rx_clk),    // 1-bit output: Delayed data output
+//     .C(clk_ref),               // 1-bit input: Clock input
+//     .CE(1'b0),                 // 1-bit input: Active high enable increment/decrement input
+//     .CINVCTRL(1'b0),           // 1-bit input: Dynamic clock inversion input
+//     .CNTVALUEIN(),             // 5-bit input: Counter value input
+//     .DATAIN(),                 // 1-bit input: Internal delay data input
+//     .IDATAIN(GMII_RX_CLK),     // 1-bit input: Data input from the I/O
+//     .INC(1'b0),                // 1-bit input: Increment / Decrement tap delay input
+//     .LD(1'b0),                 // 1-bit input: Load IDELAY_VALUE input
+//     .LDPIPEEN(1'b0),           // 1-bit input: Enable PIPELINE register to load data input
+//     .REGRST(1'b0)              // 1-bit input: Active-high reset tap-delay input
+// );
+
 mac_r_gmii_tte #(
     .LLDP_PARAM_PORT (MAC_PORT_ONEH)
 ) u_mac_r_gmii(
@@ -206,7 +236,10 @@ mac_r_gmii_tte #(
     .delay_fifo_empty(delay_fifo_empty),
     .rx_mgnt_valid(rx_mgnt_valid),
     .rx_mgnt_resp(rx_mgnt_resp),
-    .rx_mgnt_data(rx_mgnt_data)
+    .rx_mgnt_data(rx_mgnt_data),
+    .rx_conf_valid(rx_conf_valid),
+    .rx_conf_resp(rx_conf_resp),
+    .rx_conf_data(rx_conf_data)
     );
 
 mac_t_gmii_tte_v4 u_mac_t_gmii(
@@ -288,22 +321,28 @@ smi_config_inst
 );
 
 mac_ctrl #(
-    .MGNT_REG_WIDTH  (16                     )
+    .MGNT_REG_WIDTH     ( 16                         )
 ) mac_ctrl_inst (
-    .clk_if          ( clk                    ),
-    .rst_if          ( rstn_sys               ),
-    .rx_mgnt_valid   ( rx_mgnt_valid          ),
-    .rx_mgnt_data    ( rx_mgnt_data    [19:0] ),
-    .tx_mgnt_valid   ( tx_mgnt_valid          ),
-    .tx_mgnt_data    ( tx_mgnt_data    [15:0] ),
-    .sys_req_valid   ( sys_req_valid          ),
-    .sys_req_wr      ( sys_req_wr             ),
-    .sys_req_addr    ( sys_req_addr    [ 7:0] ),
+    .clk_if             ( clk_125                    ),
+    .rst_if             ( rstn_sys                   ),
+    .rx_mgnt_valid      ( rx_mgnt_valid              ),
+    .rx_mgnt_data       ( rx_mgnt_data        [19:0] ),
+    .rx_conf_resp       ( rx_conf_resp               ),
+    .tx_mgnt_valid      ( tx_mgnt_valid              ),
+    .tx_mgnt_data       ( tx_mgnt_data        [15:0] ),
+    .sys_req_valid      ( sys_req_valid              ),
+    .sys_req_wr         ( sys_req_wr                 ),
+    .sys_req_addr       ( sys_req_addr        [ 7:0] ),
+    .sys_req_data       ( sys_req_data        [ 7:0] ),
+    .sys_req_data_valid ( sys_req_data_valid         ),
 
-    .rx_mgnt_resp    ( rx_mgnt_resp           ),
-    .tx_mgnt_resp    ( tx_mgnt_resp           ),
-    .sys_resp_valid  ( sys_resp_valid         ),
-    .sys_resp_data   ( sys_resp_data   [ 7:0] )
+    .rx_mgnt_resp       ( rx_mgnt_resp               ),
+    .rx_conf_valid      ( rx_conf_valid              ),
+    .rx_conf_data       ( rx_conf_data        [51:0] ),
+    .tx_mgnt_resp       ( tx_mgnt_resp               ),
+    .sys_req_ack        ( sys_req_ack                ),
+    .sys_resp_data_valid( sys_resp_data_valid        ),
+    .sys_resp_data      ( sys_resp_data       [ 7:0] )
 );
 
 endmodule

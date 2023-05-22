@@ -1,37 +1,40 @@
 `timescale 1ns / 1ps
-module interface_mux_v2 (
+module interface_mux_v2 #(
+    parameter   IFMUX_MODE      =   "LLDP",
+    localparam  IFMUX_PTR_WIDTH =   (IFMUX_MODE == "LLDP") ? 20 : 16
+) (
     input           clk_sys,
     input           rstn_sys,
     // mac 0 if
-    output          rx_data_fifo_rd0,
-    input   [ 7:0]  rx_data_fifo_dout0,
-    output          rx_ptr_fifo_rd0,
-    input   [15:0]  rx_ptr_fifo_dout0,
-    input           rx_ptr_fifo_empty0,
+    output                          rx_data_fifo_rd0,
+    input   [ 7:0]                  rx_data_fifo_dout0,
+    output                          rx_ptr_fifo_rd0,
+    input   [IFMUX_PTR_WIDTH-1:0]   rx_ptr_fifo_dout0,
+    input                           rx_ptr_fifo_empty0,
     // mac 1 if
-    output          rx_data_fifo_rd1,
-    input   [ 7:0]  rx_data_fifo_dout1,
-    output          rx_ptr_fifo_rd1,
-    input   [15:0]  rx_ptr_fifo_dout1,
-    input           rx_ptr_fifo_empty1,
+    output                          rx_data_fifo_rd1,
+    input   [ 7:0]                  rx_data_fifo_dout1,
+    output                          rx_ptr_fifo_rd1,
+    input   [IFMUX_PTR_WIDTH-1:0]   rx_ptr_fifo_dout1,
+    input                           rx_ptr_fifo_empty1,
     // mac 2 if
-    output          rx_data_fifo_rd2,
-    input   [ 7:0]  rx_data_fifo_dout2,
-    output          rx_ptr_fifo_rd2,
-    input   [15:0]  rx_ptr_fifo_dout2,
-    input           rx_ptr_fifo_empty2,
+    output                          rx_data_fifo_rd2,
+    input   [ 7:0]                  rx_data_fifo_dout2,
+    output                          rx_ptr_fifo_rd2,
+    input   [IFMUX_PTR_WIDTH-1:0]   rx_ptr_fifo_dout2,
+    input                           rx_ptr_fifo_empty2,
     // mac 3 if
-    output          rx_data_fifo_rd3,
-    input   [ 7:0]  rx_data_fifo_dout3,
-    output          rx_ptr_fifo_rd3,
-    input   [15:0]  rx_ptr_fifo_dout3,
-    input           rx_ptr_fifo_empty3,
+    output                          rx_data_fifo_rd3,
+    input   [ 7:0]                  rx_data_fifo_dout3,
+    output                          rx_ptr_fifo_rd3,
+    input   [IFMUX_PTR_WIDTH-1:0]   rx_ptr_fifo_dout3,
+    input                           rx_ptr_fifo_empty3,
     // backend if
-    input           sfifo_rd,
-    output  [ 7:0]  sfifo_dout,
-    input           ptr_sfifo_rd,
-    output  [15:0]  ptr_sfifo_dout,
-    output          ptr_sfifo_empty
+    input                           sfifo_rd,
+    output  [ 7:0]                  sfifo_dout,
+    input                           ptr_sfifo_rd,
+    output  [IFMUX_PTR_WIDTH-1:0]   ptr_sfifo_dout,
+    output                          ptr_sfifo_empty
 );
 
     reg     [ 5:0]  ifmux_state, ifmux_state_next;
@@ -42,19 +45,23 @@ module interface_mux_v2 (
     reg     [ 1:0]  cnt_1;
     reg     [12:0]  cnt_tgt;
 
+    // dest data fifo ctrl
     reg     [ 1:0]  sfifo_wr;
     reg             sfifo_en;
     reg     [ 7:0]  sfifo_din;
     // wire    [13:0]  sfifo_cnt;
     wire    [11:0]  sfifo_cnt;
-    reg             ptr_sfifo_wr;
-    reg     [15:0]  ptr_sfifo_din;
-    wire            ptr_sfifo_full;
-
-    wire    [15:0]  rx_ptr_fifo_dout;
-    wire    [ 7:0]  rx_data_fifo_dout;
-    reg     [ 3:0]  rx_ptr_fifo_rd;
+    // dest ptr fifo ctrl
+    reg                             ptr_sfifo_wr;
+    reg     [IFMUX_PTR_WIDTH-1:0]   ptr_sfifo_din;
+    wire                            ptr_sfifo_full;
+    // src data fifo sel
     reg     [ 3:0]  rx_data_fifo_rd;
+    wire    [ 7:0]  rx_data_fifo_dout;
+    // src ptr fifo sel
+    reg     [ 3:0]                  rx_ptr_fifo_rd;
+    wire    [IFMUX_PTR_WIDTH-1:0]   rx_ptr_fifo_dout;
+
 
     reg     [ 1:0]  ifmux_rndrb;
     reg     [ 3:0]  ifmux_sel;
@@ -181,7 +188,12 @@ module interface_mux_v2 (
             // if (ifmux_state == 8) begin
             if (ifmux_state[3]) begin
                 ptr_sfifo_wr    <=  !error;
-                ptr_sfifo_din   <=  {1'b0, ifmux_sel, cnt_tgt[10:0]};
+                if (IFMUX_MODE == "LLDP") begin
+                    ptr_sfifo_din   <=  {rx_ptr_fifo_dout[19:16], ifmux_sel, 1'b0, cnt_tgt[10:0]};
+                end
+                else begin
+                    ptr_sfifo_din   <=  {ifmux_sel, 1'b0, cnt_tgt[10:0]};
+                end
             end
             else begin
                 ptr_sfifo_wr    <=  'b0;
@@ -239,18 +251,35 @@ module interface_mux_v2 (
         .underflow(dbg_data_uf),
         .overflow(dbg_data_of)	
         );
-    sfifo_w16_d32   u_ptr_sfifo(
-        .clk(clk_sys),
-        .rst(!rstn_sys),
-        .din(ptr_sfifo_din),
-        .wr_en(ptr_sfifo_wr),
-        .rd_en(ptr_sfifo_rd),
-        .dout(ptr_sfifo_dout),
-        .empty(ptr_sfifo_empty),
-        .full(ptr_sfifo_full),
-        .data_count(),
-        .underflow(dbg_ptr_uf),
-        .overflow(dbg_ptr_of)	
-        );    
+    if (IFMUX_MODE == "LLDP") begin
+        sfifo_w20_d32   u_ptr_sfifo(
+            .clk(clk_sys),
+            .rst(!rstn_sys),
+            .din(ptr_sfifo_din),
+            .wr_en(ptr_sfifo_wr),
+            .rd_en(ptr_sfifo_rd),
+            .dout(ptr_sfifo_dout),
+            .empty(ptr_sfifo_empty),
+            .full(ptr_sfifo_full),
+            .data_count(),
+            .underflow(dbg_ptr_uf),
+            .overflow(dbg_ptr_of)	
+            );
+    end 
+    else begin
+        sfifo_w16_d32   u_ptr_sfifo(
+            .clk(clk_sys),
+            .rst(!rstn_sys),
+            .din(ptr_sfifo_din),
+            .wr_en(ptr_sfifo_wr),
+            .rd_en(ptr_sfifo_rd),
+            .dout(ptr_sfifo_dout),
+            .empty(ptr_sfifo_empty),
+            .full(ptr_sfifo_full),
+            .data_count(),
+            .underflow(dbg_ptr_uf),
+            .overflow(dbg_ptr_of)	
+            );
+    end
 
 endmodule

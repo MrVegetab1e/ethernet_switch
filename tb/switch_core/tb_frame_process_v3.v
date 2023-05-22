@@ -6,6 +6,7 @@ module tb_frame_process_v3;
     // frame_process_v2 Parameters
     parameter PERIOD  = 10;
     parameter LIVE_TH  = 10'd150;
+    parameter LLDP_DBG_DEST_PORT = 4'b1;
 
 
     // frame_process_v2 Inputs    
@@ -19,7 +20,7 @@ module tb_frame_process_v3;
     wire  sfifo_rd                             ;
     wire  [ 7:0]  sfifo_dout                   ;
     wire  ptr_sfifo_rd                         ;
-    wire  [15:0]  ptr_sfifo_dout               ;
+    wire  [19:0]  ptr_sfifo_dout               ;
     wire  ptr_sfifo_empty                      ;
 
     wire  se_req                               ;
@@ -58,7 +59,7 @@ module tb_frame_process_v3;
         .clk                     ( clk                             ),
         .rstn                    ( rstn                            ),
         .sfifo_dout              ( sfifo_dout             [ 7:0]   ),
-        .ptr_sfifo_dout          ( ptr_sfifo_dout         [15:0]   ),
+        .ptr_sfifo_dout          ( ptr_sfifo_dout         [19:0]   ),
         .ptr_sfifo_empty         ( ptr_sfifo_empty                 ),
         .se_ack                  ( se_ack                          ),
         .se_nak                  ( se_nak                          ),
@@ -116,7 +117,7 @@ module tb_frame_process_v3;
     reg  [ 7:0] sfifo_din       =   0;
     reg         sfifo_wr        =   0;
     wire [11:0] sfifo_cnt;
-    reg  [15:0] ptr_sfifo_din   =   0;
+    reg  [19:0] ptr_sfifo_din   =   0;
     reg         ptr_sfifo_wr    =   0;
     wire        ptr_sfifo_full;
 
@@ -134,7 +135,7 @@ module tb_frame_process_v3;
         .underflow(),
         .overflow()	
         );
-    sfifo_w16_d32   u_ptr_sfifo(
+    sfifo_w20_d32   u_ptr_sfifo(
         .clk(clk),
         .rst(!rstn),
         .din(ptr_sfifo_din),
@@ -189,7 +190,8 @@ module tb_frame_process_v3;
                 #2;
             end
             sfifo_wr = 0;
-            ptr_sfifo_din = {1'b0, (4'b1 << ($random % 4)), len[10:0]};
+            // ptr_sfifo_din = {1'b0, (4'b1 << ($random % 4)), len[10:0]};
+            ptr_sfifo_din = {(($random % 4 == 3) ? LLDP_DBG_DEST_PORT : 4'b0), (4'b1 << ($random % 4)), 1'b0, len[10:0]};
             ptr_sfifo_wr  = 1;
             repeat (1) @(posedge clk);
             #2;
