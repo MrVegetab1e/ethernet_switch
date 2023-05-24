@@ -25,6 +25,10 @@
 // tx data format
 // [15:12] : frame flags
 // [11: 0] : frame length
+// lldp mode
+// 4'b1 : sink mode(recv lldp pkt & redir for mcu)
+// 4'b2 : src mode(send lldp pkt for designated port)
+// 4'b4 : compatible mode(ignore lldp pkts)
 
 module mac_ctrl #(
     parameter   MGNT_REG_WIDTH      =   32,
@@ -38,7 +42,7 @@ module mac_ctrl #(
     input   [19:0]  rx_mgnt_data,
     output reg      rx_conf_valid,
     input           rx_conf_resp,
-    output  [51:0]  rx_conf_data,
+    output  [55:0]  rx_conf_data,
     // tx side interface
     input           tx_mgnt_valid,
     output reg      tx_mgnt_resp,
@@ -80,6 +84,7 @@ module mac_ctrl #(
     localparam  MGNT_MAC_LLDP_ADDR_1        =   'h81;
     localparam  MGNT_MAC_LLDP_ADDR_2        =   'h82;
     localparam  MGNT_MAC_LLDP_PORT          =   'h83;
+    localparam  MGNT_MAC_LLDP_MODE          =   'h84;
     localparam  MGNT_MAC_LLDP_FUNC          =   'h8F;
 
     integer i;
@@ -109,7 +114,7 @@ module mac_ctrl #(
 
     // reg     [47:0]  mgnt_reg_lldp_dest;
     // reg     [15:0]  mgnt_reg_lldp_port;
-    reg     [MGNT_REG_WIDTH-1:0]    mgnt_reg_lldp [3:0];
+    reg     [MGNT_REG_WIDTH-1:0]    mgnt_reg_lldp [4:0];
 
     reg     [ 2:0]  mgnt_rx_state, mgnt_rx_state_next;
     reg     [ 1:0]  mgnt_buf_rx_valid;
@@ -213,7 +218,7 @@ module mac_ctrl #(
             if (mgnt_state[1]) begin
                 mgnt_reg_resp_data_valid    <=  1'b1;
                 mgnt_tx_buf                 <=  mgnt_reg_req_addr[7] ? 
-                                                mgnt_reg_lldp[mgnt_reg_req_addr[1:0]] :
+                                                mgnt_reg_lldp[mgnt_reg_req_addr[3:0]] :
                                                 mgnt_reg_req_addr[4] ? 
                                                 mgnt_reg_tx[mgnt_reg_req_addr] : 
                                                 mgnt_reg_rx[mgnt_reg_req_addr] ;
@@ -356,11 +361,15 @@ module mac_ctrl #(
             else if (mgnt_state[4] && mgnt_reg_req_addr == MGNT_MAC_LLDP_PORT) begin
                 mgnt_reg_lldp[3]    <=  mgnt_rx_buf;
             end
+            else if (mgnt_state[4] && mgnt_reg_req_addr == MGNT_MAC_LLDP_MODE) begin
+                mgnt_reg_lldp[4]    <=  mgnt_rx_buf;
+            end
         end
     end
 
     // assign  rx_conf_data        =   {mgnt_reg_lldp_port[3:0], mgnt_reg_lldp_dest};
-    assign  rx_conf_data        =   {mgnt_reg_lldp[3][3:0],
+    assign  rx_conf_data        =   {mgnt_reg_lldp[4][3:0],
+                                     mgnt_reg_lldp[3][3:0],
                                      mgnt_reg_lldp[2],
                                      mgnt_reg_lldp[1],
                                      mgnt_reg_lldp[0]};

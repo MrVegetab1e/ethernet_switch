@@ -56,7 +56,7 @@ input               rx_mgnt_resp,
 
 input               rx_conf_valid,
 output              rx_conf_resp,
-input       [51:0]  rx_conf_data
+input       [55:0]  rx_conf_data
     );
 
 parameter   DELAY=2;  
@@ -71,11 +71,13 @@ parameter   LLDP_PARAM_PORT     =   16'h1;
 parameter   LLDP_DBG_PROTO      =   16'h0800;
 parameter   LLDP_DBG_MAC        =   48'h60BEB403060E;
 parameter   LLDP_DBG_PORT       =   16'h1;
+parameter   LLDP_DBG_MODE       =   16'h1;
 
 reg [ 2:0] conf_state, conf_state_next;
 reg [ 1:0] conf_valid_buf;
 reg [47:0] lldp_mac_next;
 reg [ 3:0] lldp_port_next;
+reg [ 3:0] lldp_mode_next;
 
 always @(*) begin
     case(conf_state)
@@ -108,9 +110,10 @@ always @(posedge rx_clk or negedge rstn_mac) begin
     if (!rstn_mac) begin
         lldp_mac_next   <=  LLDP_DBG_MAC;
         lldp_port_next  <=  LLDP_DBG_PORT[3:0];
+        lldp_mode_next  <=  LLDP_DBG_MODE[3:0];
     end
     else if (conf_state[1]) begin
-        {lldp_port_next, lldp_mac_next} <=  rx_conf_data;
+        {lldp_mode_next, lldp_port_next, lldp_mac_next} <=  rx_conf_data;
     end
 end
 
@@ -516,10 +519,11 @@ reg     [19:0]  ptr_fifo_din;
 reg             ptr_fifo_wr;
 wire            ptr_fifo_full;
 
-reg [ 3:0] lldp_state, lldp_state_next;
+reg [ 4:0] lldp_state, lldp_state_next;
 reg [ 7:0] lldp_data;
-(*MARK_DEBUG = "TRUE"*) reg [47:0] lldp_mac;
-(*MARK_DEBUG = "TRUE"*) reg [15:0] lldp_port;
+reg [47:0] lldp_mac;
+reg [15:0] lldp_port;
+reg [ 3:0] lldp_mode;
 reg        lldp_sel;
 
 assign  ram_cnt_be = speed[1]?ram_nibble_be:{1'b0,ram_nibble_be[12:1]};
@@ -944,10 +948,13 @@ always @(*) begin
         //         lldp_state_next =   1;
         //     end 
         // end  
-        1: lldp_state_next = (load_be && load_lldp && !bp)  ? 2 : 1;
-        2: lldp_state_next = speed[1]                       ? 4 : 8;
-        4: lldp_state_next = (be_state == 5)                ? 1 : 4;
-        8: lldp_state_next = (be_state == 5)                ? 1 : 8;
+        01: lldp_state_next = (load_be && load_lldp && !bp)  ? 2 : 1;
+        02: lldp_state_next = lldp_mode[1]                   ? 16:
+                              lldp_mode[0]                   ? (speed[1] ? 4 : 8) : 
+                              1;
+        04: lldp_state_next = (be_state == 5)                ? 1 : 4;
+        08: lldp_state_next = (be_state == 5)                ? 1 : 8;
+        16: lldp_state_next = (be_state == 5)                ? 1 : 16;
         default: lldp_state_next = lldp_state;
     endcase
 end
@@ -965,10 +972,13 @@ always @(posedge rx_clk or negedge rstn_mac) begin
     if (!rstn_mac) begin
         lldp_mac    <=  LLDP_DBG_MAC;
         lldp_port   <=  LLDP_DBG_PORT;
+        lldp_mode   <=  LLDP_DBG_MODE[3:0];
     end
-    else if (lldp_state[1]) begin
+    // else if (lldp_state[1]) begin
+    else if (load_be && !bp) begin
         lldp_mac    <=  lldp_mac_next;
         lldp_port   <=  {12'b0, lldp_port_next};
+        lldp_mode   <=  lldp_mode_next;
     end
 end
 

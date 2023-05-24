@@ -48,7 +48,7 @@ wire            not_outlive_1;
 
 reg             ram_wr_data_0;
 reg             ram_wr_tag_0;
-reg     [ 9:0]  ram_addr_0;
+(*EXTRACT_ENABLE = "no"*) reg     [ 9:0]  ram_addr_0;
 (*EXTRACT_ENABLE = "no"*) reg     [15:0]  ram_din_tag_0;
 (*EXTRACT_ENABLE = "no"*) reg     [63:0]  ram_din_data_0;
 wire    [15:0]  ram_dout_tag_0;
@@ -57,7 +57,7 @@ wire    [63:0]  ram_dout_data_0;
 // reg     [63:0]  ram_dout_data_0_reg;
 reg             ram_wr_data_1;
 reg             ram_wr_tag_1;
-reg     [ 9:0]  ram_addr_1;
+(*EXTRACT_ENABLE = "no"*) reg     [ 9:0]  ram_addr_1;
 (*EXTRACT_ENABLE = "no"*) reg     [15:0]  ram_din_tag_1;
 (*EXTRACT_ENABLE = "no"*) reg     [63:0]  ram_din_data_1;
 wire    [15:0]  ram_dout_tag_1;
@@ -301,17 +301,19 @@ always @(posedge clk or negedge rstn)
             hit1<=#2 0;
             end
         15:begin
-            if(ram_addr_0<10'h3ff) begin
+            // if(ram_addr_0<10'h3ff) begin
+            if(ram_addr_0 != 10'h3ff) begin
 				ram_addr_0<=#2 ram_addr_0+1;
                 ram_wr_tag_0<=#2 1;
 				end
-            else ram_addr_0<=#2 0;
-            if(ram_addr_1<10'h3ff) begin
+            // else ram_addr_0<=#2 0;
+            // if(ram_addr_1<10'h3ff) begin
+            if(ram_addr_1 != 10'h3ff) begin
 				ram_addr_1<=#2 ram_addr_1+1;
                 ram_wr_tag_1<=#2 1;
 				end
             else begin
-                ram_addr_1<=#2 0;
+                // ram_addr_1<=#2 0;
                 ram_wr_tag_0<=#2 0;
                 ram_wr_tag_1<=#2 0;
                 clear_op<=#2 0;

@@ -90,7 +90,7 @@ wire    [19:0]  rx_mgnt_data;
 
 wire            rx_conf_valid;
 wire            rx_conf_resp;
-wire    [51:0]  rx_conf_data;
+wire    [55:0]  rx_conf_data;
 
 wire            tx_mgnt_valid;
 wire            tx_mgnt_resp;
@@ -338,7 +338,7 @@ mac_ctrl #(
 
     .rx_mgnt_resp       ( rx_mgnt_resp               ),
     .rx_conf_valid      ( rx_conf_valid              ),
-    .rx_conf_data       ( rx_conf_data        [51:0] ),
+    .rx_conf_data       ( rx_conf_data        [55:0] ),
     .tx_mgnt_resp       ( tx_mgnt_resp               ),
     .sys_req_ack        ( sys_req_ack                ),
     .sys_resp_data_valid( sys_resp_data_valid        ),

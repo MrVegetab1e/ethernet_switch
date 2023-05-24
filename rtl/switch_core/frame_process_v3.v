@@ -31,9 +31,9 @@ module frame_process_v3 (
     input       [19:0] ptr_sfifo_dout,
     input              ptr_sfifo_empty,
 
-    output reg  [47:0] se_mac,
-    output reg  [15:0] source_portmap,
-    output reg  [ 9:0] se_hash,
+    (*EXTRACT_ENABLE = "no"*) output reg  [47:0] se_mac,
+    (*EXTRACT_ENABLE = "no"*) output reg  [15:0] source_portmap,
+    (*EXTRACT_ENABLE = "no"*) output reg  [ 9:0] se_hash,
     output reg         se_source,
     output reg         se_req,
     input              se_ack,
