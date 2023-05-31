@@ -31,6 +31,7 @@ input       [7:0]   gm_rx_d,
 output              gtx_clk,
 
 input       [1:0]   speed,  //ethernet speed 00:10M 01:100M 10:1000M
+input       [7:0]   speed_ext,
 
 input               data_fifo_rd,
 output      [7:0]   data_fifo_dout,
@@ -71,7 +72,8 @@ parameter   LLDP_PARAM_PORT     =   16'h1;
 parameter   LLDP_DBG_PROTO      =   16'h0800;
 parameter   LLDP_DBG_MAC        =   48'h60BEB403060E;
 parameter   LLDP_DBG_PORT       =   16'h1;
-parameter   LLDP_DBG_MODE       =   16'h1;
+parameter   LLDP_DBG_SPEED      =   2'b11;
+parameter   LLDP_DBG_MODE       =   4'h1;
 
 reg [ 2:0] conf_state, conf_state_next;
 reg [ 1:0] conf_valid_buf;
@@ -110,10 +112,13 @@ always @(posedge rx_clk or negedge rstn_mac) begin
     if (!rstn_mac) begin
         lldp_mac_next   <=  LLDP_DBG_MAC;
         lldp_port_next  <=  LLDP_DBG_PORT[3:0];
-        lldp_mode_next  <=  LLDP_DBG_MODE[3:0];
+        lldp_mode_next  <=  LLDP_DBG_MODE;
     end
     else if (conf_state[1]) begin
-        {lldp_mode_next, lldp_port_next, lldp_mac_next} <=  rx_conf_data;
+        // {lldp_mode_next, lldp_port_next, lldp_mac_next} <=  rx_conf_data;
+        lldp_mode_next  <=  rx_conf_data[55:52];
+        lldp_port_next  <=  rx_conf_data[51:48];
+        lldp_mac_next   <=  rx_conf_data[47: 0];
     end
 end
 
@@ -519,11 +524,13 @@ reg     [19:0]  ptr_fifo_din;
 reg             ptr_fifo_wr;
 wire            ptr_fifo_full;
 
-reg [ 4:0] lldp_state, lldp_state_next;
+(*MARK_DEBUG="true"*) reg [ 4:0] lldp_state, lldp_state_next;
 reg [ 7:0] lldp_data;
 reg [47:0] lldp_mac;
 reg [15:0] lldp_port;
-reg [ 3:0] lldp_mode;
+(*MARK_DEBUG="true"*) reg [ 1:0] lldp_speed_i;
+(*MARK_DEBUG="true"*) reg [ 1:0] lldp_speed_o;
+(*MARK_DEBUG="true"*) reg [ 3:0] lldp_mode;
 reg        lldp_sel;
 
 assign  ram_cnt_be = speed[1]?ram_nibble_be:{1'b0,ram_nibble_be[12:1]};
@@ -970,15 +977,23 @@ end
 
 always @(posedge rx_clk or negedge rstn_mac) begin
     if (!rstn_mac) begin
-        lldp_mac    <=  LLDP_DBG_MAC;
-        lldp_port   <=  LLDP_DBG_PORT;
-        lldp_mode   <=  LLDP_DBG_MODE[3:0];
+        lldp_mac        <=  LLDP_DBG_MAC;
+        lldp_port       <=  LLDP_DBG_PORT;
+        lldp_speed_i    <=  LLDP_DBG_SPEED;
+        lldp_speed_o    <=  LLDP_DBG_SPEED;
+        lldp_mode       <=  LLDP_DBG_MODE;
     end
     // else if (lldp_state[1]) begin
     else if (load_be && !bp) begin
-        lldp_mac    <=  lldp_mac_next;
-        lldp_port   <=  {12'b0, lldp_port_next};
-        lldp_mode   <=  lldp_mode_next;
+        lldp_mac        <=  lldp_mac_next;
+        lldp_port       <=  {12'b0, lldp_port_next};
+        lldp_speed_i    <=  speed;
+        lldp_speed_o    <=  lldp_port_next[3] ? speed_ext[7:6] :
+                            lldp_port_next[2] ? speed_ext[5:4] :
+                            lldp_port_next[1] ? speed_ext[3:2] :
+                            lldp_port_next[0] ? speed_ext[1:0] :
+                            2'b11;
+        lldp_mode       <=  lldp_mode_next;
     end
 end
 
@@ -1037,6 +1052,10 @@ always @(posedge rx_clk or negedge rstn_mac) begin
                 // lldp_data   <=  LLDP_DBG_PORT[ 7: 0];
                 lldp_data   <=  lldp_port[ 7: 0];
             end
+            else if (ram_cnt_be == 63) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  {6'b0, lldp_speed_o};
+            end
             else if (ram_cnt_be == 64) begin
                 lldp_sel    <=  'b1;
                 lldp_data   <=  LLDP_PARAM_PORT[15: 8];
@@ -1044,6 +1063,10 @@ always @(posedge rx_clk or negedge rstn_mac) begin
             else if (ram_cnt_be == 65) begin
                 lldp_sel    <=  'b1;
                 lldp_data   <=  LLDP_PARAM_PORT[ 7: 0];
+            end
+            else if (ram_cnt_be == 69) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  {6'b0, lldp_speed_i};
             end
             else begin
                 lldp_sel    <=  'b0;
@@ -1098,6 +1121,10 @@ always @(posedge rx_clk or negedge rstn_mac) begin
                 // lldp_data   <=  LLDP_DBG_PORT[ 7: 0];
                 lldp_data   <=  lldp_port[ 7: 0];
             end
+            else if (ram_cnt_be == 62 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  {6'b0, lldp_speed_o};
+            end
             else if (ram_cnt_be == 63 && !ram_nibble_be[0]) begin
                 lldp_sel    <=  'b1;
                 lldp_data   <=  LLDP_PARAM_PORT[15: 8];
@@ -1105,6 +1132,10 @@ always @(posedge rx_clk or negedge rstn_mac) begin
             else if (ram_cnt_be == 64 && !ram_nibble_be[0]) begin
                 lldp_sel    <=  'b1;
                 lldp_data   <=  LLDP_PARAM_PORT[ 7: 0];
+            end
+            else if (ram_cnt_be == 68 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  {6'b0, lldp_speed_i};
             end
             else begin
                 lldp_sel    <=  'b0;

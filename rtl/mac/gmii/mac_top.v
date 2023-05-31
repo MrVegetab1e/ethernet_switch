@@ -23,6 +23,8 @@ module mac_top(
 
     output    [1:0]    led,
     output             link,
+    output    [1:0]    speed,
+    input     [7:0]    speed_ext,
 
     output              interface_clk,
 
@@ -72,10 +74,11 @@ parameter   MAC_PORT = 1;
 parameter   RX_DELAY = 8;
 localparam  MAC_PORT_ONEH = (16'b1 << MAC_PORT);
 
+integer i;
 genvar n;
 
 wire            time_rst;
-wire    [ 1:0]  speed;
+// wire    [ 1:0]  speed;
 // wire    [63:0]  counter_delay;
 wire            delay_fifo_wr;
 wire    [31:0]  delay_fifo_din;
@@ -102,6 +105,14 @@ wire    [ 7:0]  delay_rx_d;
 wire            delay_rx_dv;
 wire            delay_rx_er;
 wire            delar_rx_clk;
+
+reg     [ 7:0]  speed_all;
+
+always @(*) begin
+    for (i = 0; i < 4; i = i + 1) begin
+        speed_all[(2*i)+:2] = (i == MAC_PORT) ? speed : speed_ext[(2*i)+:2];
+    end
+end
 
 generate
     for (n = 0; n < 8; n = n + 1) begin : rx_d_delay
@@ -218,6 +229,7 @@ mac_r_gmii_tte #(
     .gm_rx_d(delay_rx_d),
     // .gtx_clk(GMII_TX_CLK),
     .speed(speed),
+    .speed_ext(speed_all),
     .data_fifo_rd(rx_data_fifo_rd),
     .data_fifo_dout(rx_data_fifo_dout),
     .ptr_fifo_rd(rx_ptr_fifo_rd),
