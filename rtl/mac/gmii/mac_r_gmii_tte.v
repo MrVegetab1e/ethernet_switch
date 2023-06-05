@@ -524,13 +524,15 @@ reg     [19:0]  ptr_fifo_din;
 reg             ptr_fifo_wr;
 wire            ptr_fifo_full;
 
-(*MARK_DEBUG="true"*) reg [ 4:0] lldp_state, lldp_state_next;
+reg [ 4:0] lldp_state, lldp_state_next;
 reg [ 7:0] lldp_data;
 reg [47:0] lldp_mac;
 reg [15:0] lldp_port;
-(*MARK_DEBUG="true"*) reg [ 1:0] lldp_speed_i;
-(*MARK_DEBUG="true"*) reg [ 1:0] lldp_speed_o;
-(*MARK_DEBUG="true"*) reg [ 3:0] lldp_mode;
+reg [ 1:0] lldp_speed_i;
+reg [ 1:0] lldp_speed_o;
+reg [ 3:0] lldp_mode;
+reg [23:0] lldp_cksm;
+reg [15:0] lldp_cksm_1;
 reg        lldp_sel;
 
 assign  ram_cnt_be = speed[1]?ram_nibble_be:{1'b0,ram_nibble_be[12:1]};
@@ -999,6 +1001,287 @@ end
 
 always @(posedge rx_clk or negedge rstn_mac) begin
     if (!rstn_mac) begin
+        lldp_cksm   <=  24'h90F1;
+        lldp_cksm_1 <=  'b0;
+    end
+    else begin
+        if (lldp_state[1]) begin
+            lldp_cksm   <=  24'h90F1;
+            lldp_cksm_1 <=  lldp_port + LLDP_PARAM_PORT;
+        end
+        else if (lldp_state[2]) begin
+            // if (ram_cnt_be == 1) begin
+            //     lldp_cksm_1 <=  lldp_speed_i + lldp_speed_o;
+            // end
+            // else if (ram_cnt_be == 9) begin     // source mac
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 11) begin
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 13) begin
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 29) begin    // source ip
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 31) begin
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 33) begin    // dest ip
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 35) begin
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 37) begin    // source port
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 39) begin    // dest port
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // if (ram_cnt_be == 1) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 2) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1; 
+            // end
+            // else if (ram_cnt_be == 10) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 12) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 14) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 30) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 31) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 32) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 33) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 34) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 36) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 38) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 40) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // // else if (ram_cnt_be == 41) begin
+            // //     lldp_cksm   <=  lldp_cksm[23:16] + lldp_cksm[15:0];
+            // // end
+            // else if (ram_cnt_be == 41) begin
+            //     lldp_cksm   <=  lldp_cksm[23:16] + lldp_cksm[15:0];
+            // end
+            // else if (ram_cnt_be == 42) begin
+            //     lldp_cksm   <=  lldp_cksm[23:16] + lldp_cksm[15:0];
+            // end
+            if (ram_cnt_be == 2) begin
+                lldp_cksm_1 <=  {14'b0, lldp_speed_i} + {14'b0, lldp_speed_o};
+            end
+            else if (ram_cnt_be == 29) begin    // source ip
+                lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 31) begin
+                lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            end
+            if (ram_cnt_be == 2) begin
+                lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            end
+            else if (ram_cnt_be == 3) begin
+                lldp_cksm   <=  lldp_cksm + lldp_cksm_1; 
+            end
+            else if (ram_cnt_be == 9) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 11) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 13) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 29) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 30) begin
+                lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            end
+            else if (ram_cnt_be == 31) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 32) begin
+                lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            end
+            else if (ram_cnt_be == 33) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 35) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 37) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 39) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 40) begin
+                lldp_cksm   <=  {16'b0, lldp_cksm[23:16]} + {8'b0, lldp_cksm[15:0]};
+            end
+            else if (ram_cnt_be == 41) begin
+                lldp_cksm   <=  {16'b0, lldp_cksm[23:16]} + {8'b0, lldp_cksm[15:0]};
+            end
+        end
+        else if (lldp_state[3]) begin
+            // if (ram_cnt_be == 1 && !ram_nibble_be[0]) begin
+            //     lldp_cksm_1 <=  lldp_speed_i + lldp_speed_o;
+            // end
+            // else if (ram_cnt_be == 8 && !ram_nibble_be[0]) begin     // source mac
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 10 && !ram_nibble_be[0]) begin
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 12 && !ram_nibble_be[0]) begin
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 28 && !ram_nibble_be[0]) begin    // source ip
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 30 && !ram_nibble_be[0]) begin
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 32 && !ram_nibble_be[0]) begin    // dest ip
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 34 && !ram_nibble_be[0]) begin
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 36 && !ram_nibble_be[0]) begin    // source port
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // else if (ram_cnt_be == 38 && !ram_nibble_be[0]) begin    // dest port
+            //     lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            // end
+            // if (ram_cnt_be == 1 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 2 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1; 
+            // end
+            // else if (ram_cnt_be == 9 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 11 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 13 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 29 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 30 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 31 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 32 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 33 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 35 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 37 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // else if (ram_cnt_be == 39 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            // end
+            // // else if (ram_cnt_be == 40 && !ram_nibble_be[0]) begin
+            // //     lldp_cksm[15:0] <=  lldp_cksm[23:16] + lldp_cksm[15:0];
+            // // end
+            // else if (ram_cnt_be == 40 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm[23:16] + lldp_cksm[15:0];
+            // end
+            // else if (ram_cnt_be == 41 && !ram_nibble_be[0]) begin
+            //     lldp_cksm   <=  lldp_cksm[23:16] + lldp_cksm[15:0];
+            // end
+            if (ram_cnt_be == 1 && !ram_nibble_be[0]) begin
+                lldp_cksm_1 <=  {14'b0, lldp_speed_i} + {14'b0, lldp_speed_o};
+            end
+            else if (ram_cnt_be == 28 && !ram_nibble_be[0]) begin    // source ip
+                lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 30 && !ram_nibble_be[0]) begin
+                lldp_cksm_1 <=  {data_fifo_din_reg, data_ram_dout};
+            end
+            if (ram_cnt_be == 1 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            end
+            else if (ram_cnt_be == 2 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + lldp_cksm_1; 
+            end
+            else if (ram_cnt_be == 8 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 10 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 12 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 28 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 29 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            end
+            else if (ram_cnt_be == 30 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 31 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + lldp_cksm_1;
+            end
+            else if (ram_cnt_be == 32 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 34 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 36 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 38 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  lldp_cksm + {data_fifo_din_reg, data_ram_dout};
+            end
+            else if (ram_cnt_be == 39 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  {16'b0, lldp_cksm[23:16]} + {8'b0, lldp_cksm[15:0]};
+            end
+            else if (ram_cnt_be == 40 && !ram_nibble_be[0]) begin
+                lldp_cksm   <=  {16'b0, lldp_cksm[23:16]} + {8'b0, lldp_cksm[15:0]};
+            end
+        end
+    end
+end
+
+always @(posedge rx_clk or negedge rstn_mac) begin
+    if (!rstn_mac) begin
         lldp_sel    <=  'b0;
         lldp_data   <=  'b0;
     end
@@ -1041,6 +1324,14 @@ always @(posedge rx_clk or negedge rstn_mac) begin
             else if (ram_cnt_be == 15) begin
                 lldp_sel    <=  'b1;
                 lldp_data   <=  LLDP_DBG_PROTO[ 7: 0];
+            end
+            else if (ram_cnt_be == 42) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  ~lldp_cksm[15: 8];
+            end
+            else if (ram_cnt_be == 43) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  ~lldp_cksm[ 7: 0];
             end
             else if (ram_cnt_be == 58) begin
                 lldp_sel    <=  'b1;
@@ -1110,6 +1401,14 @@ always @(posedge rx_clk or negedge rstn_mac) begin
             else if (ram_cnt_be == 14 && !ram_nibble_be[0]) begin
                 lldp_sel    <=  'b1;
                 lldp_data   <=  LLDP_DBG_PROTO[ 7: 0];
+            end
+            else if (ram_cnt_be == 41 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  ~lldp_cksm[15: 8];
+            end
+            else if (ram_cnt_be == 42 && !ram_nibble_be[0]) begin
+                lldp_sel    <=  'b1;
+                lldp_data   <=  ~lldp_cksm[ 7: 0];
             end
             else if (ram_cnt_be == 57 && !ram_nibble_be[0]) begin
                 lldp_sel    <=  'b1;
