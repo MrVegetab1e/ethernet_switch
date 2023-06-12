@@ -62,8 +62,12 @@ module register_v2 #(
     localparam  TTE_SW_ADDR     =   7'h41;
     localparam  SPI_LOCAL_ADDR  =   7'h7F;
 
+    // Write this register will immediately start a direct read or indirect write between reg hub and remote device;
+    // Read have no effect and will be ignored
     localparam  DEV_PTR_ADDR    =   7'h00;
+    // Write this register to assert the value of indirect write;
     localparam  DEV_DATA_ADDR   =   7'h01;
+    // Write this register to start a indirect write to flow table;
     localparam  TABLE_CTRL_ADDR =   7'h02;
     localparam  TABLE_HASH_ADDR =   7'h03;
     localparam  TABLE_ST0_ADDR  =   7'h30;
@@ -74,6 +78,22 @@ module register_v2 #(
     localparam  TABLE_ST5_ADDR  =   7'h35;
     localparam  TABLE_ST6_ADDR  =   7'h36;
     localparam  TABLE_ST7_ADDR  =   7'h37;
+
+    // Feature Flag:
+    // bit 15-6: reserved for future
+    // bit 5: vlan functionality
+    // bit 4: rstp functionality (static route for certain ctrl frames, tail tagging)
+    // bit 3: lldp functionality (online modification for lldp packet)
+    // bit 2: ptp functionality (2-step only, using a fifo to track backward latency)
+    // bit 1: tte functionality (support for dedicated route and flow table)
+    // bit 0: MDIO remote ctrl (read status from phy and reconfigure)
+
+    localparam  SW_ID_ADDR      =   8'h80;
+    localparam  SW_FTR_ADDR     =   8'h81;
+    localparam  SW_REV_ADDR_0   =   8'h82;
+    localparam  SW_REV_ADDR_1   =   8'h83;
+    parameter   SW_ID_VAL       =   16'h1234;
+    parameter   SW_FTR_VAL      =   16'h001E;
     
     // spi reg operation
     reg     [ 7:0]  reg_state, reg_state_next;
@@ -88,6 +108,8 @@ module register_v2 #(
     reg     [ 1:0]      ft_bsy;
     reg     [127:0]     table_reg;
     reg     [11:0]      table_hash;
+
+    wire    [31:0]      usr_data;
 
     always @(posedge clk or negedge rst) begin
         if (!rst) begin
@@ -222,17 +244,29 @@ module register_v2 #(
         else if (reg_state[7]) begin
             if (spi_op == DEV_PTR_ADDR) begin
                 if (reg_dev_ptr[14:8] == SPI_LOCAL_ADDR) begin
-                    if (reg_dev_ptr[7:0] == DEV_DATA_ADDR) begin
+                    if (reg_dev_ptr[7:0] == {1'b0, DEV_DATA_ADDR}) begin
                         spi_dout    <=  reg_dev_data;
                     end
-                    if (reg_dev_ptr[7:0] == TABLE_CTRL_ADDR) begin
+                    if (reg_dev_ptr[7:0] == {1'b0, TABLE_CTRL_ADDR}) begin
                         spi_dout    <=  {14'b0, ft_bsy};
                     end
-                    if (reg_dev_ptr[7:0] == TABLE_HASH_ADDR) begin
+                    if (reg_dev_ptr[7:0] == {1'b0, TABLE_HASH_ADDR}) begin
                         spi_dout    <=  table_hash;
                     end
                     if (reg_dev_ptr[7:3] == 5'h06) begin
                         spi_dout    <=  table_reg[16*reg_dev_ptr[2:0]+:16];
+                    end
+                    if (reg_dev_ptr[7:0] == SW_ID_ADDR) begin
+                        spi_dout    <=  SW_ID_VAL;
+                    end
+                    if (reg_dev_ptr[7:0] == SW_FTR_ADDR) begin
+                        spi_dout    <=  SW_FTR_VAL;
+                    end
+                    if (reg_dev_ptr[7:0] == SW_REV_ADDR_0) begin
+                        spi_dout    <=  usr_data[15:0];
+                    end
+                    if (reg_dev_ptr[7:0] == SW_REV_ADDR_1)begin
+                        spi_dout    <=  usr_data[31:16];
                     end
                 end
                 else begin
@@ -366,5 +400,11 @@ module register_v2 #(
     assign  flow    =   table_reg[119:0];
     assign  hash    =   table_hash;
     assign  spi_ack =   spi_wr;
+
+   USR_ACCESSE2 USR_ACCESSE2_inst (
+      .CFGCLK(),            // 1-bit output: Configuration Clock output
+      .DATA(usr_data),      // 32-bit output: Configuration Data output
+      .DATAVALID()          // 1-bit output: Active high data valid output
+   );
 
 endmodule
