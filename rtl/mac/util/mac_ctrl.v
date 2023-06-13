@@ -29,6 +29,14 @@
 // 4'b1 : sink mode(recv lldp pkt & redir for mcu)
 // 4'b2 : src mode(send lldp pkt for designated port)
 // 4'b4 : compatible mode(ignore lldp pkts)
+// mdio cfg reg
+// [ 1: 0] : speed(refer to phy datasheet)
+// [ 2]    : auto negotiation
+// [ 3]    : duplex
+// [ 4]    : isolate
+// [ 5]    : power down
+// [ 6]    : restart auto negotiation 
+// [ 7]    : soft reset
 
 module mac_ctrl #(
     parameter   MGNT_REG_WIDTH      =   32,
@@ -47,6 +55,12 @@ module mac_ctrl #(
     input           tx_mgnt_valid,
     output reg      tx_mgnt_resp,
     input   [15:0]  tx_mgnt_data,
+    // mdio side interface
+    output          mdc,
+    inout           mdio,
+    output reg  [ 1:0]  speed,
+    output reg          link,
+    output reg  [ 1:0]  led,
     // sys side interface, cmd channel
     input           sys_req_valid,
     input           sys_req_wr,
@@ -79,6 +93,10 @@ module mac_ctrl #(
     localparam  MGNT_MAC_TX_ADDR_PKT_VLAN   =   'h14;
     localparam  MGNT_MAC_TX_ADDR_PKT_FC     =   'h15;
     localparam  MGNT_MAC_TX_FUNC_CLR        =   'h1F;
+
+    localparam  MGNT_MAC_MDIO_ADDR_CFG      =   'h20;
+    localparam  MGNT_MAC_MDIO_ADDR_STS      =   'h21;
+    localparam  MGNT_MAC_MDIO_FUNC_UPD      =   'h2F;
 
     localparam  MGNT_MAC_LLDP_ADDR_0        =   'h80;
     localparam  MGNT_MAC_LLDP_ADDR_1        =   'h81;
@@ -116,14 +134,17 @@ module mac_ctrl #(
     // reg     [15:0]  mgnt_reg_lldp_port;
     reg     [MGNT_REG_WIDTH-1:0]    mgnt_reg_lldp [4:0];
 
+    reg     [MGNT_REG_WIDTH-1:0]    mgnt_reg_mdio [1:0];
+
     reg     [ 2:0]  mgnt_rx_state, mgnt_rx_state_next;
     reg     [ 1:0]  mgnt_buf_rx_valid;
     reg     [19:0]  mgnt_buf_rx_data;
     reg     [ 2:0]  mgnt_tx_state, mgnt_tx_state_next;
     reg     [ 1:0]  mgnt_buf_tx_valid;
     reg     [15:0]  mgnt_buf_tx_data;
-    (*MARK_DEBUG = "TRUE"*)  reg     [ 1:0]  mgnt_lldp_state, mgnt_lldp_state_next;
+    reg     [ 1:0]  mgnt_lldp_state, mgnt_lldp_state_next;
     reg     [ 1:0]  mgnt_buf_lldp_resp;
+    reg     [ 4:0]  mgnt_mdio_state, mgnt_mdio_state_next;
 
     reg     [ 5:0]  mgnt_state, mgnt_state_next;
     reg             mgnt_reg_req_wr;
@@ -219,6 +240,8 @@ module mac_ctrl #(
                 mgnt_reg_resp_data_valid    <=  1'b1;
                 mgnt_tx_buf                 <=  mgnt_reg_req_addr[7] ? 
                                                 mgnt_reg_lldp[mgnt_reg_req_addr[3:0]] :
+                                                mgnt_reg_req_addr[5] ? 
+                                                mgnt_reg_mdio[mgnt_reg_req_addr] : 
                                                 mgnt_reg_req_addr[4] ? 
                                                 mgnt_reg_tx[mgnt_reg_req_addr] : 
                                                 mgnt_reg_rx[mgnt_reg_req_addr] ;
@@ -367,6 +390,136 @@ module mac_ctrl #(
         end
     end
 
+    reg     [31:0]  mdio_timer;     // query link status
+    reg             mdio_valid;
+    reg             mdio_wr;
+    reg     [ 9:0]  mdio_addr;
+    reg     [15:0]  mdio_req_data;
+    wire    [15:0]  mdio_resp_data;
+    // reg     [15:0]  mdio_resp_data_reg;
+    wire            mdio_resp_valid;
+
+    always @(posedge clk_if) begin
+        if (!rst_if) begin
+            mdio_timer      <=  'b0;
+        end
+        else begin
+            if (mdio_timer == 32'd25000000) begin
+                mdio_timer  <=  'b0;
+            end
+            else begin
+                mdio_timer  <=  mdio_timer + 1'b1;
+            end
+        end
+    end
+
+    always @(posedge clk_if) begin
+        if (!rst_if) begin
+            mgnt_reg_mdio[0]    <=  'h40;
+            mgnt_reg_mdio[1]    <=  'b0;
+        end
+        else begin
+            if (mgnt_state[4] && mgnt_reg_req_addr == MGNT_MAC_MDIO_ADDR_CFG) begin
+                mgnt_reg_mdio[0]    <=  mgnt_rx_buf;
+            end
+            if (mgnt_mdio_state[4] && mdio_resp_valid) begin
+                mgnt_reg_mdio[1]    <=  mdio_resp_data;
+            end
+        end
+    end
+
+    always @(*) begin
+        case(mgnt_mdio_state)
+            // Idle state
+            01: mgnt_mdio_state_next =  (mgnt_state[4] && mgnt_reg_req_addr == MGNT_MAC_MDIO_FUNC_UPD) ? 2 : 
+                                        mdio_timer == 'b0 ? 8 : 1;
+            // Update config
+            02: mgnt_mdio_state_next =  4;
+            04: mgnt_mdio_state_next =  (mdio_resp_valid) ? 1 : 4;
+            // Read status
+            08: mgnt_mdio_state_next =  16;
+            16: mgnt_mdio_state_next =  (mdio_resp_valid) ? 1 : 16;
+            default: mgnt_mdio_state_next = mgnt_mdio_state;
+        endcase
+    end
+
+    always @(posedge clk_if) begin
+        if (!rst_if) begin
+            mgnt_mdio_state <=  1;
+        end
+        else begin
+            mgnt_mdio_state <=  mgnt_mdio_state_next;
+        end
+    end
+
+    always @(posedge clk_if) begin
+        if (!rst_if) begin
+            mdio_valid          <=  'b0;
+            mdio_wr             <=  'b0;
+            mdio_addr           <=  'b0;
+            mdio_req_data       <=  'b0;
+            // mdio_resp_data_reg  <=  'b0;
+        end
+        else begin
+            if (mgnt_mdio_state[1]) begin
+                mdio_valid      <=  'b1;
+                mdio_wr         <=  'b1;
+                mdio_addr       <=  10'h20;
+                mdio_req_data   <=  {mgnt_reg_mdio[0][7], 
+                                     1'b0, 
+                                     mgnt_reg_mdio[0][0], 
+                                     mgnt_reg_mdio[0][2], 
+                                     mgnt_reg_mdio[0][5],
+                                     mgnt_reg_mdio[0][4],
+                                     mgnt_reg_mdio[0][6],
+                                     mgnt_reg_mdio[0][3],
+                                     1'b0,
+                                     mgnt_reg_mdio[0][1],
+                                     6'b0};
+            end
+            else if (mgnt_mdio_state[3]) begin
+                mdio_valid      <=  'b1;
+                mdio_wr         <=  'b0;
+                mdio_addr       <=  10'h31;
+            end
+            else begin
+                mdio_valid      <=  'b0;
+            end
+            // if (mgnt_mdio_state[4] && mdio_resp_valid) begin
+            //     mdio_resp_data_reg  <=  mdio_resp_data;
+            // end
+        end
+    end
+
+    always @(posedge clk_if or negedge rst_if) begin
+        if (!rst_if) begin
+            speed   <=  2'b11;
+            link    <=  1'b0;
+            led     <=  2'b0;
+        end
+        else if (mgnt_mdio_state[4] && mdio_resp_valid) begin
+            speed   <=  mdio_resp_data[15:14];
+            link    <=  mdio_resp_data[10];
+            led     <=  mdio_resp_data[15:14];
+        end
+    end
+
+    smi_new #(
+        .REF_CLK(125),
+        .MDC_CLK(500)
+    ) smi_inst (
+        .clk(clk_if),
+        .rstn(rst_if),
+        .mdc(mdc),
+        .mdio(mdio),
+        .req_valid(mdio_valid),
+        .req_wr(mdio_wr),
+        .req_addr(mdio_addr),
+        .req_data(mdio_req_data),
+        .resp_valid(mdio_resp_valid),
+        .resp_data(mdio_resp_data)
+    );
+
     // assign  rx_conf_data        =   {mgnt_reg_lldp_port[3:0], mgnt_reg_lldp_dest};
     assign  rx_conf_data        =   {mgnt_reg_lldp[4][3:0],
                                      mgnt_reg_lldp[3][3:0],
@@ -378,43 +531,6 @@ module mac_ctrl #(
     assign  sys_resp_data_valid =   mgnt_reg_resp_data_valid;
     assign  sys_resp_data       =   mgnt_tx_buf[(MGNT_REG_WIDTH-1)-:8];
 
-// mgnt_reg_rx_pkt         <=  'b0;
-// mgnt_reg_rx_byte        <=  'b0;
-// mgnt_reg_rx_pkt_vlan    <=  'b0;
-// mgnt_reg_rx_pkt_fc      <=  'b0;
-// mgnt_reg_rx_pkt_1588    <=  'b0;
-// mgnt_reg_rx_pkt_tte     <=  'b0;
-// mgnt_reg_rx_err_fcs     <=  'b0;
-// mgnt_reg_rx_err_runt    <=  'b0;
-// mgnt_reg_rx_err_jabber  <=  'b0;
-// mgnt_reg_rx_err_bp      <=  'b0;
-// mgnt_reg_rx_pkt         <=  mgnt_reg_rx_pkt + 1'b1;
-// mgnt_reg_rx_byte        <=  mgnt_reg_rx_byte + mgnt_buf_rx_data[11:0];
-// mgnt_reg_rx_pkt         <=  mgnt_reg_rx_pkt + 1'b1;
-// mgnt_reg_rx_byte        <=  mgnt_reg_rx_byte + mgnt_buf_rx_data[11:0];
-// mgnt_reg_rx_pkt_vlan    <=  mgnt_buf_rx_data[12] ?
-//                             mgnt_reg_rx_pkt_vlan + 1'b1 :
-//                             mgnt_reg_rx_pkt_vlan;
-// mgnt_reg_rx_pkt_fc      <=  mgnt_buf_rx_data[13] ?
-//                             mgnt_reg_rx_pkt_fc + 1'b1 :
-//                             mgnt_reg_rx_pkt_fc;
-// mgnt_reg_rx_pkt_1588    <=  mgnt_buf_rx_data[14] ?
-//                             mgnt_reg_rx_pkt_1588 + 1'b1 :
-//                             mgnt_reg_rx_pkt_1588;
-// mgnt_reg_rx_pkt_tte     <=  mgnt_buf_rx_data[15] ?
-//                             mgnt_reg_rx_pkt_tte + 1'b1 :
-//                             mgnt_reg_rx_pkt_tte;
-// mgnt_reg_rx_err_fcs     <=  mgnt_buf_rx_data[16] ?
-//                             mgnt_reg_rx_err_fcs + 1'b1 :
-//                             mgnt_reg_rx_err_fcs;
-// mgnt_reg_rx_err_runt    <=  mgnt_buf_rx_data[17] ?
-//                             mgnt_reg_rx_err_runt + 1'b1 :
-//                             mgnt_reg_rx_err_runt;
-// mgnt_reg_rx_err_jabber  <=  mgnt_buf_rx_data[18] ?
-//                             mgnt_reg_rx_err_jabber + 1'b1 :
-//                             mgnt_reg_rx_err_jabber;
-// mgnt_reg_rx_err_bp      <=  mgnt_buf_rx_data[19] ?
-//                             mgnt_reg_rx_err_bp + 1'b1 :
-//                             mgnt_reg_rx_err_bp;
+
 
 endmodule

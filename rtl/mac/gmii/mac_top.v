@@ -317,20 +317,20 @@ afifo_w32_d32 ptp_delay_fifo (
     .empty(delay_fifo_empty)
 );
 
-smi_config  #(
-.REF_CLK                 (125                   ),        
-.MDC_CLK                 (500                   )
-)
-smi_config_inst
-(
-.clk                    (clk_125                ),
-.rst_n                  (rstn_mac               ),         
-.mdc                    (MDC                    ),
-.mdio                   (MDIO                   ),
-.link                   (link                   ),
-.speed                  (speed                  ),
-.led                    (led                    )    
-);
+// smi_config  #(
+// .REF_CLK                 (125                   ),        
+// .MDC_CLK                 (500                   )
+// )
+// smi_config_inst
+// (
+// .clk                    (clk_125                ),
+// .rst_n                  (rstn_mac               ),         
+// .mdc                    (MDC                    ),
+// .mdio                   (MDIO                   ),
+// .link                   (link                   ),
+// .speed                  (speed                  ),
+// .led                    (led                    )    
+// );
 
 mac_ctrl #(
     .MGNT_REG_WIDTH     ( 16                         )
@@ -354,7 +354,13 @@ mac_ctrl #(
     .tx_mgnt_resp       ( tx_mgnt_resp               ),
     .sys_req_ack        ( sys_req_ack                ),
     .sys_resp_data_valid( sys_resp_data_valid        ),
-    .sys_resp_data      ( sys_resp_data       [ 7:0] )
+    .sys_resp_data      ( sys_resp_data       [ 7:0] ),
+
+    .mdc                ( MDC                        ),
+    .mdio               ( MDIO                       ),
+    .link               ( link                       ),
+    .speed              ( speed                      ),
+    .led                ( led                        ) 
 );
 
 endmodule
