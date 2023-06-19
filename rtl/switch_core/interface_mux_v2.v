@@ -182,7 +182,8 @@ module interface_mux_v2 #(
             // if (ifmux_state != 1) begin
             if (!ifmux_state[0]) begin
                 // sfifo_wr        <=  !error;
-                sfifo_wr        <=  {sfifo_wr[0], !error && sfifo_en};
+                // sfifo_wr        <=  {sfifo_wr[0], !error && sfifo_en};
+                sfifo_wr        <=  {!error && sfifo_wr[0], sfifo_en};
                 // sfifo_din       <=  rx_data_fifo_dout;
                 sfifo_din       <=  rx_data_fifo_dout;
             end
