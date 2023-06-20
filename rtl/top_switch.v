@@ -186,6 +186,18 @@ module top_switch (
     wire [15:0] emac3_rx_tteptr_fifo_dout;
     wire        emac3_rx_tteptr_fifo_empty;
 
+    wire [ 1:0] emac0_speed;
+    wire [ 1:0] emac1_speed;
+    wire [ 1:0] emac2_speed;
+    wire [ 1:0] emac3_speed;
+
+    wire [ 7:0] speed;
+
+    assign speed = {emac3_speed,
+                    emac2_speed,
+                    emac1_speed,
+                    emac0_speed};
+
     // wire                 clk;
 
     // wire [ 6:0] port0_addr;
@@ -295,6 +307,8 @@ module top_switch (
 
         .led (led_r0),
         .link(link[0]),
+        .speed(emac0_speed),
+        .speed_ext({speed[7:2], 2'b0}),
 
         .interface_clk(emac0_interface_clk),
 
@@ -360,6 +374,8 @@ module top_switch (
 
         .led (led_r1),
         .link(link[1]),
+        .speed(emac1_speed),
+        .speed_ext({speed[7:4], 2'b0, speed[1:0]}),
 
         .interface_clk(emac1_interface_clk),
 
@@ -402,7 +418,7 @@ module top_switch (
 
     mac_top #(
         .MAC_PORT(2),
-        .RX_DELAY(10)
+        .RX_DELAY(9)
     ) u_mac_top_2 (
         .clk(clk),
         .clk_ref(clk_in),
@@ -426,6 +442,8 @@ module top_switch (
 
         .led (led_r2),
         .link(link[2]),
+        .speed(emac2_speed),
+        .speed_ext({speed[7:6], 2'b0, speed[3:0]}),
 
         .interface_clk(emac2_interface_clk),
 
@@ -468,7 +486,7 @@ module top_switch (
 
     mac_top #(
         .MAC_PORT(3),
-        .RX_DELAY(10)
+        .RX_DELAY(9)
     ) u_mac_top_3 (
         .clk(clk),
         .clk_ref(clk_in),
@@ -492,6 +510,8 @@ module top_switch (
 
         .led (led_r3),
         .link(link[3]),
+        .speed(emac3_speed),
+        .speed_ext({2'b0, speed[5:0]}),
 
         .interface_clk(emac3_interface_clk),
 

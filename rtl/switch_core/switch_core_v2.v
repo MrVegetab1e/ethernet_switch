@@ -18,7 +18,7 @@ input		 [3:0]		o_cell_bp,
 
 output         			swc_mgnt_valid,
 input   				swc_mgnt_resp,
-output  	 [7:0]		swc_mgnt_data
+output  	 [3:0]		swc_mgnt_data
     );
 reg 	[3:0]	qc_portmap;
 
@@ -49,9 +49,12 @@ reg				FQ_wr;
 reg				FQ_rd;
 reg  [9:0]		FQ_dout;
 wire [9:0]		FQ_count;
-wire			FQ_alloc;	//check FQ depth before initiate writing
+reg   			FQ_alloc;
+always @(posedge clk)
+	FQ_alloc 	<=	i_cell_ptr_fifo_empty ? |(FQ_count[9:6]) : |(FQ_count[9:6]) || (FQ_count[5:0] > i_cell_ptr_fifo_dout[7:2]);
+// wire			FQ_alloc;	//check FQ depth before initiate writing
 // assign 			FQ_alloc = |(FQ_count[9:6]) || (i_cell_ptr_fifo_dout[5:0] > FQ_count[5:0]);
-assign 			FQ_alloc = |(FQ_count[9:6]) || (FQ_count[5:0] > i_cell_ptr_fifo_dout[7:2]);
+// assign 			FQ_alloc = |(FQ_count[9:6]) || (FQ_count[5:0] > i_cell_ptr_fifo_dout[7:2]);
 
 reg	 [1:0]		sram_cnt_a;	
 reg	 [1:0]		sram_cnt_b;

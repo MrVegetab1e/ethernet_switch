@@ -23,6 +23,8 @@ module mac_top(
 
     output    [1:0]    led,
     output             link,
+    output    [1:0]    speed,
+    input     [7:0]    speed_ext,
 
     output              interface_clk,
 
@@ -72,10 +74,11 @@ parameter   MAC_PORT = 1;
 parameter   RX_DELAY = 8;
 localparam  MAC_PORT_ONEH = (16'b1 << MAC_PORT);
 
+integer i;
 genvar n;
 
 wire            time_rst;
-wire    [ 1:0]  speed;
+// wire    [ 1:0]  speed;
 // wire    [63:0]  counter_delay;
 wire            delay_fifo_wr;
 wire    [31:0]  delay_fifo_din;
@@ -90,7 +93,7 @@ wire    [19:0]  rx_mgnt_data;
 
 wire            rx_conf_valid;
 wire            rx_conf_resp;
-wire    [51:0]  rx_conf_data;
+wire    [55:0]  rx_conf_data;
 
 wire            tx_mgnt_valid;
 wire            tx_mgnt_resp;
@@ -102,6 +105,14 @@ wire    [ 7:0]  delay_rx_d;
 wire            delay_rx_dv;
 wire            delay_rx_er;
 wire            delar_rx_clk;
+
+reg     [ 7:0]  speed_all;
+
+always @(*) begin
+    for (i = 0; i < 4; i = i + 1) begin
+        speed_all[(2*i)+:2] = (i == MAC_PORT) ? speed : speed_ext[(2*i)+:2];
+    end
+end
 
 generate
     for (n = 0; n < 8; n = n + 1) begin : rx_d_delay
@@ -218,6 +229,7 @@ mac_r_gmii_tte #(
     .gm_rx_d(delay_rx_d),
     // .gtx_clk(GMII_TX_CLK),
     .speed(speed),
+    .speed_ext(speed_all),
     .data_fifo_rd(rx_data_fifo_rd),
     .data_fifo_dout(rx_data_fifo_dout),
     .ptr_fifo_rd(rx_ptr_fifo_rd),
@@ -305,20 +317,20 @@ afifo_w32_d32 ptp_delay_fifo (
     .empty(delay_fifo_empty)
 );
 
-smi_config  #(
-.REF_CLK                 (125                   ),        
-.MDC_CLK                 (500                   )
-)
-smi_config_inst
-(
-.clk                    (clk_125                ),
-.rst_n                  (rstn_mac               ),         
-.mdc                    (MDC                    ),
-.mdio                   (MDIO                   ),
-.link                   (link                   ),
-.speed                  (speed                  ),
-.led                    (led                    )    
-);
+// smi_config  #(
+// .REF_CLK                 (125                   ),        
+// .MDC_CLK                 (500                   )
+// )
+// smi_config_inst
+// (
+// .clk                    (clk_125                ),
+// .rst_n                  (rstn_mac               ),         
+// .mdc                    (MDC                    ),
+// .mdio                   (MDIO                   ),
+// .link                   (link                   ),
+// .speed                  (speed                  ),
+// .led                    (led                    )    
+// );
 
 mac_ctrl #(
     .MGNT_REG_WIDTH     ( 16                         )
@@ -338,11 +350,17 @@ mac_ctrl #(
 
     .rx_mgnt_resp       ( rx_mgnt_resp               ),
     .rx_conf_valid      ( rx_conf_valid              ),
-    .rx_conf_data       ( rx_conf_data        [51:0] ),
+    .rx_conf_data       ( rx_conf_data        [55:0] ),
     .tx_mgnt_resp       ( tx_mgnt_resp               ),
     .sys_req_ack        ( sys_req_ack                ),
     .sys_resp_data_valid( sys_resp_data_valid        ),
-    .sys_resp_data      ( sys_resp_data       [ 7:0] )
+    .sys_resp_data      ( sys_resp_data       [ 7:0] ),
+
+    .mdc                ( MDC                        ),
+    .mdio               ( MDIO                       ),
+    .link               ( link                       ),
+    .speed              ( speed                      ),
+    .led                ( led                        ) 
 );
 
 endmodule

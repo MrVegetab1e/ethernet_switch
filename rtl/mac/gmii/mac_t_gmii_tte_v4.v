@@ -555,6 +555,8 @@ module mac_t_gmii_tte_v4(
 
     reg     [ 7:0]  mii_d;
     reg             mii_dv;
+    reg     [ 7:0]  mii_d_1;
+    reg             mii_dv_1;
 
     wire    [ 7:0]  mii_d_in;
     // assign          mii_d_in    =   (mii_state == 'h08)                 ?   crc_dout        :
@@ -651,14 +653,18 @@ module mac_t_gmii_tte_v4(
             end
             // if (mii_state_next != 1) begin
             if (!mii_state_next[0]) begin
+                // if (speed[1] || tx_read_req) begin
+                //     mii_d           <=  mii_d_in;
+                //     mii_dv          <=  1'b1;
+                //     // tx_cnt_back     <=  tx_cnt_back_1;
+                //     // tx_cnt_back_1   <=  tx_cnt_back_1 + 1'b1;
+                // end
+                // else begin
+                //     mii_d           <=  mii_d >> 4;
+                // end
                 if (speed[1] || tx_read_req) begin
                     mii_d           <=  mii_d_in;
                     mii_dv          <=  1'b1;
-                    // tx_cnt_back     <=  tx_cnt_back_1;
-                    // tx_cnt_back_1   <=  tx_cnt_back_1 + 1'b1;
-                end
-                else begin
-                    mii_d           <=  mii_d >> 4;
                 end
             end
             else begin
@@ -702,11 +708,25 @@ module mac_t_gmii_tte_v4(
             //     mii_d           <=  'b0;
             //     mii_dv          <=  'b0;
             // end
+            if (speed[1]) begin
+                mii_d_1     <=  mii_d;
+            end
+            else begin
+                if (!tx_read_req) begin
+                    mii_d_1     <=  {2{mii_d[3:0]}};
+                end
+                else begin
+                    mii_d_1     <=  {2{mii_d[7:4]}};
+                end
+            end
+            mii_dv_1    <=  mii_dv;
         end
     end
 
-    assign      gtx_d   =   mii_d;
-    assign      gtx_dv  =   mii_dv;
+    // assign      gtx_d   =   mii_d;
+    // assign      gtx_dv  =   mii_dv;
+    assign      gtx_d   =   mii_d_1;
+    assign      gtx_dv  =   mii_dv_1;
 
     crc32_8023 u_crc32_8023(
         // .clk(tx_master_clk), 
