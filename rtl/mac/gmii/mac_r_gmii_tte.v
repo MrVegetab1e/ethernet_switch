@@ -41,7 +41,7 @@ output              ptr_fifo_empty,
 input               tte_fifo_rd,
 output      [7:0]   tte_fifo_dout,
 input               tteptr_fifo_rd, 
-output      [15:0]  tteptr_fifo_dout,
+output      [19:0]  tteptr_fifo_dout,
 output              tteptr_fifo_empty,
 
 input       [31:0]  counter_ns,
@@ -57,7 +57,11 @@ input               rx_mgnt_resp,
 
 input               rx_conf_valid,
 output              rx_conf_resp,
-input       [55:0]  rx_conf_data
+input       [55:0]  rx_conf_data,
+
+input               mac_conf_valid,
+output              mac_conf_resp,
+input       [ 3:0]  mac_conf_data
     );
 
 parameter   DELAY=2;  
@@ -123,6 +127,49 @@ always @(posedge rx_clk or negedge rstn_mac) begin
 end
 
 assign rx_conf_resp = conf_state[2];
+
+    reg     [ 2:0]  mac_conf_state, mac_conf_state_next;
+    reg     [ 1:0]  mac_conf_valid_buf;
+    reg     [ 3:0]  mac_conf_reg;
+
+    always @(*) begin
+        case(mac_conf_state)
+            1 : mac_conf_state_next =   mac_conf_valid_buf[1]   ? 2 : 1;
+            2 : mac_conf_state_next =                             4;
+            4 : mac_conf_state_next =   !mac_conf_valid_buf[1]  ? 1 : 4;
+            default : mac_conf_state_next = mac_conf_state;
+        endcase
+    end
+
+    always @(posedge rx_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            mac_conf_state  <=  1;
+        end
+        else begin
+            mac_conf_state  <=  mac_conf_state_next;
+        end
+    end
+
+    always @(posedge rx_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            mac_conf_valid_buf  <=  'b0;
+        end
+        else begin
+            mac_conf_valid_buf  <=  {mac_conf_valid_buf, mac_conf_valid};
+        end
+    end
+
+    always @(posedge rx_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            mac_conf_reg    <=  'h0;
+        end
+        else if (mac_conf_state[1]) begin
+            mac_conf_reg    <=  mac_conf_data;
+        end
+    end
+
+    assign mac_conf_resp = mac_conf_state[2];
+
 
 //============================================  
 //generte ptp message    
@@ -256,7 +303,7 @@ wire    byte_dv;
 assign  byte_dv=nib_cnt[0] | speed[1];
 
 wire    byte_bp;
-assign  byte_bp=(byte_cnt>(MTU+18));
+assign  byte_bp=(byte_cnt>(MTU+19));
 //============================================  
 //short-term rx_state.   
 //============================================ 
@@ -510,6 +557,9 @@ crc32_8023 u_crc32_8023(
     .crc()
     );
 
+reg [12:0]  tailtag_pos;
+reg [ 3:0]  tailtag_port;
+
 //============================================  
 //be state.   
 //============================================  
@@ -597,20 +647,27 @@ always @(posedge rx_clk  or negedge rstn_mac)
         end
         4:begin
             // ptr_fifo_din[12:0]<=#DELAY ram_cnt_be-1;
-            ptr_fifo_din[12:0]<=#DELAY ram_cnt_be-5;
+            if(mac_conf_reg[0]) ptr_fifo_din[11:0]<=#DELAY ram_cnt_be-6;
+            else ptr_fifo_din[11:0]<=#DELAY ram_cnt_be-5;
             // if((ram_cnt_be<65) | (ram_cnt_be>1519)) ptr_fifo_din[14]<=#DELAY 1;
             // else ptr_fifo_din[14]<=#DELAY 0;
             // if(crc_result==CRC_RESULT_VALUE) ptr_fifo_din[15]<=#DELAY 1'b0;
             // else ptr_fifo_din[15]<=#DELAY 1'b1;
+            // if(mac_conf_reg[0] && ram_cnt_be<66) ptr_fifo_din[14]<=#DELAY 1;
+            // else if(!mac_conf_reg[0] && ram_cnt_be<65) ptr_fifo_din[14]<=#DELAY 1;
             if(ram_cnt_be<65) ptr_fifo_din[14]<=#DELAY 1;
             else ptr_fifo_din[14]<=#DELAY 0;
-            if(ram_cnt_be>1519) ptr_fifo_din[15]<=#DELAY 1;
+            // if(mac_conf_reg[0] && ram_cnt_be>1520) ptr_fifo_din[15]<=#DELAY 1;
+            // else if(!mac_conf_reg[0] && ram_cnt_be>1519) ptr_fifo_din[15]<=#DELAY 1;
+            if(ram_cnt_be>MTU+20) ptr_fifo_din[15]<=#DELAY 1;
             else ptr_fifo_din[15]<=#DELAY 0;
             if(crc_result==CRC_RESULT_VALUE) ptr_fifo_din[13]<=#DELAY 1'b0;
             else ptr_fifo_din[13]<=#DELAY 1'b1;
             // lldp pre-route
+            ptr_fifo_din[12] <= mac_conf_reg[0];
             // if(!lldp_state[0]) ptr_fifo_din[19:16]<=#DELAY LLDP_DBG_PORT[3:0];
-            if(!lldp_state[0]) ptr_fifo_din[19:16]<=#DELAY lldp_port[3:0];
+            if(mac_conf_reg[0]) ptr_fifo_din[19:16]<=#DELAY tailtag_port[3:0];
+            else if(!lldp_state[0]) ptr_fifo_din[19:16]<=#DELAY lldp_port[3:0];
             else ptr_fifo_din[19:16]<=#DELAY 4'b0;
             ptr_fifo_wr<=#DELAY 1;
             be_state<=#DELAY 5;
@@ -622,7 +679,6 @@ always @(posedge rx_clk  or negedge rstn_mac)
         end
         endcase
         end
-
 
 //============================================  
 //PTP rx_state.   
@@ -1453,7 +1509,7 @@ reg             tte_fifo_wr;
 reg             tte_fifo_wr_reg;
 wire            tte_fifo_wr_dv;
 wire    [11:0]  tte_fifo_depth;
-reg     [15:0]  tteptr_fifo_din;
+reg     [19:0]  tteptr_fifo_din;
 reg             tteptr_fifo_wr;
 wire            tteptr_fifo_full;
 
@@ -1519,17 +1575,26 @@ always @(posedge rx_clk  or negedge rstn_mac)
         end
         4:begin
             // tteptr_fifo_din[12:0]<=#DELAY ram_cnt_tte-1;
-            tteptr_fifo_din[12:0]<=#DELAY ram_cnt_tte-5;
+            // tteptr_fifo_din[12:0]<=#DELAY ram_cnt_tte-5;
+            if(mac_conf_reg[0]) tteptr_fifo_din[11:0]<=#DELAY ram_cnt_tte-6;
+            else tteptr_fifo_din[11:0]<=#DELAY ram_cnt_tte-5;
             // if((ram_cnt_tte<65) | (ram_cnt_tte>1519)) tteptr_fifo_din[14]<=#DELAY 1;
             // else tteptr_fifo_din[14]<=#DELAY 0;
             // if(crc_result==CRC_RESULT_VALUE) tteptr_fifo_din[15]<=#DELAY 1'b0;
             // else tteptr_fifo_din[15]<=#DELAY 1'b1;
+            // if(mac_conf_reg[0] && ram_cnt_tte<66) tteptr_fifo_din[14]<=#DELAY 1;
+            // else if(!mac_conf_reg[0] && ram_cnt_tte<65) tteptr_fifo_din[14]<=#DELAY 1;
             if(ram_cnt_tte<65) tteptr_fifo_din[14]<=#DELAY 1;
             else tteptr_fifo_din[14]<=#DELAY 0;
-            if(ram_cnt_tte>1519) tteptr_fifo_din[15]<=#DELAY 1;
+            // if(mac_conf_reg[0] && ram_cnt_tte>1520) tteptr_fifo_din[15]<=#DELAY 1;
+            // else if(!mac_conf_reg[0] && ram_cnt_tte>1519) tteptr_fifo_din[15]<=#DELAY 1;
+            if(ram_cnt_tte>MTU+20) tteptr_fifo_din[15]<=#DELAY 1;
             else tteptr_fifo_din[15]<=#DELAY 0;
             if(crc_result==CRC_RESULT_VALUE) tteptr_fifo_din[13]<=#DELAY 1'b0;
             else tteptr_fifo_din[13]<=#DELAY 1'b1;
+            tteptr_fifo_din[12] <= mac_conf_reg[0];
+            if(mac_conf_reg[0]) tteptr_fifo_din[19:16]<=#DELAY tailtag_port[3:0];
+            else tteptr_fifo_din[19:16]<=#DELAY 4'b0;
             tteptr_fifo_wr<=#DELAY 1;
             tte_state<=#DELAY 5;
         end
@@ -1550,6 +1615,29 @@ assign  d_valid = data_fifo_wr_dv | tte_fifo_wr_dv;
 assign  data_fifo_din   =   (lldp_sel==1)   ?   lldp_data   :
                             (ptp_sel==1)    ?   ptp_data    : 
                             data_fifo_din_reg;
+
+always @(posedge rx_clk or negedge rstn_mac) begin
+    if (!rstn_mac) begin
+        tailtag_pos     <=  'b0;
+        tailtag_port    <=  'b0;
+    end
+    else begin
+        if (load_req) begin
+            if (speed[1]) begin
+                tailtag_pos     <=  load_byte - 13'h2;
+            end
+            else begin
+                tailtag_pos     <=  load_byte - 13'h3;
+            end
+        end
+        if (be_state != 0 && ram_cnt_be == tailtag_pos && (!ram_nibble_be[0] | speed[1])) begin
+            tailtag_port    <=  data_fifo_din_reg[ 3:0];
+        end
+        if (tte_state != 0 && ram_cnt_tte == tailtag_pos && (!ram_nibble_tte[0] | speed[1])) begin
+            tailtag_port    <=  data_fifo_din_reg[ 3:0];
+        end
+    end
+end
 
 //============================================  
 //fifo used. 
@@ -1597,7 +1685,7 @@ afifo_reg_w8_d4k u_tte_fifo (
   .wr_data_count(tte_fifo_depth) 	// output [11 : 0] wr_data_count
 );
 
-afifo_w16_d32 u_tteptr_fifo (
+afifo_w20_d32 u_tteptr_fifo (
   .rst(!rstn_sys),                  // input rst
   .wr_clk(rx_clk),                  // input wr_clk
   .rd_clk(clk),                     // input rd_clk

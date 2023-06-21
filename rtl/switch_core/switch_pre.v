@@ -19,7 +19,7 @@ always@(posedge clk or negedge rstn)
 	if(!rstn)
 		begin
 		// word_num<=#2  0;
-		state<=#2  0;
+		state<=#2  17;
 		// i_cell_data_fifo_dout<=#2  0;
 		// i_cell_portmap<=#2  0;
 		i_cell_data_fifo_wr<=#2  0;
@@ -30,15 +30,18 @@ always@(posedge clk or negedge rstn)
 		i_cell_data_fifo_wr<=#2  0;
 		i_cell_ptr_fifo_wr<=#2  0;
 		case(state)
-		0:begin
+		17:begin
 			word_num<=#2  0;
 			if(sof & !i_cell_bp)begin
-				// i_cell_data_fifo_dout[127:120]<=#2  din;
-				i_cell_data_fifo_dout<=#2 {i_cell_data_fifo_dout, din};
 				i_cell_portmap<=#2  din[3:0];
-				state<=#2  1;
+				state<=#2  0;
 				end
-			end
+		end
+		0:begin
+			// i_cell_data_fifo_dout[127:120]<=#2  din;
+			i_cell_data_fifo_dout<=#2 {i_cell_data_fifo_dout, din};
+			state<=#2  1;
+		end
 		1:begin
 			// i_cell_data_fifo_dout[119:112]<=#2  din;
 			i_cell_data_fifo_dout<=#2 {i_cell_data_fifo_dout, din};
@@ -125,7 +128,7 @@ always@(posedge clk or negedge rstn)
 			else begin
 				i_cell_ptr_fifo_dout<=#2  {4'b0,i_cell_portmap[3:0],2'b0,word_num[7:2]};
 				i_cell_ptr_fifo_wr<=#2  1;
-				state<=#2 0;
+				state<=#2 17;
 				end
 			end
 		endcase

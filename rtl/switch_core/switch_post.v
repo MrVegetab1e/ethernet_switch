@@ -56,6 +56,7 @@ module switch_post (
     reg   [11:0] frame_len;
     reg   [11:0] frame_len_1;
     reg   [ 7:0] frame_len_with_pad;
+    reg   [ 3:0] frame_port_src;
 
     always @(posedge clk or negedge rstn)
         if (!rstn) begin
@@ -65,6 +66,7 @@ module switch_post (
             frame_len <= #2 0;
             frame_len_1 <= #2 0;
             frame_len_with_pad <= #2 0;
+            frame_port_src <= #2 0;
             o_cell_data_fifo_rd <= #2 0;
             data_fifo_din <= #2 0;
             ptr_fifo_wr <= #2 0;
@@ -81,15 +83,19 @@ module switch_post (
                     // byte_dv  <= #2 0;
                     // byte_cnt <= #2 2;
                     if (!o_cell_data_fifo_empty & o_cell_data_fifo_dout[143] & !bp) begin
-                        frame_len <= #2{
-                            o_cell_data_fifo_dout[127:124], o_cell_data_fifo_dout[119:112]
-                        };
+                        // frame_len <= #2{
+                        //     o_cell_data_fifo_dout[127:124], o_cell_data_fifo_dout[119:112]
+                        // };
+                        frame_len <= #2 o_cell_data_fifo_dout[123:112];
                         // frame_len_with_pad <= #2{
                         //     o_cell_data_fifo_dout[127:124], o_cell_data_fifo_dout[119:112],
                         // };
-                        frame_len_with_pad <= #2{
-                            o_cell_data_fifo_dout[127:124], o_cell_data_fifo_dout[119:118], 2'b0
-                        };
+                        // frame_len_with_pad <= #2{
+                        //     o_cell_data_fifo_dout[127:124], o_cell_data_fifo_dout[119:118], 2'b0
+                        // };
+                        frame_len_with_pad <= #2 {o_cell_data_fifo_dout[123:118], 2'b0};
+                        // frame_port_src <= #2 o_cell_data_fifo_dout[123:120];
+                        frame_port_src <= #2 o_cell_data_fifo_dout[127:124];
                         mstate <= #2 1;
                     end else if (!o_cell_data_fifo_empty & !bp) begin
                         mstate <= #2 19;
@@ -177,7 +183,8 @@ module switch_post (
                 end
                 18: begin
                     data_fifo_din <= #2 o_cell_data_fifo_dout[7:0];
-                    ptr_fifo_din <= #2{4'b0, frame_len_1[11:0]};
+                    // ptr_fifo_din <= #2{4'b0, frame_len_1[11:0]};
+                    ptr_fifo_din <= #2{frame_port_src, frame_len_1[11:0]};
                     ptr_fifo_wr <= #2 1;
                     mstate <= #2 0;
                 end

@@ -27,7 +27,7 @@ input                   rstn,
 output  reg             sfifo_rd,
 input        [7:0]      sfifo_dout,
 output  reg             ptr_sfifo_rd,
-input        [15:0]     ptr_sfifo_dout,
+input        [19:0]     ptr_sfifo_dout,
 input                   ptr_sfifo_empty,
 
 output  reg  [47:0]     se_dmac,
@@ -61,13 +61,14 @@ reg     [ 3:0]     frp_fwd_blk_vect, frp_fwd_blk_vect_next;
 
 reg     [ 3:0]     frp_link_fwd;
 reg                frp_link_src;
+reg     [ 3:0]     frp_prert;
 
 reg     [47:0]     source_mac;
 reg     [47:0]     desti_mac;
 reg     [15:0]     length_type;
 reg     [5:0]      state;
 reg     [10:0]     cnt;
-reg     [3:0]      egress_portmap;
+// reg     [3:0]      egress_portmap;
 reg     [11:0]     length;
 reg     [5:0]      pad_cnt;
 
@@ -103,9 +104,10 @@ always@(posedge clk or negedge rstn)begin
             state<=#2 2;
             end
         2:begin
-            cnt<=#2 ptr_sfifo_dout[10:0];						
+            cnt<=#2 ptr_sfifo_dout[10:0];
             length<=#2 {1'b0,ptr_sfifo_dout[10:0]}; 
             frp_link_src<=#2 (ptr_sfifo_dout[15:12] & frp_fwd_blk_vect) == 4'b0;
+            frp_prert<=#2 ptr_sfifo_dout[19:16];
             state<=#2 3;
             end
         3:begin
@@ -196,47 +198,63 @@ always@(posedge clk or negedge rstn)begin
             state<=#2 19;
             end
         19:begin
-            se_req<=#2 frp_link_src;
+            se_req<=#2 frp_link_src && (frp_prert == 4'b0);
             se_hash<=#2 {source_mac[4:0],desti_mac[6:0]};
             se_dmac<=#2 desti_mac;
             se_smac<=#2 source_mac;
             state<=#2 20;
             end
         20:begin
+            if(frp_prert)begin
+                se_req<=#2 0;
+                state<=#2 22;
+                // egress_portmap<=#2 frp_prert & link;
+                data<=#2 {4'b0, frp_prert & link};
+                dv<=#2 1;
+                sof<=#2 1; 
+                // len_tgt_combo <= {length[11:8], egress_portmap[3:0], length[7:0]}; 
+                end                
             if(se_ack)begin
                 se_req<=#2 0;
                 state<=#2 22;
-                egress_portmap<=#2 se_result[3:0] & frp_link_fwd;
+                data<=#2 {4'b0, se_result[3:0] & frp_link_fwd};
+                dv<=#2 1;
+                sof<=#2 1;
+                // egress_portmap<=#2 se_result[3:0] & frp_link_fwd;
                 // len_tgt_combo <= {length[11:8], egress_portmap[3:0], length[7:0]}; 
                 end
             if(se_nak || !frp_link_src)begin
                 se_req<=#2 0;
                 state<=#2 21;
-                egress_portmap<=#2 0;
+                dv<=#2 0;
+                sof<=#2 0;
+                // egress_portmap<=#2 0;
                 // len_tgt_combo <= {length[11:8], 4'b0, length[7:0]}; 
                 end
             end
         21:begin
-            data<=#2 {length[11:8],egress_portmap[3:0]}; 
+            // data<=#2 {length[11:8],egress_portmap[3:0]}; 
             // data<=len_tgt_combo[15:8];
             // len_tgt_combo<=len_tgt_combo << 8;
-            dv<=#2 0;
-            sof<=#2 0;  
+            // dv<=#2 0;
+            // sof<=#2 0;  
             state<=#2 23;
             end
         22:begin
-            data<=#2 {length[11:8],egress_portmap[3:0]};  
+            data<=#2 {ptr_sfifo_dout[15:12], length[11:8]};
+            // data<=#2 {length[11:8],egress_portmap[3:0]};  
             // data<=len_tgt_combo[15:8];
             // len_tgt_combo<=len_tgt_combo << 8;
-            dv<=#2 1;
-            sof<=#2 1;  
+            // dv<=#2 1;
+            // sof<=#2 1;
+            sof<=#2 0;
             state<=#2 23;
             end
         23:begin
             data<=#2 length[7:0];
             // data<=len_tgt_combo[15:8];
             state<=#2 24;
-            sof<=#2 0;
+            // sof<=#2 0;
             end
         24:begin
             data<=#2 desti_mac[47:40];

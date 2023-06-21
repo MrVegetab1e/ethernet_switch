@@ -77,7 +77,8 @@ module frame_process_v3 (
     reg     [  5:0]     frp_multicast;
     reg     [  3:0]     frp_link_fwd;
     reg                 frp_link_src;
-    reg                 frp_link_lrn;    
+    reg                 frp_link_lrn;
+    reg     [  3:0]     frp_route;
 
     reg     [ 10:0]     frp_cnt_front;
     reg     [ 10:0]     frp_cnt_back;
@@ -192,6 +193,7 @@ module frame_process_v3 (
             frp_header      <=  'b0;
             frp_link_fwd    <=  'b0;
             frp_link_lrn    <=  'b0;
+            frp_route       <=  'b0;
         end
         else begin
             if (frp_fnt_state[2]) begin
@@ -242,19 +244,29 @@ module frame_process_v3 (
             if (frp_cnt_front == 'hF) begin
                 // frp_header      <=  {(se_result && link), 1'b0, frp_len_1};
                 if (frp_lldp_prert != 0) begin
-                    frp_header      <=  {1'b0, frp_len_1[10:8], 
-                                        (frp_lldp_prert & frp_link_fwd), 
-                                        frp_len_1[7:0]};                 
+                    // frp_header      <=  {1'b0, frp_len_1[10:8], 
+                    //                     // (frp_lldp_prert & frp_link_fwd), 
+                    //                     (frp_lldp_prert & link), 
+                    //                     frp_len_1[7:0]};
+                    frp_route       <=  (frp_lldp_prert & link);
+                    frp_header      <=  {ptr_sfifo_dout[15:12], 
+                                        1'b0, frp_len_1[10:0]};
                 end
                 else if (se_mac[40]) begin
-                    frp_header      <=  {1'b0, frp_len_1[10:8], 
-                                        (~source_portmap[ 3:0] & frp_link_fwd), 
-                                        frp_len_1[7:0]};
+                    // frp_header      <=  {1'b0, frp_len_1[10:8], 
+                    //                     (~source_portmap[ 3:0] & frp_link_fwd), 
+                    //                     frp_len_1[7:0]};
+                    frp_route       <=  (~source_portmap[ 3:0] & frp_link_fwd);
+                    frp_header      <=  {ptr_sfifo_dout[15:12], 
+                                        1'b0, frp_len_1[10:0]};
                 end
                 else begin
-                    frp_header      <=  {1'b0, frp_len_1[10:8], 
-                                        (se_result[ 3:0] & frp_link_fwd), 
-                                        frp_len_1[7:0]};
+                    // frp_header      <=  {1'b0, frp_len_1[10:8], 
+                    //                     (se_result[ 3:0] & frp_link_fwd), 
+                    //                     frp_len_1[7:0]};
+                    frp_route       <=  (se_result[ 3:0] & frp_link_fwd);
+                    frp_header      <=  {ptr_sfifo_dout[15:12], 
+                                        1'b0, frp_len_1[10:0]};
                 end
             end
         end
@@ -319,7 +331,8 @@ module frame_process_v3 (
                 i_cell_data_fifo_wr     <=  'b0;
             end
             if (frp_bak_state[1] && frp_cnt_back == frp_len_back) begin
-                i_cell_ptr_fifo_dout    <=  {4'b0, frp_header[11:8], 1'b0, frp_len_back_pad[10:4]};
+                // i_cell_ptr_fifo_dout    <=  {4'b0, frp_header[11:8], 1'b0, frp_len_back_pad[10:4]};
+                i_cell_ptr_fifo_dout    <=  {4'b0, frp_route, 1'b0, frp_len_back_pad[10:4]};
                 i_cell_ptr_fifo_wr      <=  'b1;
             end
             else begin
