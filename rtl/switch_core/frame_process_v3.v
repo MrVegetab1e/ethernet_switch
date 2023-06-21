@@ -23,14 +23,14 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 module frame_process_v3 (
-    input              clk,
+    input             clk,
     input              rstn,
     output reg         sfifo_rd,
     input       [ 7:0] sfifo_dout,
     output reg         ptr_sfifo_rd,
     input       [19:0] ptr_sfifo_dout,
     input              ptr_sfifo_empty,
-
+    // dynamic flow table
     (*EXTRACT_ENABLE = "no"*) output reg  [47:0] se_mac,
     (*EXTRACT_ENABLE = "no"*) output reg  [15:0] source_portmap,
     (*EXTRACT_ENABLE = "no"*) output reg  [ 9:0] se_hash,
@@ -39,6 +39,12 @@ module frame_process_v3 (
     input              se_ack,
     input              se_nak,
     input       [15:0] se_result,
+    // reserved multicast flow table
+    (*MARK_DEBUG = "true"*) output reg         ftm_req_valid,
+    (*MARK_DEBUG = "true"*) input              ftm_resp_ack,
+    (*MARK_DEBUG = "true"*) input              ftm_resp_nak,
+    (*MARK_DEBUG = "true"*) input       [15:0] ftm_resp_result,
+
     input       [ 3:0] link,
 
     // output reg         sof,
@@ -65,6 +71,7 @@ module frame_process_v3 (
 
     reg     [  3:0]     frp_fwd_blk_vect, frp_fwd_blk_vect_next;
     reg     [  3:0]     frp_lrn_blk_vect, frp_lrn_blk_vect_next;
+    reg                 frp_ftm_en, frp_ftm_en_next; 
     
     // reg     [ 15:0]     frp_state, frp_state_next;
     reg     [  4:0]     frp_fnt_state, frp_fnt_state_next;
@@ -74,13 +81,14 @@ module frame_process_v3 (
     reg     [0:127]     frp_dout_buf;
     reg     [ 15:0]     frp_header;
     reg     [  3:0]     frp_lldp_prert;
-    reg     [  5:0]     frp_multicast;
+    reg     [  5:0]     frp_broadcast;
+    (*MARK_DEBUG = "true"*) reg     [  3:0]     frp_multicast;
     reg     [  3:0]     frp_link_fwd;
     reg                 frp_link_src;
     reg                 frp_link_lrn;
     reg     [  3:0]     frp_route;
 
-    reg     [ 10:0]     frp_cnt_front;
+    (*MARK_DEBUG = "true"*) reg     [ 10:0]     frp_cnt_front;
     reg     [ 10:0]     frp_cnt_back;
     reg     [ 10:0]     frp_len;
     reg     [ 10:0]     frp_len_1;
@@ -173,11 +181,24 @@ module frame_process_v3 (
 
     always @(posedge clk) begin
         if (!rstn) begin
+            frp_broadcast   <=  'b0;
             frp_multicast   <=  'b0;
         end
         else begin
             if (frp_cnt_front >= 'h3 && frp_cnt_front <= 'h8) begin
-                frp_multicast   <=  {frp_multicast, (sfifo_dout == 8'hFF)};
+                frp_broadcast   <=  {frp_broadcast, (sfifo_dout == 8'hFF)};
+            end
+            if (frp_cnt_front == 'h3) begin
+                frp_multicast[0]    <=  (sfifo_dout == 8'h01);
+            end
+            if (frp_cnt_front == 'h4) begin
+                frp_multicast[1]    <=  frp_multicast[0] && (sfifo_dout == 8'h80);
+            end
+            if (frp_cnt_front == 'h5) begin
+                frp_multicast[2]    <=  frp_multicast[1] && (sfifo_dout == 8'hC2);
+            end
+            if (frp_cnt_front == 'h6) begin
+                frp_multicast[3]    <=  frp_multicast[2] && (sfifo_dout == 8'h00);
             end
         end
     end
@@ -194,6 +215,7 @@ module frame_process_v3 (
             frp_link_fwd    <=  'b0;
             frp_link_lrn    <=  'b0;
             frp_route       <=  'b0;
+            ftm_req_valid   <=  'b0;
         end
         else begin
             if (frp_fnt_state[2]) begin
@@ -240,6 +262,12 @@ module frame_process_v3 (
             else begin
                 se_req          <=  'b0;
             end
+            if (frp_cnt_front == 'h9) begin
+                ftm_req_valid   <=  frp_ftm_en && frp_multicast[3] && frp_link_src;
+            end
+            else if (frp_cnt_front == 'hF) begin
+                ftm_req_valid   <=  'b0;
+            end
             // if (frp_cnt_front == 'hE) begin
             if (frp_cnt_front == 'hF) begin
                 // frp_header      <=  {(se_result && link), 1'b0, frp_len_1};
@@ -251,6 +279,11 @@ module frame_process_v3 (
                     frp_route       <=  (frp_lldp_prert & link);
                     frp_header      <=  {ptr_sfifo_dout[15:12], 
                                         1'b0, frp_len_1[10:0]};
+                end
+                else if (frp_ftm_en && ftm_resp_ack) begin
+                    frp_route       <=  (ftm_resp_result[ 3:0] & frp_link_fwd);
+                    frp_header      <=  {ptr_sfifo_dout[15:12], 
+                                        1'b0, frp_len_1[10:0]};     
                 end
                 else if (se_mac[40]) begin
                     // frp_header      <=  {1'b0, frp_len_1[10:8], 
@@ -375,7 +408,7 @@ module frame_process_v3 (
         end
         else begin
             if (frp_cnt_front == 'h9) begin
-                if (frp_multicast == {6{1'b1}}) begin
+                if (frp_broadcast == {6{1'b1}}) begin
                     mgnt_flag[ 2:0] <=  3'b100;
                 end
                 else if (frp_buf[40]) begin
@@ -432,19 +465,25 @@ module frame_process_v3 (
             frp_fwd_blk_vect_next   <=  'b0;
             frp_lrn_blk_vect        <=  'b0;
             frp_lrn_blk_vect_next   <=  'b0;
+            frp_ftm_en              <=  'b0;
+            frp_ftm_en_next         <=  'b0;
         end
         else begin
             if (mgnt_rx_state[2]) begin
-                if (mgnt_rx_buf_type == 2'b0) begin
+                if (mgnt_rx_buf_type == 2'h0) begin
                     frp_fwd_blk_vect_next   <=  mgnt_rx_buf_data[3:0];
                 end 
-                if (mgnt_rx_buf_type == 2'b1) begin
+                if (mgnt_rx_buf_type == 2'h1) begin
                     frp_lrn_blk_vect_next   <=  mgnt_rx_buf_data[3:0];
+                end
+                if (mgnt_rx_buf_type == 2'h3) begin
+                    frp_ftm_en_next         <=  mgnt_rx_buf_data[0];
                 end
             end
             if (frp_fnt_state[1]) begin
                 frp_fwd_blk_vect    <=  frp_fwd_blk_vect_next;
                 frp_lrn_blk_vect    <=  frp_lrn_blk_vect_next;
+                frp_ftm_en          <=  frp_ftm_en_next;
             end
         end
     end

@@ -34,11 +34,11 @@ module interface_mux_v3 (
     output          ptr_sfifo_empty
 );
 
-    (*MARK_DEBUG = "true"*) reg     [ 6:0]  ifmux_state, ifmux_state_next;
+    reg     [ 6:0]  ifmux_state, ifmux_state_next;
 
     reg             bp;
     reg             error;
-    (*MARK_DEBUG = "true"*) reg             tailtag;
+    reg             tailtag;
     reg     [12:0]  cnt;
     reg     [ 1:0]  cnt_1;
     reg     [12:0]  cnt_tgt;
@@ -46,19 +46,19 @@ module interface_mux_v3 (
     // dest data fifo ctrl
     reg     [ 1:0]  sfifo_wr;
     reg             sfifo_en;
-    (*MARK_DEBUG = "true"*) reg     [ 7:0]  sfifo_din;
+    reg     [ 7:0]  sfifo_din;
     // wire    [13:0]  sfifo_cnt;
     wire    [11:0]  sfifo_cnt;
     // dest ptr fifo ctrl
     reg             ptr_sfifo_wr;
-    (*MARK_DEBUG = "true"*) reg     [19:0]  ptr_sfifo_din;
+    reg     [19:0]  ptr_sfifo_din;
     wire            ptr_sfifo_full;
     // src data fifo sel
     (*EXTRACT_ENABLE = "no"*) reg     [ 3:0]  rx_data_fifo_rd;
-    (*MARK_DEBUG = "true"*) wire    [ 7:0]  rx_data_fifo_dout;
+    wire    [ 7:0]  rx_data_fifo_dout;
     // src ptr fifo sel
     reg     [ 3:0]  rx_ptr_fifo_rd;
-    (*MARK_DEBUG = "true"*) wire    [19:0]  rx_ptr_fifo_dout;
+    wire    [19:0]  rx_ptr_fifo_dout;
 
 
     reg     [ 1:0]  ifmux_rndrb;
