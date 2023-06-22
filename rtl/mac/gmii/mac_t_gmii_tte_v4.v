@@ -54,7 +54,10 @@ module mac_t_gmii_tte_v4(
     // mgnt interface
     output          tx_mgnt_valid,
     output  [15:0]  tx_mgnt_data,
-    input           tx_mgnt_resp
+    input           tx_mgnt_resp,
+    input           mac_conf_valid,
+    input   [ 3:0]  mac_conf_data,
+    output          mac_conf_resp
 );
 
     localparam  PTP_VALUE_HI        =   8'h88;  // high byte of ptp ethertype
@@ -153,6 +156,47 @@ module mac_t_gmii_tte_v4(
         .S(speed[1])    // 1-bit input: Clock select
     );
 
+    reg     [ 2:0]  conf_state, conf_state_next;
+    reg     [ 1:0]  conf_valid_buf;
+    reg     [ 3:0]  conf_reg;
+
+    always @(*) begin
+        case(conf_state)
+            1 : conf_state_next =   conf_valid_buf[1]   ? 2 : 1;
+            2 : conf_state_next =                             4;
+            4 : conf_state_next =   !conf_valid_buf[1]  ? 1 : 4;
+            default : conf_state_next = conf_state;
+        endcase
+    end
+
+    always @(posedge interface_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            conf_state  <=  1;
+        end
+        else begin
+            conf_state  <=  conf_state_next;
+        end
+    end
+
+    always @(posedge interface_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            conf_valid_buf  <=  'b0;
+        end
+        else begin
+            conf_valid_buf  <=  {conf_valid_buf, mac_conf_valid};
+        end
+    end
+
+    always @(posedge interface_clk or negedge rstn_mac) begin
+        if (!rstn_mac) begin
+            conf_reg    <=  'h0;
+        end
+        else if (conf_state[1]) begin
+            conf_reg    <=  mac_conf_data;
+        end
+    end
+
+    assign mac_conf_resp = conf_state[2];
 
     reg     [ 5:0]  tx_state, tx_state_next;
     reg     [95:0]  tx_buffer;      // extended buffer for PTP operations
@@ -164,6 +208,7 @@ module mac_t_gmii_tte_v4(
     reg     [ 4:0]  tx_cnt_front_1;
     reg     [11:0]  tx_cnt_back;    // backend count
     reg     [11:0]  tx_cnt_back_1;
+    reg     [ 3:0]  tx_port_src;
     reg     [11:0]  tx_byte_cnt;    // total byte count
     reg     [ 1:0]  tx_byte_valid;
     reg             tx_read_req;    // generate read signal for 4-bit MII\
@@ -295,6 +340,7 @@ module mac_t_gmii_tte_v4(
             else if (tx_state_next[3]) begin
                 // tx_byte_cnt     <=  tx_ptr_in[11:0] + !speed[1];
                 tx_byte_cnt     <=  tx_ptr_in[11:0];
+                tx_port_src     <=  tx_ptr_in[15:12];
                 tx_read_req     <=  !tx_read_req;
             end
             // else if (tx_state_next == 16) begin
@@ -551,7 +597,7 @@ module mac_t_gmii_tte_v4(
     // assign  counter_delay   =   {16'b0, ptp_delay_req, 16'b0};
     assign  delay_fifo_din  =   ptp_delay_req[31:0];
 
-    reg     [ 3:0]  mii_state, mii_state_next;
+    reg     [ 4:0]  mii_state, mii_state_next;
 
     reg     [ 7:0]  mii_d;
     reg             mii_dv;
@@ -560,16 +606,19 @@ module mac_t_gmii_tte_v4(
 
     wire    [ 7:0]  mii_d_in;
     // assign          mii_d_in    =   (mii_state == 'h08)                 ?   crc_dout        :
-    assign          mii_d_in    =   (mii_state[3])                      ?   crc_dout        :
-                                    (ptp_state == PTP_TX_STATE_FUP3)    ?   ptp_cf[47:40]   :
+    assign          mii_d_in    =   (mii_state[3])                      ?   {4'b0, tx_port_src} :
+                                    (mii_state[4])                      ?   crc_dout            :
+                                    (ptp_state == PTP_TX_STATE_FUP3)    ?   ptp_cf[47:40]       :
                                     tx_buffer[7:0];
 
     always @(*) begin
         case(mii_state)
             'h01: mii_state_next = tx_buf_rdy[3] && (speed[1] || tx_read_req)? 'h2 : 'h1;
             'h02: mii_state_next = (tx_cnt_back_1 == 0) && (speed[1] || tx_read_req) ? 'h4 : 'h2;
-            'h04: mii_state_next = (tx_cnt_back_1 == tx_byte_cnt) && (speed[1] || tx_read_req) ? 'h8 : 'h4;
-            'h08: mii_state_next = !tx_buf_rdy[3] && (speed[1] || tx_read_req) ? 'h1 : 'h8;
+            'h04: mii_state_next = (tx_cnt_back_1 == tx_byte_cnt) && (speed[1] || tx_read_req) ? 
+                                   (conf_reg[0] ? 'h8 : 'h10) : 'h4;
+            'h08: mii_state_next = (speed[1] || tx_read_req) ? 'h10 : 'h08;
+            'h10: mii_state_next = !tx_buf_rdy[3] && (speed[1] || tx_read_req) ? 'h1 : 'h10;
             default: mii_state_next = mii_state; 
         endcase
     end
@@ -597,7 +646,7 @@ module mac_t_gmii_tte_v4(
                 tx_buf_rdy  <=  {tx_buf_rdy[2:0], 1'b1};
             end
             // else if (mii_state == 'h08 && (speed[1] || tx_read_req)) begin
-            else if (mii_state[3] && (speed[1] || tx_read_req)) begin
+            else if (mii_state[4] && (speed[1] || tx_read_req)) begin
                 tx_buf_rdy  <=  {tx_buf_rdy[2:0], 1'b0};
             end
             // if (mii_state_next == 'h01) begin
@@ -617,10 +666,17 @@ module mac_t_gmii_tte_v4(
                 crc_init    <=  'b0;
                 crc_cal     <=  'b1;
                 // crc_dv      <=  'b1;
-                crc_dv      <=  (speed[1] || tx_read_req);
+                crc_dv      <=  (speed[1] || !tx_read_req);
             end
             // else if (mii_state_next == 'h08) begin
             else if (mii_state_next[3]) begin
+                crc_init    <=  'b0;
+                crc_cal     <=  'b1;
+                // crc_dv      <=  'b1;
+                crc_dv      <=  (speed[1] || !tx_read_req);
+            end
+            // else if (mii_state_next == 'h16) begin
+            else if (mii_state_next[4]) begin
                 crc_init    <=  'b0;
                 crc_cal     <=  'b0;
                 // crc_dv      <=  'b1;

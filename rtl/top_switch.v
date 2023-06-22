@@ -105,7 +105,7 @@ module top_switch (
     wire        emac0_rx_tte_fifo_rd;
     wire [ 7:0] emac0_rx_tte_fifo_dout;
     wire        emac0_rx_tteptr_fifo_rd;
-    wire [15:0] emac0_rx_tteptr_fifo_dout;
+    wire [19:0] emac0_rx_tteptr_fifo_dout;
     wire        emac0_rx_tteptr_fifo_empty;
 
     wire        emac1_interface_clk;
@@ -131,7 +131,7 @@ module top_switch (
     wire        emac1_rx_tte_fifo_rd;
     wire [ 7:0] emac1_rx_tte_fifo_dout;
     wire        emac1_rx_tteptr_fifo_rd;
-    wire [15:0] emac1_rx_tteptr_fifo_dout;
+    wire [19:0] emac1_rx_tteptr_fifo_dout;
     wire        emac1_rx_tteptr_fifo_empty;
 
     wire        emac2_interface_clk;
@@ -157,7 +157,7 @@ module top_switch (
     wire        emac2_rx_tte_fifo_rd;
     wire [ 7:0] emac2_rx_tte_fifo_dout;
     wire        emac2_rx_tteptr_fifo_rd;
-    wire [15:0] emac2_rx_tteptr_fifo_dout;
+    wire [19:0] emac2_rx_tteptr_fifo_dout;
     wire        emac2_rx_tteptr_fifo_empty;
 
     wire        emac3_interface_clk;
@@ -183,7 +183,7 @@ module top_switch (
     wire        emac3_rx_tte_fifo_rd;
     wire [ 7:0] emac3_rx_tte_fifo_dout;
     wire        emac3_rx_tteptr_fifo_rd;
-    wire [15:0] emac3_rx_tteptr_fifo_dout;
+    wire [19:0] emac3_rx_tteptr_fifo_dout;
     wire        emac3_rx_tteptr_fifo_empty;
 
     wire [ 1:0] emac0_speed;
@@ -220,7 +220,7 @@ module top_switch (
     // wire        port3_req;
     // wire        port3_ack;
 
-    wire    [ 5:0]  sys_req_valid;
+    wire    [ 7:0]  sys_req_valid;
     wire            sys_req_wr;
     wire    [ 7:0]  sys_req_addr;
     wire            sys_req_ack;
@@ -246,26 +246,32 @@ module top_switch (
     wire            sys_resp_data_valid_be;
     wire            sys_req_ack_tte;
     wire    [ 7:0]  sys_resp_data_tte;
-    wire            sys_resp_data_valid_tte;  
+    wire            sys_resp_data_valid_tte;
+    wire            sys_req_ack_ftm;
+    wire    [ 7:0]  sys_resp_data_ftm;
+    wire            sys_resp_data_valid_ftm;  
 
-    assign  sys_req_ack         =   sys_req_ack_p0 ||
-                                    sys_req_ack_p1 ||
-                                    sys_req_ack_p2 ||
-                                    sys_req_ack_p3 ||
-                                    sys_req_ack_be ||
-                                    sys_req_ack_tte;
-    assign  sys_resp_data_valid =   sys_resp_data_valid_p0 ||
-                                    sys_resp_data_valid_p1 ||
-                                    sys_resp_data_valid_p2 ||
-                                    sys_resp_data_valid_p3 ||
-                                    sys_resp_data_valid_be ||
-                                    sys_resp_data_valid_tte;
-    assign  sys_resp_data       =   (sys_resp_data_valid_p0) ? sys_resp_data_p0 :
-                                    (sys_resp_data_valid_p1) ? sys_resp_data_p1 :
-                                    (sys_resp_data_valid_p2) ? sys_resp_data_p2 :
-                                    (sys_resp_data_valid_p3) ? sys_resp_data_p3 :
-                                    (sys_resp_data_valid_be) ? sys_resp_data_be :
-                                    sys_resp_data_tte;
+    assign  sys_req_ack         =   sys_req_ack_p0  ||
+                                    sys_req_ack_p1  ||
+                                    sys_req_ack_p2  ||
+                                    sys_req_ack_p3  ||
+                                    sys_req_ack_be  ||
+                                    sys_req_ack_tte ||
+                                    sys_req_ack_ftm;
+    assign  sys_resp_data_valid =   sys_resp_data_valid_p0  ||
+                                    sys_resp_data_valid_p1  ||
+                                    sys_resp_data_valid_p2  ||
+                                    sys_resp_data_valid_p3  ||
+                                    sys_resp_data_valid_be  ||
+                                    sys_resp_data_valid_tte ||
+                                    sys_resp_data_valid_ftm;
+    assign  sys_resp_data       =   (sys_resp_data_valid_p0)  ? sys_resp_data_p0  :
+                                    (sys_resp_data_valid_p1)  ? sys_resp_data_p1  :
+                                    (sys_resp_data_valid_p2)  ? sys_resp_data_p2  :
+                                    (sys_resp_data_valid_p3)  ? sys_resp_data_p3  :
+                                    (sys_resp_data_valid_be)  ? sys_resp_data_be  :
+                                    (sys_resp_data_valid_tte) ? sys_resp_data_tte :
+                                    sys_resp_data_ftm;
 
     wire [31:0] counter_ns;
 
@@ -283,7 +289,8 @@ module top_switch (
 
     mac_top #(
         .MAC_PORT(0),
-        .RX_DELAY(11)
+        // .RX_DELAY(11)
+        .RX_DELAY(8)
     ) u_mac_top_0 (
         .clk(clk),
         .clk_ref(clk_in),
@@ -350,7 +357,8 @@ module top_switch (
 
     mac_top #(
         .MAC_PORT(1),
-        .RX_DELAY(10)
+        // .RX_DELAY(10)
+        .RX_DELAY(2)
     ) u_mac_top_1 (
         .clk(clk),
         .clk_ref(clk_in),
@@ -418,7 +426,8 @@ module top_switch (
 
     mac_top #(
         .MAC_PORT(2),
-        .RX_DELAY(9)
+        // .RX_DELAY(9)
+        .RX_DELAY(0)
     ) u_mac_top_2 (
         .clk(clk),
         .clk_ref(clk_in),
@@ -486,7 +495,8 @@ module top_switch (
 
     mac_top #(
         .MAC_PORT(3),
-        .RX_DELAY(9)
+        // .RX_DELAY(9)
+        .RX_DELAY(4)
     ) u_mac_top_3 (
         .clk(clk),
         .clk_ref(clk_in),
@@ -558,9 +568,7 @@ module top_switch (
     wire        ptr_sfifo_rd;
     wire [19:0] ptr_sfifo_dout;
     wire        ptr_sfifo_empty;
-    interface_mux_v2 #(
-        .IFMUX_MODE("LLDP")
-    ) u_interface_mux (
+    interface_mux_v3 u_interface_mux (
         .clk_sys(clk),
         .rstn_sys(rstn_sys),
         .rx_data_fifo_dout0(emac0_rx_data_fifo_dout),
@@ -597,11 +605,9 @@ module top_switch (
     wire        tte_sfifo_rd;
     wire [ 7:0] tte_sfifo_dout;
     wire        tteptr_sfifo_rd;
-    wire [15:0] tteptr_sfifo_dout;
+    wire [19:0] tteptr_sfifo_dout;
     wire        tteptr_sfifo_empty;
-    interface_mux_v2 #(
-        .IFMUX_MODE("TTE")
-    ) u_tteinterface_mux (
+    interface_mux_v3 u_tteinterface_mux (
         .clk_sys(clk),
         .rstn_sys(rstn_sys),
         .rx_data_fifo_dout0(emac0_rx_tte_fifo_dout),
@@ -655,6 +661,11 @@ module top_switch (
     wire        se_nak;
     wire        aging_req;
     wire        aging_ack;
+
+    wire        ftm_req_valid;
+    wire        ftm_resp_ack;
+    wire        ftm_resp_nak;
+    wire [15:0] ftm_resp_result;
 
     wire        fp_stat_valid;
     wire        fp_stat_resp;
@@ -728,6 +739,11 @@ module top_switch (
         .se_hash(se_hash),
         .link(link),
         
+        .ftm_req_valid(ftm_req_valid),
+        .ftm_resp_ack(ftm_resp_ack),
+        .ftm_resp_nak(ftm_resp_nak),
+        .ftm_resp_result(ftm_resp_result),
+
         .fp_stat_valid(fp_stat_valid),
         .fp_stat_resp(fp_stat_resp),
         .fp_stat_data(fp_stat_data),
@@ -750,6 +766,29 @@ module top_switch (
         .se_mac(se_mac),
         .aging_req(),
         .aging_ack()
+    );
+
+    hash_multicast #(
+        .MGNT_REG_WIDTH ( 16 )
+    ) u_hash_multicast (
+        .clk_if                  ( clk_125                     ),
+        .rst_if                  ( rstn_sys                    ),
+        .clk_sys                 ( clk                         ),
+        .rst_sys                 ( rstn_sys                    ),
+        .ftm_req_valid           ( ftm_req_valid               ),
+        .ftm_req_mac             ( se_mac               [15:0] ),
+        .sys_req_valid           ( sys_req_valid           [5] ),
+        .sys_req_wr              ( sys_req_wr                  ),
+        .sys_req_addr            ( sys_req_addr         [ 7:0] ),
+        .sys_req_data            ( sys_req_data         [ 7:0] ),
+        .sys_req_data_valid      ( sys_req_data_valid          ),
+
+        .ftm_resp_ack            ( ftm_resp_ack                ),
+        .ftm_resp_nak            ( ftm_resp_nak                ),
+        .ftm_resp_result         ( ftm_resp_result      [15:0] ),
+        .sys_req_ack             ( sys_req_ack_ftm             ),
+        .sys_resp_data           ( sys_resp_data_ftm    [ 7:0] ),
+        .sys_resp_data_valid     ( sys_resp_data_valid_ftm     )
     );
 
     switch_top_v2 switch (
@@ -834,7 +873,7 @@ module top_switch (
         .fp_conf_resp            ( tte_fp_conf_resp            ),
         .swc_mgnt_valid          ( tte_swc_mgnt_valid          ),
         .swc_mgnt_data           ( tte_swc_mgnt_data    [ 3:0] ),
-        .sys_req_valid           ( sys_req_valid           [5] ),
+        .sys_req_valid           ( sys_req_valid           [6] ),
         .sys_req_wr              ( sys_req_wr                  ),
         .sys_req_addr            ( sys_req_addr         [ 7:0] ),
         .sys_req_data            ( sys_req_data         [ 7:0] ),
@@ -969,7 +1008,7 @@ module top_switch (
         .spi_din(spi_din),
         .spi_ack(spi_ack),
         .spi_dout(spi_dout),
-        .sys_req_valid           ( sys_req_valid   [ 5:0]  ),
+        .sys_req_valid           ( sys_req_valid   [ 7:0]  ),
         .sys_req_wr              ( sys_req_wr              ),
         .sys_req_addr            ( sys_req_addr    [ 7:0]  ),
         .sys_req_ack             ( sys_req_ack             ),

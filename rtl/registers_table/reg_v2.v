@@ -36,7 +36,7 @@ module register_v2 #(
     output                  spi_ack,
     output reg  [15:0]      spi_dout,
     // sys mgnt side interface, cmd channel
-    output reg  [ 5:0]      sys_req_valid,
+    output reg  [ 7:0]      sys_req_valid,
     output reg              sys_req_wr,
     output      [ 7:0]      sys_req_addr,
     input                   sys_req_ack,
@@ -59,7 +59,8 @@ module register_v2 #(
     localparam  PORT2_ADDR      =   7'h02;
     localparam  PORT3_ADDR      =   7'h03;
     localparam  BE_SW_ADDR      =   7'h40;
-    localparam  TTE_SW_ADDR     =   7'h41;
+    localparam  BE_SW_FTM_ADDR  =   7'h41;
+    localparam  TTE_SW_ADDR     =   7'h50;
     localparam  SPI_LOCAL_ADDR  =   7'h7F;
 
     // Write this register will immediately start a direct read or indirect write between reg hub and remote device;
@@ -142,6 +143,7 @@ module register_v2 #(
                     PORT2_ADDR      : reg_state_next = 4;
                     PORT3_ADDR      : reg_state_next = 4;
                     BE_SW_ADDR      : reg_state_next = 4;
+                    BE_SW_FTM_ADDR  : reg_state_next = 4;
                     TTE_SW_ADDR     : reg_state_next = 4;
                     SPI_LOCAL_ADDR  : reg_state_next = 32;
                     default: reg_state_next = 1;
@@ -287,12 +289,13 @@ module register_v2 #(
         else begin
             if (reg_state[1]) begin
                 case(reg_dev_ptr[14:8])
-                    PORT0_ADDR : begin sys_req_valid <= 'h01; sys_req_wr <= reg_dev_ptr[15]; end
-                    PORT1_ADDR : begin sys_req_valid <= 'h02; sys_req_wr <= reg_dev_ptr[15]; end
-                    PORT2_ADDR : begin sys_req_valid <= 'h04; sys_req_wr <= reg_dev_ptr[15]; end
-                    PORT3_ADDR : begin sys_req_valid <= 'h08; sys_req_wr <= reg_dev_ptr[15]; end
-                    BE_SW_ADDR : begin sys_req_valid <= 'h10; sys_req_wr <= reg_dev_ptr[15]; end
-                    TTE_SW_ADDR: begin sys_req_valid <= 'h20; sys_req_wr <= reg_dev_ptr[15]; end
+                    PORT0_ADDR      : begin sys_req_valid <= 'h01; sys_req_wr <= reg_dev_ptr[15]; end
+                    PORT1_ADDR      : begin sys_req_valid <= 'h02; sys_req_wr <= reg_dev_ptr[15]; end
+                    PORT2_ADDR      : begin sys_req_valid <= 'h04; sys_req_wr <= reg_dev_ptr[15]; end
+                    PORT3_ADDR      : begin sys_req_valid <= 'h08; sys_req_wr <= reg_dev_ptr[15]; end
+                    BE_SW_ADDR      : begin sys_req_valid <= 'h10; sys_req_wr <= reg_dev_ptr[15]; end
+                    BE_SW_FTM_ADDR  : begin sys_req_valid <= 'h20; sys_req_wr <= reg_dev_ptr[15]; end
+                    TTE_SW_ADDR     : begin sys_req_valid <= 'h40; sys_req_wr <= reg_dev_ptr[15]; end
                     default: begin sys_req_valid <= 'b0; sys_req_wr <= 'b0; end
                 endcase
             end

@@ -55,6 +55,10 @@ module mac_ctrl #(
     input           tx_mgnt_valid,
     output reg      tx_mgnt_resp,
     input   [15:0]  tx_mgnt_data,
+    // shared conf interface
+    output reg      mac_conf_valid,
+    input   [ 1:0]  mac_conf_resp,
+    output  [ 3:0]  mac_conf_data,
     // mdio side interface
     output          mdc,
     inout           mdio,
@@ -92,6 +96,7 @@ module mac_ctrl #(
     localparam  MGNT_MAC_TX_ADDR_PKT_1588   =   'h13;
     localparam  MGNT_MAC_TX_ADDR_PKT_VLAN   =   'h14;
     localparam  MGNT_MAC_TX_ADDR_PKT_FC     =   'h15;
+    localparam  MGNT_MAC_TX_FUNC_CFG        =   'h16;
     localparam  MGNT_MAC_TX_FUNC_CLR        =   'h1F;
 
     localparam  MGNT_MAC_MDIO_ADDR_CFG      =   'h20;
@@ -128,7 +133,7 @@ module mac_ctrl #(
     // reg     [31:0]  mgnt_reg_tx_pkt_vlan;
     // reg     [31:0]  mgnt_reg_tx_pkt_fc;
 
-    reg     [MGNT_REG_WIDTH-1:0]    mgnt_reg_tx [21:16];
+    reg     [MGNT_REG_WIDTH-1:0]    mgnt_reg_tx [22:16];
 
     // reg     [47:0]  mgnt_reg_lldp_dest;
     // reg     [15:0]  mgnt_reg_lldp_port;
@@ -144,6 +149,8 @@ module mac_ctrl #(
     reg     [15:0]  mgnt_buf_tx_data;
     reg     [ 1:0]  mgnt_lldp_state, mgnt_lldp_state_next;
     reg     [ 1:0]  mgnt_buf_lldp_resp;
+    reg     [ 1:0]  mgnt_tt_state, mgnt_tt_state_next;
+    reg     [ 3:0]  mgnt_buf_tt_resp;
     reg     [ 4:0]  mgnt_mdio_state, mgnt_mdio_state_next;
 
     reg     [ 5:0]  mgnt_state, mgnt_state_next;
@@ -162,17 +169,21 @@ module mac_ctrl #(
             mgnt_buf_rx_valid   <=  'b0;
             mgnt_buf_tx_valid   <=  'b0;
             mgnt_buf_lldp_resp  <=  'b0;
+            mgnt_buf_tt_resp    <=  'b0;
             rx_mgnt_resp        <=  'b0;
             tx_mgnt_resp        <=  'b0;
             rx_conf_valid       <=  'b0;
+            mac_conf_valid      <=  'b0;
         end
         else begin
             mgnt_buf_rx_valid   <=  {mgnt_buf_rx_valid, rx_mgnt_valid};
             mgnt_buf_tx_valid   <=  {mgnt_buf_tx_valid, tx_mgnt_valid};
             mgnt_buf_lldp_resp  <=  {mgnt_buf_lldp_resp, rx_conf_resp};
+            mgnt_buf_tt_resp    <=  {mgnt_buf_tt_resp, mac_conf_resp};
             rx_mgnt_resp        <=  (mgnt_rx_state[2]);
             tx_mgnt_resp        <=  (mgnt_tx_state[2]);
             rx_conf_valid       <=  (!mgnt_lldp_state[0]);
+            mac_conf_valid      <=  (!mgnt_tt_state[0]);
         end
     end
 
@@ -203,6 +214,11 @@ module mac_ctrl #(
             2 : mgnt_lldp_state_next    =   (mgnt_buf_lldp_resp[1])                                     ? 1 : 2;
             default : mgnt_lldp_state_next  =   mgnt_lldp_state;
         endcase
+        case(mgnt_tt_state)
+            1 : mgnt_tt_state_next      =   (mgnt_state[4] && mgnt_reg_req_addr == MGNT_MAC_TX_FUNC_CFG)? 2 : 1;
+            2 : mgnt_tt_state_next      =   (mgnt_buf_tt_resp[3:2] == 2'b11)                            ? 1 : 2;
+            default : mgnt_tt_state_next    =   mgnt_tt_state;
+        endcase
     end
 
     always @(posedge clk_if) begin
@@ -210,11 +226,13 @@ module mac_ctrl #(
             mgnt_rx_state   <=  1;
             mgnt_tx_state   <=  1;
             mgnt_lldp_state <=  1;
+            mgnt_tt_state   <=  1;
         end
         else begin
             mgnt_rx_state   <=  mgnt_rx_state_next;
             mgnt_tx_state   <=  mgnt_tx_state_next;
             mgnt_lldp_state <=  mgnt_lldp_state_next;
+            mgnt_tt_state   <=  mgnt_tt_state_next;
         end
     end
 
@@ -306,7 +324,7 @@ module mac_ctrl #(
                 mgnt_reg_rx[i]  <=  'b0;
             end
         end
-        else if (mgnt_rx_state == 2) begin
+        else if (mgnt_rx_state[1]) begin
             if (mgnt_buf_rx_data[19:16] == 'b0) begin
                 mgnt_reg_rx[MGNT_MAC_RX_ADDR_PKT]   <=  mgnt_reg_rx[MGNT_MAC_RX_ADDR_PKT] + 1'b1;
                 mgnt_reg_rx[MGNT_MAC_RX_ADDR_BYTE]  <=  mgnt_reg_rx[MGNT_MAC_RX_ADDR_BYTE] + mgnt_buf_rx_data[11:0];
@@ -341,26 +359,33 @@ module mac_ctrl #(
     always @(posedge clk_if) begin
         // if (!rst_if || (mgnt_state == 16 && mgnt_reg_req_addr == 'h1F)) begin
         if (!rst_if) begin
-            for (i = 0; i < 6; i = i + 1) begin
+            for (i = 0; i < 7; i = i + 1) begin
                 mgnt_reg_tx[i+16]  <=  'b0;
             end
         end
-        else if (mgnt_tx_state == 2) begin
-            // if (mgnt_buf_tx_data[19:16] == 'b0) begin
-                mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT]   <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT] + 1'b1;
-                mgnt_reg_tx[MGNT_MAC_TX_ADDR_BYTE]  <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_BYTE] + mgnt_buf_tx_data[11:0];
-            // end
-            if (mgnt_buf_tx_data[15]) begin
-                mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_TTE]   <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_TTE] + 1'b1;
+        else begin 
+            if (mgnt_tx_state[1]) begin
+                // if (mgnt_buf_tx_data[19:16] == 'b0) begin
+                    mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT]   <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT] + 1'b1;
+                    mgnt_reg_tx[MGNT_MAC_TX_ADDR_BYTE]  <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_BYTE] + mgnt_buf_tx_data[11:0];
+                // end
+                if (mgnt_buf_tx_data[15]) begin
+                    mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_TTE]   <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_TTE] + 1'b1;
+                end
+                if (mgnt_buf_tx_data[14]) begin
+                    mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_1588]  <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_1588] + 1'b1;
+                end
+                if (mgnt_buf_tx_data[13]) begin
+                    mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_FC]    <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_FC] + 1'b1;
+                end
+                if (mgnt_buf_tx_data[12]) begin
+                    mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_VLAN]  <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_VLAN] + 1'b1;
+                end
             end
-            if (mgnt_buf_tx_data[14]) begin
-                mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_1588]  <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_1588] + 1'b1;
-            end
-            if (mgnt_buf_tx_data[13]) begin
-                mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_FC]    <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_FC] + 1'b1;
-            end
-            if (mgnt_buf_tx_data[12]) begin
-                mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_VLAN]  <=  mgnt_reg_tx[MGNT_MAC_TX_ADDR_PKT_VLAN] + 1'b1;
+            if (mgnt_state[4]) begin
+                if (mgnt_reg_req_addr == MGNT_MAC_TX_FUNC_CFG) begin
+                    mgnt_reg_tx[MGNT_MAC_TX_FUNC_CFG]       <=  mgnt_rx_buf;
+                end
             end
         end
     end
@@ -526,6 +551,7 @@ module mac_ctrl #(
                                      mgnt_reg_lldp[2],
                                      mgnt_reg_lldp[1],
                                      mgnt_reg_lldp[0]};
+    assign  mac_conf_data       =   mgnt_reg_tx[MGNT_MAC_TX_FUNC_CFG][3:0];
 
     assign  sys_req_ack         =   mgnt_reg_req_ack;
     assign  sys_resp_data_valid =   mgnt_reg_resp_data_valid;

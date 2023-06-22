@@ -49,7 +49,7 @@ module mac_top(
     input             rx_tte_fifo_rd,
     output    [7:0]   rx_tte_fifo_dout,
     input             rx_tteptr_fifo_rd,
-	output    [15:0]  rx_tteptr_fifo_dout,
+	output    [19:0]  rx_tteptr_fifo_dout,
     output            rx_tteptr_fifo_empty,
 
     // output    [6:0]   port_addr,
@@ -98,6 +98,10 @@ wire    [55:0]  rx_conf_data;
 wire            tx_mgnt_valid;
 wire            tx_mgnt_resp;
 wire    [15:0]  tx_mgnt_data;
+
+wire            mac_conf_valid;
+wire    [ 1:0]  mac_conf_resp;
+wire    [ 3:0]  mac_conf_data;
 
 assign          GMII_TX_CLK =   clk_125;        
 
@@ -251,7 +255,10 @@ mac_r_gmii_tte #(
     .rx_mgnt_data(rx_mgnt_data),
     .rx_conf_valid(rx_conf_valid),
     .rx_conf_resp(rx_conf_resp),
-    .rx_conf_data(rx_conf_data)
+    .rx_conf_data(rx_conf_data),
+    .mac_conf_valid(mac_conf_valid),
+    .mac_conf_resp(mac_conf_resp[0]),
+    .mac_conf_data(mac_conf_data)
     );
 
 mac_t_gmii_tte_v4 u_mac_t_gmii(
@@ -281,7 +288,10 @@ mac_t_gmii_tte_v4 u_mac_t_gmii(
     .delay_fifo_full(delay_fifo_full),
     .tx_mgnt_valid(tx_mgnt_valid),
     .tx_mgnt_resp(tx_mgnt_resp),
-    .tx_mgnt_data(tx_mgnt_data)
+    .tx_mgnt_data(tx_mgnt_data),
+    .mac_conf_valid(mac_conf_valid),
+    .mac_conf_resp(mac_conf_resp[1]),
+    .mac_conf_data(mac_conf_data)
     );
 
 // mac_t_gmii_tte u_mac_t_gmii(
@@ -342,6 +352,7 @@ mac_ctrl #(
     .rx_conf_resp       ( rx_conf_resp               ),
     .tx_mgnt_valid      ( tx_mgnt_valid              ),
     .tx_mgnt_data       ( tx_mgnt_data        [15:0] ),
+    .mac_conf_resp      ( mac_conf_resp       [ 1:0] ),
     .sys_req_valid      ( sys_req_valid              ),
     .sys_req_wr         ( sys_req_wr                 ),
     .sys_req_addr       ( sys_req_addr        [ 7:0] ),
@@ -352,6 +363,8 @@ mac_ctrl #(
     .rx_conf_valid      ( rx_conf_valid              ),
     .rx_conf_data       ( rx_conf_data        [55:0] ),
     .tx_mgnt_resp       ( tx_mgnt_resp               ),
+    .mac_conf_valid     ( mac_conf_valid             ),
+    .mac_conf_data      ( mac_conf_data       [ 3:0] ),
     .sys_req_ack        ( sys_req_ack                ),
     .sys_resp_data_valid( sys_resp_data_valid        ),
     .sys_resp_data      ( sys_resp_data       [ 7:0] ),
