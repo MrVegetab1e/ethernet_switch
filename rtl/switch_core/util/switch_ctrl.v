@@ -94,7 +94,7 @@ module switch_ctrl #(
     localparam  MGNT_SW_FRP_ADDR_ERR_MAC_INVD       =   'h07;
     localparam  MGNT_SW_FRP_FUNC_FT_FWD_DISABLE     =   'h08;
     localparam  MGNT_SW_FRP_FUNC_FT_LRN_DISABLE     =   'h09;
-    localparam  MGNT_SW_FRP_FUNC_FT_AGING_ITVL      =   'h0A;
+    localparam  MGNT_SW_FRP_FUNC_FT_MIRROR_ENABLE   =   'h0A;
     localparam  MGNT_SW_FRP_FUNC_FT_RSVD_MULTICAST  =   'h0B;
     // localparam  MGNT_SW_FRP_FUNC_FT_FLUSH           =   'h0E;
     localparam  MGNT_SW_FRP_FUNC_CLR                =   'h0F;
@@ -334,8 +334,8 @@ module switch_ctrl #(
                     mgnt_reg_frp[MGNT_SW_FRP_FUNC_FT_LRN_DISABLE]           <=  mgnt_rx_buf;
                     mgnt_rx_rmt                                             <=  1'b1;
                 end
-                else if (mgnt_state_next[4] && mgnt_rx_addr == MGNT_SW_FRP_FUNC_FT_AGING_ITVL) begin
-                    mgnt_reg_frp[MGNT_SW_FRP_FUNC_FT_AGING_ITVL]            <=  mgnt_rx_buf;
+                else if (mgnt_state_next[4] && mgnt_rx_addr == MGNT_SW_FRP_FUNC_FT_MIRROR_ENABLE) begin
+                    mgnt_reg_frp[MGNT_SW_FRP_FUNC_FT_MIRROR_ENABLE]         <=  mgnt_rx_buf;
                     mgnt_rx_rmt                                             <=  1'b1;
                 end
                 else if (mgnt_state_next[4] && mgnt_rx_addr == MGNT_SW_FRP_FUNC_FT_RSVD_MULTICAST) begin

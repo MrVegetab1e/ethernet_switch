@@ -72,12 +72,12 @@ module mac_t_gmii_tte_tb_v2;
     wire        delay_fifo_wr;
     reg         delay_fifo_full;
 
-    reg  [ 7:0] frame_1588_sync  [59:0];
-    reg  [ 7:0] frame_1588_follow[59:0];
-    reg  [ 7:0] frame_1588_req   [59:0];
-    reg  [ 7:0] frame_1588_resp  [67:0];
+    reg  [ 7:0] frame_1588_sync   [127:0];
+    reg  [ 7:0] frame_1588_follow [127:0];
+    reg  [ 7:0] frame_1588_req    [127:0];
+    reg  [ 7:0] frame_1588_resp   [127:0];
 
-    mac_t_gmii_tte_v4 u_mac_t_gmii (
+    mac_t_gmii_tte_v5 u_mac_t_gmii (
         .rstn_sys(rstn),
         .rstn_mac(rstn),
         .sys_clk(clk),
@@ -149,11 +149,11 @@ module mac_t_gmii_tte_tb_v2;
         delay_fifo_full = 0;
         speed[1:0] = 2'b01;  //ethernet speed 00:10M 01:100M 10:1000M
 
-        $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/1588_sync.txt",
+        $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/1588_sync_udpv4_2.txt",
                   frame_1588_sync);
-        $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/1588_follow_up.txt",
+        $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/1588_follow_up_udpv4_2.txt",
                   frame_1588_follow);
-        $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/1588_delay_req.txt",
+        $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/1588_delay_req_udpv4_2.txt",
                   frame_1588_req);
 
         // Wait 100 ns for global reset to finish
@@ -164,13 +164,16 @@ module mac_t_gmii_tte_tb_v2;
         // send_frame(1514);
         // send_frame(100);
         send_frame(60);
-        send_1588_sync(60);
-        send_1588_follow(60);
-        send_1588_req(60);
+        // send_1588_sync(60);
+        // send_1588_follow(60);
+        // send_1588_req(60);
+        send_1588_sync(86);
+        send_1588_follow(86);
+        send_1588_req(86);
         send_frame(60);
         send_frame(1514);
         send_frame(100);
-        send_tteframe(300);
+        // send_tteframe(300);
         // send_tteframe(58);
         #1000;
         $finish;
@@ -208,7 +211,7 @@ module mac_t_gmii_tte_tb_v2;
                 #2;
             end
             data_fifo_wr = 0;
-            ptr_fifo_din = {5'b0, len[10:0]};
+            ptr_fifo_din = {4'h1, 1'b0, len[10:0]};
             ptr_fifo_wr  = 1;
             repeat (1) @(posedge clk);
             #2;
@@ -233,7 +236,7 @@ module mac_t_gmii_tte_tb_v2;
                 #2;
             end
             tdata_fifo_wr = 0;
-            tptr_fifo_din = {5'b0, len[10:0]};
+            tptr_fifo_din = {4'h2, 1'b0, len[10:0]};
             tptr_fifo_wr  = 1;
             repeat (1) @(posedge clk);
             #2;
@@ -259,7 +262,7 @@ module mac_t_gmii_tte_tb_v2;
                 #2;
             end
             data_fifo_wr = 0;
-            ptr_fifo_din = {5'b0, len[10:0]};
+            ptr_fifo_din = {4'h4, 1'b0, len[10:0]};
             ptr_fifo_wr  = 1;
             repeat (1) @(posedge clk);
             #2;
@@ -285,7 +288,7 @@ module mac_t_gmii_tte_tb_v2;
                 #2;
             end
             data_fifo_wr = 0;
-            ptr_fifo_din = {5'b0, len[10:0]};
+            ptr_fifo_din = {4'h8, 1'b0, len[10:0]};
             ptr_fifo_wr  = 1;
             repeat (1) @(posedge clk);
             #2;
@@ -311,7 +314,7 @@ module mac_t_gmii_tte_tb_v2;
                 #2;
             end
             data_fifo_wr = 0;
-            ptr_fifo_din = {5'b0, len[10:0]};
+            ptr_fifo_din = {4'h0, 1'b0, len[10:0]};
             ptr_fifo_wr  = 1;
             repeat (1) @(posedge clk);
             #2;

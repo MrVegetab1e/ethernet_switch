@@ -2,6 +2,7 @@
 module switch_post (
     input clk,
     input rstn,
+    input         interface_clk,
 
     input              o_cell_data_fifo_wr,
     input      [127:0] o_cell_data_fifo_din,
@@ -9,7 +10,6 @@ module switch_post (
     input              o_cell_data_last,
     output reg         o_cell_data_fifo_bp,
 
-    input         interface_clk,
     input         ptr_fifo_rd,
     output [15:0] ptr_fifo_dout,
     output        ptr_fifo_empty,
@@ -21,6 +21,22 @@ module switch_post (
     wire  [143:0] o_cell_data_fifo_dout;
     wire   o_cell_data_fifo_empty;
     wire  [8:0]  o_cell_data_fifo_depth;
+
+    // (*MARK_DEBUG="true"*) reg  [6:0]        swpost_input_len;
+
+    // always @(posedge clk) begin
+    //     if (!rstn) begin
+    //         swpost_input_len    <=  'b1;
+    //     end
+    //     else if (o_cell_data_fifo_wr) begin
+    //         if (o_cell_data_first) begin
+    //             swpost_input_len    <=  'b1;
+    //         end
+    //         else begin
+    //             swpost_input_len    <=  swpost_input_len + 1'b1;
+    //         end
+    //     end
+    // end
 
     sfifo_ft_reg_w144_d256 u_o_cell_fifo (
         .clk(clk),
@@ -77,7 +93,7 @@ module switch_post (
             if (mstate == 0) byte_cnt <= 3;
             else if (byte_dv) byte_cnt <= #2 byte_cnt + 1;
             if (mstate == 1) byte_dv <= 1;
-            else if (byte_cnt == frame_len) byte_dv <= 0;
+            else if (byte_cnt == frame_len || mstate == 0) byte_dv <= 0;
             case (mstate)
                 0: begin
                     // byte_dv  <= #2 0;
@@ -97,7 +113,10 @@ module switch_post (
                         // frame_port_src <= #2 o_cell_data_fifo_dout[123:120];
                         frame_port_src <= #2 o_cell_data_fifo_dout[127:124];
                         mstate <= #2 1;
-                    end else if (!o_cell_data_fifo_empty & !bp) begin
+                    end 
+                    // else if (!o_cell_data_fifo_empty && !o_cell_data_fifo_dout[143]) begin
+                    else if (!o_cell_data_fifo_empty & !bp) begin
+                        o_cell_data_fifo_rd <= #2 1;
                         mstate <= #2 19;
                     end
                 end
@@ -175,7 +194,12 @@ module switch_post (
                     if (frame_len_with_pad > 1) begin
                         frame_len_with_pad <= #2 frame_len_with_pad - 1;
                         mstate <= #2 17;
-                    end else mstate <= #2 18;
+                    end 
+                    else begin
+                        ptr_fifo_din <= #2{frame_port_src, frame_len_1[11:0]};
+                        ptr_fifo_wr <= #2 1;
+                        mstate <= #2 18;
+                    end
                 end
                 17: begin
                     data_fifo_din <= #2 o_cell_data_fifo_dout[7:0];
@@ -184,12 +208,10 @@ module switch_post (
                 18: begin
                     data_fifo_din <= #2 o_cell_data_fifo_dout[7:0];
                     // ptr_fifo_din <= #2{4'b0, frame_len_1[11:0]};
-                    ptr_fifo_din <= #2{frame_port_src, frame_len_1[11:0]};
-                    ptr_fifo_wr <= #2 1;
-                    mstate <= #2 0;
+                    mstate <= #2 19;
                 end
                 19: begin
-                    o_cell_data_fifo_rd <= #2 1;
+                    // o_cell_data_fifo_rd <= #2 1;
                     mstate <= #2 0;
                 end
             endcase
@@ -198,9 +220,9 @@ module switch_post (
     // assign data_fifo_wr = byte_dv && (byte_cnt[11:6] !== frame_len[11:6] || byte_cnt[5:0] < frame_len[5:0]);
     assign data_fifo_wr = byte_dv;
 
-    (*MARK_DEBUG="true"*) wire dbg_data_empty;
-    (*MARK_DEBUG="true"*) wire dbg_data_of;
-    (*MARK_DEBUG="true"*) wire dbg_data_uf;
+    wire dbg_data_empty;
+    wire dbg_data_of;
+    wire dbg_data_uf;
 
     afifo_reg_w8_d4k u_data_fifo (
     // afifo_reg_w8_d16k u_data_fifo (

@@ -164,6 +164,8 @@ module mac_t_rgmii(
 
     reg     [ 7:0]  mii_d;
     reg             mii_dv;
+    reg     [ 7:0]  mii_d_1;
+    reg             mii_dv_1;
 
     wire    [ 7:0]  mii_d_in;
     // assign          mii_d_in    =   (mii_state == 'h08)                 ?   crc_dout        :
@@ -234,6 +236,8 @@ module mac_t_rgmii(
             tx_cnt_back_1   <=  12'hFFA;
             mii_d           <=  'b0;
             mii_dv          <=  'b0;
+            mii_d_1         <=  'b0;
+            mii_dv_1        <=  'b0;
         end
         else begin  // initialize tx buffer
             if (tx_state[0]) begin
@@ -246,25 +250,9 @@ module mac_t_rgmii(
                 tx_buffer   <=  {tx_data_in, tx_buffer[95:8]};
             end
             if (!mii_state_next[0]) begin
-                // if (speed || tx_read_req) begin
-                //     mii_d           <=  mii_d_in;
-                //     mii_dv          <=  1'b1;
-                // end
-                // else begin
-                //     mii_d           <=  mii_d >> 4;
-                // end
-                if (speed) begin
-                    mii_d   <=  mii_d_in;
-                    mii_dv  <=  1'b1;
-                end
-                else begin
-                    if (tx_read_req) begin
-                        mii_d   <=  {2{mii_d_in[3:0]}};
-                        mii_dv  <=  1'b1;
-                    end
-                    else begin
-                        mii_d   <=  {2{mii_d_in[7:4]}};
-                    end
+                if (speed || tx_read_req) begin
+                    mii_d           <=  mii_d_in;
+                    mii_dv          <=  'b1;
                 end
             end
             else begin
@@ -278,6 +266,18 @@ module mac_t_rgmii(
             else begin
                 tx_cnt_back_1   <=  12'hFFA;
             end
+            if (speed) begin
+                mii_d_1     <=  mii_d;
+            end
+            else begin
+                if (!tx_read_req) begin
+                    mii_d_1     <=  {2{mii_d[3:0]}};
+                end
+                else begin
+                    mii_d_1     <=  {2{mii_d[7:4]}};
+                end
+            end
+            mii_dv_1    <=  mii_dv;
         end
     end
 

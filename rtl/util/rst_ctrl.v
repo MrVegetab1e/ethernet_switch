@@ -104,8 +104,8 @@ module rst_ctrl(
     // async reset, sync release
     always @(posedge sys_clk or negedge arstn) begin
         if (!arstn) begin
-            rstn_sys    <=  'b1;
-            rstn_mac    <=  'b1;
+            rstn_sys    <=  'b0;
+            rstn_mac    <=  'b0;
             rstn_phy    <=  'b0;
         end
         else begin

@@ -24,6 +24,9 @@ set_property IOSTANDARD LVCMOS33 [get_ports mosi]
 
 set_property PACKAGE_PIN B20 [get_ports sck]
 set_property IOSTANDARD LVCMOS33 [get_ports sck]
+
+set_property PACKAGE_PIN F19 [get_ports int]
+set_property IOSTANDARD LVCMOS33 [get_ports int]
 ###################MDIO##############################
 set_property PACKAGE_PIN J17 [get_ports MDC_0]
 set_property IOSTANDARD LVCMOS33 [get_ports MDC_0]

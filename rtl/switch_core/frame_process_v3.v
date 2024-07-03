@@ -40,10 +40,10 @@ module frame_process_v3 (
     input              se_nak,
     input       [15:0] se_result,
     // reserved multicast flow table
-    (*MARK_DEBUG = "true"*) output reg         ftm_req_valid,
-    (*MARK_DEBUG = "true"*) input              ftm_resp_ack,
-    (*MARK_DEBUG = "true"*) input              ftm_resp_nak,
-    (*MARK_DEBUG = "true"*) input       [15:0] ftm_resp_result,
+    output reg         ftm_req_valid,
+    input              ftm_resp_ack,
+    input              ftm_resp_nak,
+    input       [15:0] ftm_resp_result,
 
     input       [ 3:0] link,
 
@@ -71,6 +71,7 @@ module frame_process_v3 (
 
     reg     [  3:0]     frp_fwd_blk_vect, frp_fwd_blk_vect_next;
     reg     [  3:0]     frp_lrn_blk_vect, frp_lrn_blk_vect_next;
+    reg     [  3:0]     frp_mirror_vect, frp_mirror_vect_next;
     reg                 frp_ftm_en, frp_ftm_en_next; 
     
     // reg     [ 15:0]     frp_state, frp_state_next;
@@ -82,13 +83,13 @@ module frame_process_v3 (
     reg     [ 15:0]     frp_header;
     reg     [  3:0]     frp_lldp_prert;
     reg     [  5:0]     frp_broadcast;
-    (*MARK_DEBUG = "true"*) reg     [  3:0]     frp_multicast;
+    reg     [  3:0]     frp_multicast;
     reg     [  3:0]     frp_link_fwd;
     reg                 frp_link_src;
     reg                 frp_link_lrn;
     reg     [  3:0]     frp_route;
 
-    (*MARK_DEBUG = "true"*) reg     [ 10:0]     frp_cnt_front;
+    reg     [ 10:0]     frp_cnt_front;
     reg     [ 10:0]     frp_cnt_back;
     reg     [ 10:0]     frp_len;
     reg     [ 10:0]     frp_len_1;
@@ -263,7 +264,7 @@ module frame_process_v3 (
                 se_req          <=  'b0;
             end
             if (frp_cnt_front == 'h9) begin
-                ftm_req_valid   <=  frp_ftm_en && frp_multicast[3] && frp_link_src;
+                ftm_req_valid   <=  frp_ftm_en && frp_multicast[3];
             end
             else if (frp_cnt_front == 'hF) begin
                 ftm_req_valid   <=  'b0;
@@ -281,7 +282,7 @@ module frame_process_v3 (
                                         1'b0, frp_len_1[10:0]};
                 end
                 else if (frp_ftm_en && ftm_resp_ack) begin
-                    frp_route       <=  (ftm_resp_result[ 3:0] & frp_link_fwd);
+                    frp_route       <=  (ftm_resp_result[ 3:0] & link);
                     frp_header      <=  {ptr_sfifo_dout[15:12], 
                                         1'b0, frp_len_1[10:0]};     
                 end
@@ -297,7 +298,7 @@ module frame_process_v3 (
                     // frp_header      <=  {1'b0, frp_len_1[10:8], 
                     //                     (se_result[ 3:0] & frp_link_fwd), 
                     //                     frp_len_1[7:0]};
-                    frp_route       <=  (se_result[ 3:0] & frp_link_fwd);
+                    frp_route       <=  (se_result[ 3:0] & frp_link_fwd) | (frp_mirror_vect & ~link);
                     frp_header      <=  {ptr_sfifo_dout[15:12], 
                                         1'b0, frp_len_1[10:0]};
                 end
@@ -418,7 +419,7 @@ module frame_process_v3 (
                     mgnt_flag[ 2:0] <=  3'b001;
                 end
             end
-            if (frp_cnt_front == 'hE) begin
+            if (frp_cnt_front == 'hF) begin
                 mgnt_flag[3]    <=  se_ack;
             end
             if (frp_cnt_front == 'hF) begin
@@ -465,6 +466,8 @@ module frame_process_v3 (
             frp_fwd_blk_vect_next   <=  'b0;
             frp_lrn_blk_vect        <=  'b0;
             frp_lrn_blk_vect_next   <=  'b0;
+            frp_mirror_vect         <=  'b0;
+            frp_mirror_vect_next    <=  'b0;
             frp_ftm_en              <=  'b0;
             frp_ftm_en_next         <=  'b0;
         end
@@ -476,6 +479,9 @@ module frame_process_v3 (
                 if (mgnt_rx_buf_type == 2'h1) begin
                     frp_lrn_blk_vect_next   <=  mgnt_rx_buf_data[3:0];
                 end
+                if (mgnt_rx_buf_type == 2'h2) begin
+                    frp_mirror_vect_next    <=  mgnt_rx_buf_data[3:0];
+                end
                 if (mgnt_rx_buf_type == 2'h3) begin
                     frp_ftm_en_next         <=  mgnt_rx_buf_data[0];
                 end
@@ -483,6 +489,7 @@ module frame_process_v3 (
             if (frp_fnt_state[1]) begin
                 frp_fwd_blk_vect    <=  frp_fwd_blk_vect_next;
                 frp_lrn_blk_vect    <=  frp_lrn_blk_vect_next;
+                frp_mirror_vect     <=  frp_mirror_vect_next;
                 frp_ftm_en          <=  frp_ftm_en_next;
             end
         end

@@ -9,6 +9,7 @@ module top_switch (
     input        csb,
     input        sck,
     output       miso,
+    output       int,
     //mac0 interface
     input  [7:0] GMII_RXD_0,
     input        GMII_RX_DV_0,
@@ -91,7 +92,7 @@ module top_switch (
     wire        emac0_tx_ptr_fifo_empty;
 
     wire        emac0_rx_data_fifo_rd;
-    wire [ 7:0] emac0_rx_data_fifo_dout;
+    wire [ 8:0] emac0_rx_data_fifo_dout;
     wire        emac0_rx_ptr_fifo_rd;
     wire [19:0] emac0_rx_ptr_fifo_dout;
     wire        emac0_rx_ptr_fifo_empty;
@@ -117,7 +118,7 @@ module top_switch (
     wire        emac1_tx_ptr_fifo_empty;
 
     wire        emac1_rx_data_fifo_rd;
-    wire [ 7:0] emac1_rx_data_fifo_dout;
+    wire [ 8:0] emac1_rx_data_fifo_dout;
     wire        emac1_rx_ptr_fifo_rd;
     wire [19:0] emac1_rx_ptr_fifo_dout;
     wire        emac1_rx_ptr_fifo_empty;
@@ -143,7 +144,7 @@ module top_switch (
     wire        emac2_tx_ptr_fifo_empty;
 
     wire        emac2_rx_data_fifo_rd;
-    wire [ 7:0] emac2_rx_data_fifo_dout;
+    wire [ 8:0] emac2_rx_data_fifo_dout;
     wire        emac2_rx_ptr_fifo_rd;
     wire [19:0] emac2_rx_ptr_fifo_dout;
     wire        emac2_rx_ptr_fifo_empty;
@@ -169,7 +170,7 @@ module top_switch (
     wire        emac3_tx_ptr_fifo_empty;
 
     wire        emac3_rx_data_fifo_rd;
-    wire [ 7:0] emac3_rx_data_fifo_dout;
+    wire [ 8:0] emac3_rx_data_fifo_dout;
     wire        emac3_rx_ptr_fifo_rd;
     wire [19:0] emac3_rx_ptr_fifo_dout;
     wire        emac3_rx_ptr_fifo_empty;
@@ -249,7 +250,10 @@ module top_switch (
     wire            sys_resp_data_valid_tte;
     wire            sys_req_ack_ftm;
     wire    [ 7:0]  sys_resp_data_ftm;
-    wire            sys_resp_data_valid_ftm;  
+    wire            sys_resp_data_valid_ftm;
+    wire            sys_req_ack_ft;
+    wire    [ 7:0]  sys_resp_data_ft;
+    wire            sys_resp_data_valid_ft;
 
     assign  sys_req_ack         =   sys_req_ack_p0  ||
                                     sys_req_ack_p1  ||
@@ -257,6 +261,7 @@ module top_switch (
                                     sys_req_ack_p3  ||
                                     sys_req_ack_be  ||
                                     sys_req_ack_tte ||
+                                    sys_req_ack_ft  ||
                                     sys_req_ack_ftm;
     assign  sys_resp_data_valid =   sys_resp_data_valid_p0  ||
                                     sys_resp_data_valid_p1  ||
@@ -264,6 +269,7 @@ module top_switch (
                                     sys_resp_data_valid_p3  ||
                                     sys_resp_data_valid_be  ||
                                     sys_resp_data_valid_tte ||
+                                    sys_resp_data_valid_ft  ||
                                     sys_resp_data_valid_ftm;
     assign  sys_resp_data       =   (sys_resp_data_valid_p0)  ? sys_resp_data_p0  :
                                     (sys_resp_data_valid_p1)  ? sys_resp_data_p1  :
@@ -271,6 +277,7 @@ module top_switch (
                                     (sys_resp_data_valid_p3)  ? sys_resp_data_p3  :
                                     (sys_resp_data_valid_be)  ? sys_resp_data_be  :
                                     (sys_resp_data_valid_tte) ? sys_resp_data_tte :
+                                    (sys_resp_data_valid_ft)  ? sys_resp_data_ft  :
                                     sys_resp_data_ftm;
 
     wire [31:0] counter_ns;
@@ -287,9 +294,9 @@ module top_switch (
         .RST(!rstn_mac)   // 1-bit input: Active high reset input
     );
 
-    mac_top #(
+    mac_top_v2 #(
         .MAC_PORT(0),
-        // .RX_DELAY(11)
+        // .RX_DELAY(10)
         .RX_DELAY(8)
     ) u_mac_top_0 (
         .clk(clk),
@@ -355,9 +362,9 @@ module top_switch (
         .counter_ns(counter_ns)
     );
 
-    mac_top #(
+    mac_top_v2 #(
         .MAC_PORT(1),
-        // .RX_DELAY(10)
+        // .RX_DELAY(8)
         .RX_DELAY(2)
     ) u_mac_top_1 (
         .clk(clk),
@@ -424,9 +431,9 @@ module top_switch (
 
     );
 
-    mac_top #(
+    mac_top_v2 #(
         .MAC_PORT(2),
-        // .RX_DELAY(9)
+        // .RX_DELAY(4)
         .RX_DELAY(0)
     ) u_mac_top_2 (
         .clk(clk),
@@ -493,9 +500,9 @@ module top_switch (
 
     );
 
-    mac_top #(
+    mac_top_v2 #(
         .MAC_PORT(3),
-        // .RX_DELAY(9)
+        // .RX_DELAY(4)
         .RX_DELAY(4)
     ) u_mac_top_3 (
         .clk(clk),
@@ -610,25 +617,25 @@ module top_switch (
     interface_mux_v3 u_tteinterface_mux (
         .clk_sys(clk),
         .rstn_sys(rstn_sys),
-        .rx_data_fifo_dout0(emac0_rx_tte_fifo_dout),
+        .rx_data_fifo_dout0({1'b0, emac0_rx_tte_fifo_dout}),
         .rx_data_fifo_rd0(emac0_rx_tte_fifo_rd),
         .rx_ptr_fifo_dout0(emac0_rx_tteptr_fifo_dout),
         .rx_ptr_fifo_rd0(emac0_rx_tteptr_fifo_rd),
         .rx_ptr_fifo_empty0(emac0_rx_tteptr_fifo_empty),
 
-        .rx_data_fifo_dout1(emac1_rx_tte_fifo_dout),
+        .rx_data_fifo_dout1({1'b0, emac1_rx_tte_fifo_dout}),
         .rx_data_fifo_rd1(emac1_rx_tte_fifo_rd),
         .rx_ptr_fifo_dout1(emac1_rx_tteptr_fifo_dout),
         .rx_ptr_fifo_rd1(emac1_rx_tteptr_fifo_rd),
         .rx_ptr_fifo_empty1(emac1_rx_tteptr_fifo_empty),
 
-        .rx_data_fifo_dout2(emac2_rx_tte_fifo_dout),
+        .rx_data_fifo_dout2({1'b0, emac2_rx_tte_fifo_dout}),
         .rx_data_fifo_rd2(emac2_rx_tte_fifo_rd),
         .rx_ptr_fifo_dout2(emac2_rx_tteptr_fifo_dout),
         .rx_ptr_fifo_rd2(emac2_rx_tteptr_fifo_rd),
         .rx_ptr_fifo_empty2(emac2_rx_tteptr_fifo_empty),
 
-        .rx_data_fifo_dout3(emac3_rx_tte_fifo_dout),
+        .rx_data_fifo_dout3({1'b0, emac3_rx_tte_fifo_dout}),
         .rx_data_fifo_rd3(emac3_rx_tte_fifo_rd),
         .rx_ptr_fifo_dout3(emac3_rx_tteptr_fifo_dout),
         .rx_ptr_fifo_rd3(emac3_rx_tteptr_fifo_rd),
@@ -753,7 +760,10 @@ module top_switch (
         .fp_conf_data(fp_conf_data)
 
     );
-    hash_2_bucket u_hash (
+
+    hash_2_bucket_mgnt #(
+        .MGNT_REG_WIDTH ( 16 )
+    ) u_hash (
         .clk(clk),
         .rstn(rstn_sys),
         .se_req(se_req),
@@ -764,8 +774,16 @@ module top_switch (
         .se_result(se_result),
         .se_nak(se_nak),
         .se_mac(se_mac),
-        .aging_req(),
-        .aging_ack()
+        .clk_if                  ( clk_125                     ),
+        .rst_if                  ( rstn_sys                    ),
+        .sys_req_valid           ( sys_req_valid           [5] ),
+        .sys_req_wr              ( sys_req_wr                  ),
+        .sys_req_addr            ( sys_req_addr         [ 7:0] ),
+        .sys_req_data            ( sys_req_data         [ 7:0] ),
+        .sys_req_data_valid      ( sys_req_data_valid          ),
+        .sys_req_ack             ( sys_req_ack_ft              ),
+        .sys_resp_data           ( sys_resp_data_ft     [ 7:0] ),
+        .sys_resp_data_valid     ( sys_resp_data_valid_ft      )
     );
 
     hash_multicast #(
@@ -777,7 +795,7 @@ module top_switch (
         .rst_sys                 ( rstn_sys                    ),
         .ftm_req_valid           ( ftm_req_valid               ),
         .ftm_req_mac             ( se_mac               [15:0] ),
-        .sys_req_valid           ( sys_req_valid           [5] ),
+        .sys_req_valid           ( sys_req_valid           [6] ),
         .sys_req_wr              ( sys_req_wr                  ),
         .sys_req_addr            ( sys_req_addr         [ 7:0] ),
         .sys_req_data            ( sys_req_data         [ 7:0] ),
@@ -873,7 +891,7 @@ module top_switch (
         .fp_conf_resp            ( tte_fp_conf_resp            ),
         .swc_mgnt_valid          ( tte_swc_mgnt_valid          ),
         .swc_mgnt_data           ( tte_swc_mgnt_data    [ 3:0] ),
-        .sys_req_valid           ( sys_req_valid           [6] ),
+        .sys_req_valid           ( sys_req_valid           [7] ),
         .sys_req_wr              ( sys_req_wr                  ),
         .sys_req_addr            ( sys_req_addr         [ 7:0] ),
         .sys_req_data            ( sys_req_data         [ 7:0] ),
@@ -1020,7 +1038,9 @@ module top_switch (
         .ft_update               ( hash_update             ),
         .ft_ack                  ( reg_rst                 ),
         .flow                    ( flow            [119:0] ),
-        .hash                    ( hash            [11:0]  )
+        .hash                    ( hash            [11:0]  ),
+        .link                    ( link                    ),
+        .int                     ( int                     )
     );
 
     spi_process spi_process_inst (

@@ -67,6 +67,20 @@ module mac_r_rgmii(
     wire    [12:0]  data_fifo_depth;
     reg             ptr_fifo_wr;
     reg     [15:0]  ptr_fifo_din;
+    wire            ptr_fifo_full;
+
+    reg             bp;
+    always @(posedge rx_clk) begin
+        if (!rstn_mac[1]) begin
+            bp  <=  1'b1;
+        end
+        else begin
+            // bp  <=  (data_fifo_depth[12:8] < 5'h6) || (ptr_fifo_full);
+            bp  <=  (data_fifo_depth[12:8] >= 'h0A) || (ptr_fifo_full);
+            // bp  <=  (data_fifo_depth[11:8] >= 'h0A) || (ptr_fifo_full);
+        end
+    end
+    // assign          bp  =   (data_fifo_depth[12:8] < 5'h6) || (ptr_fifo_full);
 
     // iddr_4 u_iddr_4 (
     //     .din(rx_d),
@@ -206,6 +220,7 @@ module mac_r_rgmii(
                 ptr_fifo_din[14]    <=  (rx_len > MTU);
                 ptr_fifo_din[13]    <=  (rx_len < 64);
                 ptr_fifo_din[12]    <=  1'b0;
+                ptr_fifo_din[11:0]  <=  ptr_fifo_din[11:0] - 12'h4;
                 // ptr_fifo_din[11:0]  <=  rx_cnt_bak - 1'b1;
             end
             if (rx_state_bak[2]) begin
@@ -225,13 +240,13 @@ module mac_r_rgmii(
 
     crc32_8023 u_crc32_8023(
         .clk(rx_clk),
-        .reset(!rstn_mac), 
+        .reset(!rstn_mac[1]), 
         .d(rx_buf[95:88]), 
         .load_init(rx_state_bak[0]),
         .calc(rx_state_bak[1]), 
         .d_valid(rx_valid_bak), 
         .crc_reg(crc_result), 
-        .crc(crc_dout)
+        .crc()
     );
 
 	// afifo_reg_w8_d4k u_data_fifo(
@@ -247,9 +262,9 @@ module mac_r_rgmii(
 	// );
 
     afifo_reg_w8_d4k u_data_fifo (
-        .rst(!rstn_sys),                    // input rst
+        .rst(rstn_mac[1]),                  // input rst
         .wr_clk(rx_clk),                    // input wr_clk
-        .rd_clk(clk),                       // input rd_clk
+        .rd_clk(clk_sys),                   // input rd_clk
         .din(rx_buf[95:88]),                // input [7 : 0] din
         .wr_en(rx_state_bak[1] && rx_valid_bak),            // input wr_en
         .rd_en(data_fifo_rd),               // input rd_en
@@ -261,9 +276,9 @@ module mac_r_rgmii(
     );
 
     afifo_w16_d32 u_ptr_fifo (
-        .rst(!rstn_sys),                // input rst
+        .rst(rstn_mac[1]),              // input rst
         .wr_clk(rx_clk),                // input wr_clk
-        .rd_clk(clk),                   // input rd_clk
+        .rd_clk(clk_sys),               // input rd_clk
         .din(ptr_fifo_din),             // input [15 : 0] din
         .wr_en(ptr_fifo_wr),            // input wr_en
         .rd_en(ptr_fifo_rd),            // input rd_en

@@ -20,7 +20,6 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-
 module mac_r_gmii_tte_tb;
 
 // Inputs
@@ -36,20 +35,30 @@ reg tteptr_fifo_rd;
 reg [1:0]	speed;//ethernet speed 00:10M 01:100M 10:1000M
 reg	status_fifo_rd;
 reg	[31:0] counter_ns;
-reg	[63:0] counter_ns_tx_delay;
-reg	[63:0] counter_ns_gtx_delay;
+reg [31:0] delay_fifo_din;
+reg delay_fifo_wr;
 
 // Outputs
 wire [7:0] data_fifo_dout;
-wire [15:0] ptr_fifo_dout;
+wire [19:0] ptr_fifo_dout;
 wire ptr_fifo_empty;
 wire [7:0] tte_fifo_dout;
-wire [15:0] tteptr_fifo_dout;
+wire [19:0] tteptr_fifo_dout;
 wire tteptr_fifo_empty;
 wire gtx_clk;
 wire [15:0] status_fifo_dout;
 wire status_fifo_empty;
+wire status_fifo_full;
 
+wire [31:0] delay_fifo_dout;
+wire delay_fifo_rd;
+wire delay_fifo_empty;
+
+reg [ 3:0] rd_state, rd_state_next;
+reg [11:0] rd_len;
+reg [11:0] rd_counter;
+
+parameter TAILTAG_MODE = "ON";
 
 always #4	rx_clk=~rx_clk;    //gmii
 // always #20	rx_clk=~rx_clk; //mii
@@ -64,10 +73,11 @@ initial begin
 	m=0;
 	end
 
-reg [7:0] frame_lldp [67:0];
+reg  [ 7:0] frame_lldp       [127:0];
+reg  [ 7:0] frame_1588		 [127:0];
 
 // Instantiate the Unit Under Test (UUT)
-mac_r_gmii_tte mac_r_gmii (
+mac_r_gmii_tte_v3 mac_r_gmii (
 	.rstn_sys(rstn), 
 	.rstn_mac(rstn), 
 	.clk(clk),
@@ -86,9 +96,24 @@ mac_r_gmii_tte mac_r_gmii (
 	.tteptr_fifo_rd(tteptr_fifo_rd),
 	.tteptr_fifo_dout(tteptr_fifo_dout),
 	.tteptr_fifo_empty(tteptr_fifo_empty),
-	.counter_ns(counter_ns)
+	.counter_ns(counter_ns),
+	.delay_fifo_dout(delay_fifo_dout),
+	.delay_fifo_rd(delay_fifo_rd),
+	.delay_fifo_empty(delay_fifo_empty)
 	// .counter_ns_tx_delay(counter_ns_tx_delay),
 	// .counter_ns_gtx_delay(counter_ns_gtx_delay)
+);
+
+afifo_w32_d32 ptp_delay_fifo (
+    .rst(!rstn),
+    .wr_clk(rx_clk),
+    .din(delay_fifo_din),
+    .wr_en(delay_fifo_wr),
+    .full(delay_fifo_full),
+    .rd_clk(rx_clk),
+    .dout(delay_fifo_dout),
+    .rd_en(delay_fifo_rd),
+    .empty(delay_fifo_empty)
 );
 
 initial begin
@@ -103,10 +128,14 @@ initial begin
 	tte_fifo_rd = 0;
 	tteptr_fifo_rd = 0;
 	status_fifo_rd = 0;
+	delay_fifo_din = 0;
+	delay_fifo_wr = 0;
 	speed[1:0] = 2'b01;//ethernet speed 00:10M 01:100M 10:1000M
 
     $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/lldp_1.txt",
-        	  frame_lldp);
+        	  	frame_lldp);
+    // $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/1588_sync_udpv4.txt",
+    //             frame_1588);
 
 	// Wait 100 ns for global reset to finish
 	#100;
@@ -114,9 +143,45 @@ initial begin
 	// Add stimulus here
 	#800;
 	// send_lldp_frame_gmii(68,1'b0);
+	send_lldp_frame(68,1'b0);
+	repeat(22)@(posedge rx_clk);
+	// send_1588_sync(60, 1'b0, speed[1]);
+    $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/1588_sync_udpv4_2.txt",
+                frame_1588);
+	send_1588(86, 1'b0, speed[1], 1'b0);
+	repeat(22)@(posedge rx_clk);
+    $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/1588_delay_req_udpv4_2.txt",
+                frame_1588);
+	send_1588(86, 1'b0, speed[1], 1'b0);
+	repeat(22)@(posedge rx_clk);
+    $readmemh("C:/Users/PC/Desktop/ethernet/ethernet_switch/tb/mac/gmii/1588_delay_resp_udpv4_2.txt",
+                frame_1588);
+	send_1588(96, 1'b0, speed[1], 1'b1);
+	repeat(22)@(posedge rx_clk);
+
     // repeat(22)@(posedge rx_clk);
+    // send_mac_frame_gmii(128,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+	// repeat(22)@(posedge rx_clk);
+    // send_mac_frame_gmii(128,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+	// repeat(22)@(posedge rx_clk);
+    // send_mac_frame_gmii(128,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+	// repeat(22)@(posedge rx_clk);
+    // send_mac_frame_gmii(128,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+	// repeat(22)@(posedge rx_clk);
+    // send_mac_frame_gmii(128,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+    // repeat(1000)@(posedge rx_clk);
+    // send_mac_frame_gmii(1513,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+	// repeat(22)@(posedge rx_clk);
+    // send_mac_frame_gmii(1514,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+	// repeat(22)@(posedge rx_clk);
+    // send_mac_frame_gmii(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+	// repeat(22)@(posedge rx_clk);
+    // send_mac_frame_gmii(1520,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+	// repeat(22)@(posedge rx_clk);
     // send_mac_frame_gmii(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
 	// repeat(22)@(posedge rx_clk);
+    // send_mac_frame_gmii(1520,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
+	// repeat(5000)@(posedge rx_clk);
     // send_mac_frame_gmii(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
     // repeat(22)@(posedge rx_clk);		
     // send_mac_frame_gmii(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
@@ -130,24 +195,76 @@ initial begin
 	// send_mac_frame_gmii(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b1);
     // repeat(22)@(posedge rx_clk);
 	// send_mac_frame_gmii(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b0);
-	send_lldp_frame(68,1'b0);
-    repeat(22)@(posedge rx_clk);
-	send_mac_frame(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
-    repeat(22)@(posedge rx_clk);		
-	send_mac_frame(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
-    repeat(22)@(posedge rx_clk);	
-    send_mac_frame(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b1);
-    repeat(22)@(posedge rx_clk);
-	send_mac_frame(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b1);
-    repeat(22)@(posedge rx_clk);
-    send_mac_frame(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
-    repeat(22)@(posedge rx_clk);
-    send_mac_frame(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b0);
-    repeat(22)@(posedge rx_clk);
-    send_mac_frame(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
-	repeat(22)@(posedge rx_clk);
-	send_mac_frame(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b0);
+
+	// send_lldp_frame(68,1'b0);
+    // repeat(22)@(posedge rx_clk);
+	// send_mac_frame(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
+    // repeat(22)@(posedge rx_clk);		
+	// send_mac_frame(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b0);
+    // repeat(22)@(posedge rx_clk);	
+    // send_mac_frame(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b1);
+    // repeat(22)@(posedge rx_clk);
+	// send_mac_frame(100,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h88f7,1'b1);
+    // repeat(22)@(posedge rx_clk);
+    // send_mac_frame(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+    // repeat(22)@(posedge rx_clk);
+    // send_mac_frame(59,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b0);
+    // repeat(22)@(posedge rx_clk);
+    // send_mac_frame(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0800,1'b0);
+	// repeat(22)@(posedge rx_clk);
+	// send_mac_frame(1515,48'hf0f1f2f3f4f5,48'he0e1e2e3e4e5,16'h0892,1'b0);
     $finish;
+end
+
+always @(*) begin
+	case(rd_state)
+		'h1: rd_state_next	= 	(!ptr_fifo_empty) ? 'h2 : 'h1;
+		'h2: rd_state_next  =  	'h4;
+		'h4: rd_state_next  = 	'h8;
+		'h8: rd_state_next  = 	(rd_counter == rd_len) ? 'h1 : 'h8;
+		default: rd_state_next = 'h1;
+	endcase
+end
+
+always @(posedge clk) begin
+	if (!rstn) begin
+		rd_state 	<= 	'b1;
+	end
+	else begin
+		rd_state 	<= 	rd_state_next;
+	end
+end
+
+always @(posedge clk) begin
+	if (!rstn) begin
+		data_fifo_rd	<= 	'b0;
+		ptr_fifo_rd 	<= 	'b0;
+		rd_counter 		<= 	'b0;
+		rd_len 			<= 	'b0;
+	end
+	else begin
+		if (rd_state_next == 'h2) begin
+			ptr_fifo_rd 	<= 	'b1;
+		end
+		if (rd_state == 'h2) begin
+			ptr_fifo_rd 	<= 	'b0;
+		end
+		if (rd_state_next == 'h2) begin
+			data_fifo_rd 	<= 	'b1;
+		end
+		if (rd_state_next == 'h1) begin
+			data_fifo_rd 	<= 	'b0;
+		end
+		if (rd_state == 'h4) begin
+			rd_len 			<= 	ptr_fifo_dout[11:0] + 12'h4;
+		end
+		if (rd_state_next != 'b1) begin
+			rd_counter 		<= 	rd_counter + 1'b1;
+		end
+		else begin
+			rd_counter 		<= 	'b0;
+		end
+	end
 end
 
 reg	[31:0]	counter;
@@ -166,17 +283,6 @@ always @(*)
 begin                  
 	counter_ns = (counter<<2)+counter; // counter_ns=counter*5
 end
-
-always @(*)    
-begin                  
-	counter_ns_tx_delay = (counter<<3)+counter; // counter_ns=counter*9
-end
-
-always @(*)    
-begin                  
-	counter_ns_gtx_delay = (counter<<4)+counter; // counter_ns=counter*17
-end
-
 
 task send_mac_frame_gmii;
 input	[10:0]	length;
@@ -226,9 +332,17 @@ begin
 		repeat(1)@(posedge rx_clk);
 		#2;
 		end
-	
+
+	if (TAILTAG_MODE == "ON") begin
+		mii_din=(8'b1 << ({$random}%4));
+		calc_crc(mii_din,fcs);
+		gm_rx_d=mii_din;
+		repeat(1)@(posedge rx_clk);
+		#2;
+	end
+
 	if(crc_error_insert)fcs=~fcs;
-	
+
 	gm_rx_d=fcs[7:0];
 	repeat(1)@(posedge rx_clk);
 	#2;
@@ -278,8 +392,16 @@ begin
 		#2;
 		end
 	
+	if (TAILTAG_MODE == "ON") begin
+		mii_din=(8'b1 << ({$random}%4));
+		calc_crc(mii_din,fcs);
+		gm_rx_d=mii_din;
+		repeat(1)@(posedge rx_clk);
+		#2;
+	end
+
 	if(crc_error_insert)fcs=~fcs;
-	
+
 	gm_rx_d=fcs[7:0];
 	repeat(1)@(posedge rx_clk);
 	#2;
@@ -350,8 +472,19 @@ begin
 		#2;
 		end
 	
+	if (TAILTAG_MODE == "ON") begin
+		mii_din=(8'b1 << ({$random}%4));
+		calc_crc(mii_din,fcs);
+		gm_rx_d=mii_din[3:0];
+		repeat(1)@(posedge rx_clk);
+		#2;
+		gm_rx_d=mii_din[7:4];
+		repeat(1)@(posedge rx_clk);
+		#2;
+	end
+
 	if(crc_error_insert)fcs=~fcs;
-	
+
 	gm_rx_d=fcs[3:0];
 	repeat(1)@(posedge rx_clk);
 	#2;
@@ -417,6 +550,17 @@ begin
 		#2;
 		end
 	
+	if (TAILTAG_MODE == "ON") begin
+		mii_din=(8'b1 << ({$random}%4));
+		calc_crc(mii_din,fcs);
+		gm_rx_d=mii_din[3:0];
+		repeat(1)@(posedge rx_clk);
+		#2;
+		gm_rx_d=mii_din[7:4];
+		repeat(1)@(posedge rx_clk);
+		#2;
+	end
+
 	if(crc_error_insert)fcs=~fcs;
 	
 	gm_rx_d=fcs[3:0];
@@ -447,6 +591,100 @@ begin
 	repeat(1)@(posedge rx_clk);
 	m=m+14;
 	end
+endtask
+
+task send_1588;
+    input [10:0] len;
+	input crc_error_insert;
+	input speed;
+	input write_fifo;
+	reg [7:0] mii_din;
+	reg [31:0] fcs;
+    integer i;
+    begin
+        $display("start to send 1588 frame");
+		if (write_fifo == 1'b1) begin
+			delay_fifo_din = counter_ns;
+			delay_fifo_wr = 1;
+			repeat (1) @(posedge rx_clk);
+			#2;
+			delay_fifo_wr = 0;
+			repeat (10) @(posedge rx_clk);
+			#2;
+		end
+        repeat (1) @(posedge rx_clk);
+        #2;
+		fcs = 0;
+		rx_dv = 1;
+		for (i = 0; i < 8; i = i + 1) begin
+			if (!speed) begin
+				gm_rx_d = 8'h55;
+				repeat (1) @(posedge rx_clk);
+				#2;
+				gm_rx_d = (i == 7) ? 8'hdd : 8'h55;
+				repeat (1) @(posedge rx_clk);
+				#2;
+			end
+			else begin
+				gm_rx_d = (i == 7) ? 8'hd5 : 8'h55;
+				repeat (1) @(posedge rx_clk);
+				#2;
+			end
+		end
+        for (i = 0; i < len; i = i + 1) begin
+			calc_crc(frame_1588[i],fcs);
+			if (!speed) begin
+				gm_rx_d = {2{frame_1588[i][3:0]}};
+				repeat (1) @(posedge rx_clk);
+				#2;
+				gm_rx_d = {2{frame_1588[i][7:4]}};
+				repeat (1) @(posedge rx_clk);
+				#2;
+			end
+			else begin
+				gm_rx_d =  frame_1588[i];
+				repeat (1) @(posedge rx_clk);
+				#2;
+			end
+        end
+		if (TAILTAG_MODE == "ON") begin
+			mii_din=(8'b1 << ({$random}%4));
+			calc_crc(mii_din,fcs);
+			if (!speed) begin
+				gm_rx_d = mii_din[3:0];
+				repeat(1)@(posedge rx_clk);
+				#2;
+				gm_rx_d = mii_din[7:4];
+				repeat(1)@(posedge rx_clk);
+				#2;
+			end
+			else begin
+				gm_rx_d = mii_din;
+				repeat(1)@(posedge rx_clk);
+				#2;
+			end
+		end
+		if(crc_error_insert)fcs=~fcs;
+		
+		if (!speed) begin
+			for (i = 0; i < 8; i = i + 1) begin
+				gm_rx_d = {2{fcs[3:0]}};
+				fcs = fcs >> 4;
+				repeat (1) @ (posedge rx_clk);
+				#2;
+			end
+		end
+		else begin
+			for (i = 0; i < 4; i = i + 1) begin
+				gm_rx_d = fcs[7:0];
+				fcs = fcs >> 8;
+				repeat (1) @ (posedge rx_clk);
+				#2;
+			end
+		end
+        rx_dv = 0;
+        $display("end to send 1588 frame");
+    end
 endtask
 
 task calc_crc;
